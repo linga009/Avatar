@@ -1,6 +1,8 @@
 import torch
 import pytest
 from med_rai.heads.rfm_policy_head import RFMPolicyHead
+from med_rai.heads.text_head import TextHead
+from med_rai.heads.gesture_head import GestureHead
 
 B, SEQ, D_JAMBA, D_HIDDEN, H = 2, 19, 4096, 512, 10
 SE3_DIM = 6
@@ -36,3 +38,22 @@ def test_rfm_inference_ode(rfm_head):
     R, t_out = se3_exp(xi.reshape(-1, SE3_DIM))
     assert not torch.isnan(R).any()
     assert not torch.isnan(t_out).any()
+
+N_GESTURES = 15
+
+def test_text_head_output_shape():
+    head = TextHead(d_jamba=D_JAMBA, vocab_size=65536)
+    h = torch.randn(B, SEQ, D_JAMBA)
+    logits = head(h)
+    assert logits.shape == (B, SEQ, 65536), f"Got {logits.shape}"
+
+def test_text_head_warning_token():
+    head = TextHead(d_jamba=D_JAMBA, vocab_size=65536)
+    assert hasattr(head, "WARNING_TOKEN_ID"), "TextHead must expose WARNING_TOKEN_ID"
+    assert head.WARNING_TOKEN_ID == 1
+
+def test_gesture_head_output_shape():
+    head = GestureHead(d_jamba=D_JAMBA, n_gestures=N_GESTURES)
+    h = torch.randn(B, SEQ, D_JAMBA)
+    logits = head(h)
+    assert logits.shape == (B, N_GESTURES), f"Got {logits.shape}"
