@@ -54,3 +54,10 @@ def test_clamp_to_workspace():
     t_clamped = clamp_to_workspace(t_out, workspace)
     assert t_clamped[0, 0] <= 0.1
     assert t_clamped[0, 2] <= 0.2
+
+
+def test_clamp_to_workspace_preserves_inbounds():
+    workspace = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (0.05, 0.2)}
+    t_in = torch.tensor([[0.05, 0.0, 0.1]])   # within bounds
+    t_clamped = clamp_to_workspace(t_in, workspace)
+    assert torch.allclose(t_in, t_clamped)

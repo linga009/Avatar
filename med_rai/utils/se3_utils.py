@@ -70,10 +70,11 @@ except ImportError:  # pragma: no cover – fallback for environments without py
         eps = 1e-7
         # For small angles: sin θ ≈ θ, coefficient 1/(2sinθ) ≈ 1/(2θ) → axis·θ = skew/2
         # For large angles: standard formula
+        # Taylor series: θ/(2·sin θ) ≈ 1/2 + θ²/12 for small θ (avoids division by zero)
         coeff = torch.where(
             sin_theta > eps,
             angle / (2.0 * sin_theta),
-            0.5 + angle * angle / 12.0,  # Taylor: θ/(2sinθ) ≈ 1/2 + θ²/12
+            0.5 + angle * angle / 12.0,
         )
         axis_angle = coeff.unsqueeze(-1) * skew   # (..., 3)  = axis * θ
 
@@ -96,6 +97,10 @@ def se3_exp(xi: torch.Tensor):
     Map se(3) 6-vector to SE(3) pose.
     xi: (B, 6)
     Returns R: (B, 3, 3), t: (B, 3)
+
+    NOTE: Simplified exponential map — translation is returned unchanged (no V-matrix
+    applied). Valid for small perturbations as used in Flow Matching interpolation.
+    For full SE(3) exp map, apply: t_out = V(omega) @ t_in.
     """
     omega, t = xi[..., :3], xi[..., 3:]
     R = axis_angle_to_matrix(omega)
