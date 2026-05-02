@@ -1,0 +1,13 @@
+torch>=2.1.0
+torchvision>=0.16.0
+pytorch-lightning>=2.1.0
+transformers>=4.40.0
+peft>=0.10.0
+bitsandbytes>=0.43.0
+pytorch3d
+open-clip-torch>=2.24.0
+numpy>=1.24.0
+pandas>=2.0.0
+pytest>=7.4.0
+wandb
+einops
