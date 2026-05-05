@@ -81,3 +81,24 @@ def test_simple_ssm_scan_matches_loop():
         ys_loop.append(model.C(h) + model.D * xs[i])
     ys_loop = jnp.stack(ys_loop)
     assert jnp.allclose(ys_scan, ys_loop, atol=1e-5)
+
+from halo_fep.halo_jax.ads_kg_prior import ads_kg_prior
+
+def test_ads_kg_prior_shape():
+    x_noise = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    x_data  = jax.random.normal(jax.random.PRNGKey(1), (cfg.n_tokens, cfg.d_boundary))
+    v_kg = ads_kg_prior(x_noise, x_data, t=0.5, delta_flow=cfg.delta_flow)
+    assert v_kg.shape == (cfg.n_tokens, cfg.d_boundary)
+
+def test_ads_kg_prior_no_nan():
+    x_noise = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    x_data  = jax.random.normal(jax.random.PRNGKey(1), (cfg.n_tokens, cfg.d_boundary))
+    v_kg = ads_kg_prior(x_noise, x_data, t=0.5, delta_flow=cfg.delta_flow)
+    assert not jnp.any(jnp.isnan(v_kg))
+
+def test_ads_kg_prior_t0_no_nan():
+    x_noise = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    x_data  = jax.random.normal(jax.random.PRNGKey(1), (cfg.n_tokens, cfg.d_boundary))
+    v_kg = ads_kg_prior(x_noise, x_data, t=0.0, delta_flow=cfg.delta_flow)
+    assert v_kg.shape == (cfg.n_tokens, cfg.d_boundary)
+    assert not jnp.any(jnp.isnan(v_kg))
