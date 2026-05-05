@@ -7,8 +7,8 @@ from fep_swarm.config import FEPConfig
 
 class VectorField(eqx.Module):
     mlp: eqx.nn.MLP
-    n_hidden: int = eqx.static_field()
-    obs_dim: int = eqx.static_field()
+    n_hidden: int = eqx.field(static=True)
+    obs_dim: int = eqx.field(static=True)
 
     def __init__(self, cfg: FEPConfig, key: jax.random.PRNGKey):
         self.n_hidden = cfg.n_hidden
@@ -29,8 +29,8 @@ class VectorField(eqx.Module):
 
 class ContinuousLikelihood(eqx.Module):
     vf: VectorField
-    n_hidden: int = eqx.static_field()
-    obs_dim: int = eqx.static_field()
+    n_hidden: int = eqx.field(static=True)
+    obs_dim: int = eqx.field(static=True)
 
     def __init__(self, cfg: FEPConfig, key: jax.random.PRNGKey):
         self.vf = VectorField(cfg, key)
