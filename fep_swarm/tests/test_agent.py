@@ -44,25 +44,36 @@ def gm(cfg):
 
 def test_free_energy_scalar(cfg, gm):
     mu = jnp.zeros(cfg.n_hidden)
-    F = free_energy(mu, obs_idx=0, gm=gm)
+    soft_obs = jnp.zeros(cfg.n_obs).at[0].set(1.0)  # one-hot at index 0
+    F = free_energy(mu, soft_obs=soft_obs, gm=gm)
     assert F.shape == ()
     assert not jnp.isnan(F)
 
 
 def test_free_energy_decreases_over_steps(cfg, gm):
     mu = jax.random.normal(jax.random.PRNGKey(5), (cfg.n_hidden,))
-    obs_idx = 0
-    F_init = free_energy(mu, obs_idx, gm)
-    mu_updated = belief_update(mu, obs_idx, gm, cfg)
-    F_final = free_energy(mu_updated, obs_idx, gm)
+    soft_obs = jnp.zeros(cfg.n_obs).at[0].set(1.0)
+    F_init = free_energy(mu, soft_obs, gm)
+    mu_updated = belief_update(mu, soft_obs, gm, cfg)
+    F_final = free_energy(mu_updated, soft_obs, gm)
     assert F_final < F_init
 
 
 def test_belief_update_no_nan(cfg, gm):
     mu = jnp.zeros(cfg.n_hidden)
-    mu_out = belief_update(mu, obs_idx=1, gm=gm, cfg=cfg)
+    soft_obs = jnp.zeros(cfg.n_obs).at[1].set(1.0)  # one-hot at index 1
+    mu_out = belief_update(mu, soft_obs=soft_obs, gm=gm, cfg=cfg)
     assert not jnp.any(jnp.isnan(mu_out))
     chex.assert_shape(mu_out, (cfg.n_hidden,))
+
+
+def test_belief_update_gradient_flows_through_soft_obs(cfg, gm):
+    mu = jnp.zeros(cfg.n_hidden)
+    soft_obs = jax.nn.softmax(jnp.ones(cfg.n_obs))  # uniform soft obs
+    grad_fn = jax.grad(free_energy, argnums=1)
+    g = grad_fn(mu, soft_obs, gm)
+    assert g.shape == (cfg.n_obs,)
+    assert jnp.any(g != 0.0)
 
 
 def test_belief_update_no_eta_dependency():
