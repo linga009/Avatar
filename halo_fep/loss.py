@@ -44,3 +44,45 @@ def halo_loss(
 
     total = L_fm + cfg.lambda_bek * L_bek + cfg.lambda_thermo * L_thermo + cfg.lambda_page * L_page
     return total, {"fm": L_fm, "bek": L_bek, "thermo": L_thermo, "page": L_page}
+
+
+def unified_elbo_loss(
+    model,
+    carry,
+    tokens: jnp.ndarray,
+    key: jnp.ndarray,
+) -> tuple:
+    """Unified ELBO: L_ELBO = L_flow + L_obs + L_prior.
+
+    L_flow  = mean ||v_pred - v_target||^2           (flow matching)
+    L_obs   = -mean einsum('ao,oi,ai->a',             (HALO->FEP bridge)
+                           soft_obs, log_A, q_eta)
+    L_prior = mean KL[q(eta) || D]                   (FEP prior)
+
+    Replaces the ad-hoc L_HALO + lambda_fep * F_swarm.
+    Returns (total_loss, {"l_flow": ..., "l_obs": ..., "l_prior": ...}).
+    """
+    from halo_fep.model import halo_fep_step  # local to avoid circular import at module level
+
+    new_carry, (h_out, soft_obs, v_pred, v_target) = halo_fep_step(
+        model, carry, tokens, key
+    )
+
+    # Flow matching term
+    l_flow = jnp.mean((v_pred - v_target) ** 2)
+
+    # Soft observation likelihood — bridges HALO output to FEP beliefs
+    # soft_obs: (N_agents, n_obs), log_A: (n_obs, n_hidden), q_eta: (N_agents, n_hidden)
+    q_eta = jax.nn.softmax(new_carry.swarm_mu)            # (N_agents, n_hidden)
+    log_A = jnp.log(model.gm.A + 1e-8)                   # (n_obs, n_hidden)
+    l_obs = -jnp.mean(
+        jnp.einsum('ao,oi,ai->a', soft_obs, log_A, q_eta)
+    )
+
+    # KL prior term
+    log_q = jnp.log(q_eta + 1e-8)                         # (N_agents, n_hidden)
+    log_D = jnp.log(jax.nn.softmax(model.gm.log_D) + 1e-8)  # (n_hidden,)
+    l_prior = jnp.mean(jnp.sum(q_eta * (log_q - log_D), axis=-1))
+
+    total = l_flow + l_obs + l_prior
+    return total, {"l_flow": l_flow, "l_obs": l_obs, "l_prior": l_prior}
