@@ -114,7 +114,7 @@ def test_unified_elbo_loss_gradients_nonzero():
     grad_fn = eqx.filter_grad(unified_elbo_loss, has_aux=True)
     grads, _ = grad_fn(model, carry, tokens, key)
     leaf_grads = jax.tree_util.tree_leaves(eqx.filter(grads, eqx.is_array))
-    nonzero = [jnp.any(g != 0.0) for g in leaf_grads if g is not None]
+    nonzero = [jnp.any(g != 0.0) for g in leaf_grads]
     assert any(nonzero)
 
 
@@ -139,6 +139,7 @@ def test_l_obs_couples_halo_and_fep():
 def test_train_step_does_not_diverge():
     model, carry = _make_model_and_carry()
     tokens = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    # Single fixed batch intentionally — tests optimizer wiring, not generalization
     opt    = optax.adam(cfg.lr)
     params, static = eqx.partition(model, eqx.is_array)
     opt_state = opt.init(params)
