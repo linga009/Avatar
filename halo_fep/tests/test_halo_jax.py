@@ -54,3 +54,30 @@ def test_holo_attention_action_bias_changes_output():
     out_no_bias = model(h, x, z, delta_x=jnp.zeros_like(delta_x))
     out_biased  = model(h, x, z, delta_x=delta_x)
     assert not jnp.allclose(out_no_bias, out_biased)
+
+from halo_fep.halo_jax.simple_ssm import SimpleSSM
+
+def test_simple_ssm_shape():
+    model = SimpleSSM(cfg, key)
+    xs = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    ys = model(xs)
+    assert ys.shape == (cfg.n_tokens, cfg.d_model)
+
+def test_simple_ssm_no_nan():
+    model = SimpleSSM(cfg, key)
+    xs = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    ys = model(xs)
+    assert not jnp.any(jnp.isnan(ys))
+
+def test_simple_ssm_scan_matches_loop():
+    """scan output must match manual Python loop."""
+    model = SimpleSSM(cfg, key)
+    xs = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    ys_scan = model(xs)
+    h = jnp.zeros(cfg.d_state)
+    ys_loop = []
+    for i in range(cfg.n_tokens):
+        h = jnp.exp(model.A) * h + model.B(xs[i])
+        ys_loop.append(model.C(h) + model.D * xs[i])
+    ys_loop = jnp.stack(ys_loop)
+    assert jnp.allclose(ys_scan, ys_loop, atol=1e-5)
