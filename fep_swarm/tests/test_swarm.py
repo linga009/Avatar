@@ -82,3 +82,28 @@ def test_kappa_zero_no_influence(cfg):
     )
     obs_new = apply_coupling(obs, actions, W, cfg_zero)
     assert jnp.allclose(obs_new, obs, atol=1e-6)
+
+
+from fep_swarm.swarm.synchrony import synchrony_metric, mutual_information_estimate
+
+
+def test_synchrony_metric_zero_for_identical(cfg):
+    mu = jax.random.normal(jax.random.PRNGKey(0), (cfg.n_agents, cfg.n_hidden))
+    S = synchrony_metric(mu, mu)  # mu_dot = 0 everywhere
+    assert float(S) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_synchrony_metric_positive_for_different(cfg):
+    mu = jax.random.normal(jax.random.PRNGKey(0), (cfg.n_agents, cfg.n_hidden))
+    mu_prev = jax.random.normal(jax.random.PRNGKey(1), (cfg.n_agents, cfg.n_hidden))
+    S = synchrony_metric(mu, mu_prev)
+    assert float(S) > 0.0
+
+
+def test_mi_estimate_positive(cfg):
+    T = 50
+    mu_history = jax.random.normal(
+        jax.random.PRNGKey(0), (T, cfg.n_agents, cfg.n_hidden)
+    )
+    mi = mutual_information_estimate(mu_history)
+    assert float(mi) >= 0.0
