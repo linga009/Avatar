@@ -21,7 +21,7 @@ def build_coupling_matrix(cfg: FEPConfig, key: jax.random.PRNGKey) -> jnp.ndarra
     elif cfg.topology == "grid":
         side = int(N ** 0.5)
         assert side * side == N, f"n_agents must be perfect square for grid, got {N}"
-        offsets = jnp.array([-side, side, -1, 1])
+        offsets = [-side, side, -1, 1]
         idx = jnp.arange(N)
         W = jnp.zeros((N, N))
         for off in offsets:
