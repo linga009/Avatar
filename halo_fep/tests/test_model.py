@@ -131,3 +131,24 @@ def test_train_step_decreases_loss():
         params, opt_state, carry, _ = step(params, opt_state, carry)
     loss10 = _joint_loss(eqx.combine(params, static), carry, tokens, key, cfg)[0]
     assert loss10 < loss0 * 1.5  # not diverging
+
+
+def test_action_probs_not_uniform_after_belief_update():
+    """After belief update with observations, action probs should not be uniform.
+    A uniform distribution (all 0.25 for n_actions=4) indicates the EFE bug.
+    This test verifies the per-policy EFE fix is working.
+    """
+    model, carry = _make_model_and_carry()
+    tokens = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    # Run a few steps to let beliefs become non-trivial
+    k = key
+    for _ in range(3):
+        k, k_step = jax.random.split(k)
+        carry, _ = halo_fep_step(model, carry, tokens, k_step)
+    # After updates, at least some agents should have non-uniform action probs
+    uniform = jnp.ones(cfg.n_actions) / cfg.n_actions
+    max_deviation = jnp.max(jnp.abs(carry.swarm_action - uniform))
+    assert float(max_deviation) > 1e-6, (
+        f"Action probs look uniform (max deviation {float(max_deviation):.2e}). "
+        "EFE per-policy fix may not be working."
+    )

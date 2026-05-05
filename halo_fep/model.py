@@ -112,16 +112,18 @@ def halo_fep_step(
         mu, action_probs = mu_and_action
         # Belief update: gradient descent on variational free energy
         mu_new = belief_update(mu, s, model.gm, cfg)
-        # Build a greedy one-hot policy of shape (tau, n_actions) for EFE eval
-        greedy_a = jnp.argmax(action_probs)
-        policy = jax.nn.one_hot(
-            jnp.full((cfg.tau,), greedy_a, dtype=jnp.int32),
-            cfg.n_actions,
-        )  # (tau, n_actions)
-        G, _, _ = expected_free_energy(mu_new, policy, model.gm, cfg)
-        # Scalar G -> per-action EFE approximation: broadcast G uniformly
-        # so softmax(-beta * G) gives a valid action distribution
-        G_per_action = jnp.full((cfg.n_actions,), G)
+        # Build one policy per action: (n_actions, tau, n_actions)
+        # Policy a = one-hot(a) repeated tau times
+        all_policies = jax.vmap(
+            lambda a: jax.nn.one_hot(
+                jnp.full((cfg.tau,), a, dtype=jnp.int32),
+                cfg.n_actions,
+            )
+        )(jnp.arange(cfg.n_actions))   # (n_actions, tau, n_actions)
+        # Compute G for each policy: (n_actions,)
+        G_per_action, _, _ = jax.vmap(
+            lambda policy: expected_free_energy(mu_new, policy, model.gm, cfg)
+        )(all_policies)
         new_action_probs = jax.nn.softmax(-cfg.beta * G_per_action)
         return new_action_probs, mu_new
 
