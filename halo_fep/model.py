@@ -104,7 +104,7 @@ def halo_fep_step(
     new_page_mem, _ = jax.lax.scan(update_mem, carry.page_mem, h_out)
 
     # --- HALO -> FEP observations ---
-    obs = model.obs_bridge(h_out)   # (N_agents,) int32
+    obs = model.obs_bridge(h_out)   # (N_agents, n_obs) float32
 
     # --- FEP: belief update + action selection (vmapped over agents) ---
     # Build a greedy policy: repeat the agent's current action distribution
