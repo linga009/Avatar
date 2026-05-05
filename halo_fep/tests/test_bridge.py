@@ -11,14 +11,15 @@ key = jax.random.PRNGKey(42)
 def test_obs_bridge_output_shape():
     bridge = ObsBridge(cfg, key)
     h_out = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
-    s_i = bridge(h_out)
-    assert s_i.shape == (cfg.n_agents,)
+    soft_obs = bridge(h_out)
+    assert soft_obs.shape == (cfg.n_agents, cfg.n_obs)
 
-def test_obs_bridge_obs_in_range():
+def test_obs_bridge_rows_sum_to_one():
     bridge = ObsBridge(cfg, key)
     h_out = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
-    s_i = bridge(h_out)
-    assert jnp.all(s_i >= 0) and jnp.all(s_i < cfg.n_obs)
+    soft_obs = bridge(h_out)
+    row_sums = jnp.sum(soft_obs, axis=-1)  # (N_agents,)
+    assert jnp.allclose(row_sums, jnp.ones(cfg.n_agents), atol=1e-5)
 
 def test_obs_bridge_no_nan():
     bridge = ObsBridge(cfg, key)
