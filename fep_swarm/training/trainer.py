@@ -85,8 +85,12 @@ def run_episode(
         macro = coarse_grain(mu, obs_coupled, actions, W, cfg)
         F_m = macro_free_energy(macro, gm, cfg)
         F_sum = micro_free_energy_sum(mu, obs_coupled_idx, gm, cfg)
-        # Simplified MI estimate for training loop stability
-        I_sync = jnp.array(0.0)
+        # Compute MI from sliding window of mu history
+        if len(mu_history) >= 10:
+            mu_window = jnp.stack(mu_history[-10:] + [mu])  # [11, N, n_hidden]
+            I_sync = mutual_information_estimate(mu_window)
+        else:
+            I_sync = jnp.array(0.0)
         F_macro_history.append(float(F_m))
         F_micro_sum_history.append(float(F_sum))
         I_sync_history.append(float(I_sync))

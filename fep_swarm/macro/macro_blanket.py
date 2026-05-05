@@ -20,7 +20,7 @@ def macro_free_energy(
         return free_energy(mu_g, obs_idx, gm)
 
     F_groups = jax.vmap(group_F)(jnp.arange(n_groups))
-    return F_groups.mean()
+    return F_groups.sum()
 
 
 def micro_free_energy_sum(
