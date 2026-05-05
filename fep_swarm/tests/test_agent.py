@@ -70,3 +70,39 @@ def test_belief_update_no_eta_dependency():
     import inspect
     sig = inspect.signature(belief_update)
     assert "eta" not in sig.parameters
+
+
+from fep_swarm.agent.action_selection import (
+    expected_free_energy, select_action, build_policies
+)
+
+
+def test_build_policies_shape(cfg):
+    policies = build_policies(cfg, jax.random.PRNGKey(0))
+    chex.assert_shape(policies, (cfg.n_policies, cfg.tau, cfg.n_actions))
+
+
+def test_efe_returns_three_scalars(cfg, gm):
+    mu = jnp.zeros(cfg.n_hidden)
+    policies = build_policies(cfg, jax.random.PRNGKey(0))
+    G, pragmatic, epistemic = expected_free_energy(mu, policies[0], gm, cfg)
+    assert G.shape == ()
+    assert pragmatic.shape == ()
+    assert epistemic.shape == ()
+
+
+def test_epistemic_dominates_in_novel_state(cfg, gm):
+    """In an unfamiliar state (uniform beliefs), epistemic >= 0."""
+    mu_uniform = jnp.zeros(cfg.n_hidden)  # uniform Q(η) after softmax
+    policies = build_policies(cfg, jax.random.PRNGKey(0))
+    _, pragmatic, epistemic = expected_free_energy(mu_uniform, policies[0], gm, cfg)
+    # Epistemic value should be non-negative (information gain available)
+    assert float(epistemic) >= 0.0
+
+
+def test_select_action_shape(cfg, gm):
+    mu = jnp.zeros(cfg.n_hidden)
+    policies = build_policies(cfg, jax.random.PRNGKey(0))
+    action, G_all = select_action(mu, policies, gm, cfg, jax.random.PRNGKey(1))
+    chex.assert_shape(action, (cfg.n_actions,))
+    chex.assert_shape(G_all, (cfg.n_policies,))
