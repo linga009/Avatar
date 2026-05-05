@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from typing import Literal
 
 
-@dataclass
+@dataclass(frozen=True)
 class FEPConfig:
     # Generative model
     n_hidden: int = 8          # |η| discrete hidden state dimension
@@ -17,20 +18,25 @@ class FEPConfig:
 
     # Agent belief inference
     inf_steps: int = 16        # gradient descent steps per belief update
-    inf_lr: float = 0.1        # belief update step size
+    inf_lr: float = 0.01       # belief update step size (applied to logits)
     beta: float = 1.0          # policy temperature softmax(−β·G)
 
     # Swarm
     n_agents: int = 256        # N agents (vmapped, zero Python loops)
     kappa: float = 0.3         # coupling strength κ ∈ [0, 1]
-    topology: str = "all2all"  # "all2all" | "sparse" | "grid"
+    topology: Literal["all2all", "sparse", "grid"] = "all2all"
     sparse_p: float = 0.1      # edge probability for sparse topology
 
     # Macro
-    coarse_k: int = 16         # agents per coarse-grain group
+    coarse_k: int = 16         # agents per coarse-grain group (must divide n_agents)
     eig_gap: float = 10.0      # |λ_micro|/|λ_macro| proof threshold
 
     # Training
     lr: float = 3e-4
     n_steps: int = 10_000
     seed: int = 42
+
+    def __post_init__(self):
+        assert self.n_agents % self.coarse_k == 0, (
+            f"n_agents ({self.n_agents}) must be divisible by coarse_k ({self.coarse_k})"
+        )
