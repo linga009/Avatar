@@ -110,7 +110,7 @@ def test_joint_loss_gradients_nonzero():
     nonzero = [jnp.any(g != 0.0) for g in leaf_grads if g is not None]
     assert any(nonzero)
 
-def test_train_step_decreases_loss():
+def test_train_step_does_not_diverge():
     model, carry = _make_model_and_carry()
     tokens = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
     opt    = optax.adam(cfg.lr)

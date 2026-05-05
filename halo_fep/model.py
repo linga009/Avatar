@@ -35,10 +35,11 @@ class HaloFEPModel(eqx.Module):
     belief_bridge: BeliefBridge
     page_memory:   PageCurveMemory
     gm:            DiscreteGenerativeModel
+    v_proj:        eqx.nn.Linear  # d_boundary -> d_model, for KG prior projection
     cfg:           HaloFEPConfig = eqx.field(static=True)
 
     def __init__(self, cfg: HaloFEPConfig, key: jnp.ndarray) -> None:
-        keys = jax.random.split(key, 7)
+        keys = jax.random.split(key, 8)
         self.cfg           = cfg
         self.holo_embed    = HoloEmbedding(cfg, keys[0])
         self.backbone      = HALOBackbone(cfg, keys[1])
@@ -46,6 +47,7 @@ class HaloFEPModel(eqx.Module):
         self.action_bridge = ActionBridge(cfg, keys[3])
         self.belief_bridge = BeliefBridge(cfg, keys[4])
         self.page_memory   = PageCurveMemory(cfg)
+        self.v_proj        = eqx.nn.Linear(cfg.d_boundary, cfg.d_model, use_bias=False, key=keys[5])
         # DiscreteGenerativeModel takes (cfg, key) where cfg has FEP fields.
         # HaloFEPConfig has all required fields (n_hidden, n_obs, n_actions, etc.)
         self.gm            = DiscreteGenerativeModel(cfg, keys[6])
@@ -92,7 +94,7 @@ def halo_fep_step(
     v_kg    = ads_kg_prior(x_noise, x_biased, t=t, delta_flow=cfg.delta_flow)
     # Project (N_tok, d_boundary) -> (N_tok, d_model) via x_proj weight transpose
     # x_proj: d_model -> d_boundary, so weight shape is (d_boundary, d_model)
-    v_kg_dm  = v_kg @ model.holo_embed.x_proj.weight   # (N_tok, d_model)
+    v_kg_dm  = jax.vmap(model.v_proj)(v_kg)              # (N_tok, d_model)
     v_pred   = v_kg_dm + delta_v
     v_target = tokens - h_noise
 
