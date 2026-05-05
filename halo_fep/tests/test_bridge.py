@@ -23,8 +23,8 @@ def test_obs_bridge_obs_in_range():
 def test_obs_bridge_no_nan():
     bridge = ObsBridge(cfg, key)
     h_out = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
-    s_i = bridge(h_out)
-    assert not jnp.any(jnp.isnan(s_i.astype(jnp.float32)))
+    logits = bridge._logits(h_out)
+    assert not jnp.any(jnp.isnan(logits))
 
 def test_obs_bridge_gradients_flow():
     bridge = ObsBridge(cfg, key)
