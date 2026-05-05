@@ -45,7 +45,6 @@ def temporal_horizons(
     micro_horizon = 1 / max(|lambda|)   fastest mode — individual agent timescale
     macro_horizon = 1 / min(|lambda|)   slowest mode — global brain timescale
     """
-    nonzero = magnitudes[magnitudes > 1e-6]
     micro_h = 1.0 / (magnitudes.max() + 1e-8)
-    macro_h = 1.0 / (nonzero.min() + 1e-8) if nonzero.shape[0] > 0 else jnp.inf
+    macro_h = 1.0 / (jnp.where(magnitudes > 1e-6, magnitudes, jnp.inf).min() + 1e-8)
     return micro_h, macro_h
