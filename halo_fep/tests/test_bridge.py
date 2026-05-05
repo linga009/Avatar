@@ -32,7 +32,7 @@ def test_obs_bridge_gradients_flow():
     h_out = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
     # Gradient of sum(logits) wrt bridge params
     def loss_fn(bridge):
-        logits = bridge._logits(h_out)   # raw logits before argmax
+        logits = bridge._logits(h_out)   # raw logits before softmax
         return jnp.sum(logits)
     grads = eqx.filter_grad(loss_fn)(bridge)
     grad_vals = jax.tree_util.tree_leaves(eqx.filter(grads, eqx.is_array))
