@@ -9,7 +9,7 @@ def test_config_instantiates():
 
 def test_config_frozen():
     cfg = HaloFEPConfig()
-    with pytest.raises((TypeError, ValueError, AttributeError)):
+    with pytest.raises(AttributeError):
         cfg.d_model = 512
 
 def test_config_n_agents_divisible_by_coarse_k():
