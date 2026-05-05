@@ -37,3 +37,48 @@ def test_step_env_increments_step(cfg, tmaze):
     actions = jnp.zeros((cfg.n_agents, cfg.n_actions)).at[:, 0].set(1.0)
     env2 = step_env(env, actions, B, cfg, jax.random.PRNGKey(2))
     assert int(env2.step) == 1
+
+
+from fep_swarm.swarm.coupling import build_coupling_matrix, apply_coupling
+
+
+def test_all2all_coupling_matrix(cfg):
+    W = build_coupling_matrix(cfg, jax.random.PRNGKey(0))
+    chex.assert_shape(W, (cfg.n_agents, cfg.n_agents))
+    # All rows sum to 1
+    assert jnp.allclose(W.sum(axis=1), jnp.ones(cfg.n_agents), atol=1e-5)
+
+
+def test_sparse_coupling_matrix():
+    cfg = FEPConfig(n_agents=16, topology="sparse", sparse_p=0.5)
+    W = build_coupling_matrix(cfg, jax.random.PRNGKey(0))
+    chex.assert_shape(W, (cfg.n_agents, cfg.n_agents))
+    # No self-loops
+    assert jnp.all(jnp.diag(W) == 0.0)
+
+
+def test_apply_coupling_shape(cfg):
+    W = build_coupling_matrix(cfg, jax.random.PRNGKey(0))
+    obs = jax.random.normal(jax.random.PRNGKey(1), (cfg.n_agents, cfg.n_obs))
+    obs = jax.nn.softmax(obs, axis=-1)
+    actions = jax.nn.softmax(
+        jax.random.normal(jax.random.PRNGKey(2), (cfg.n_agents, cfg.n_actions)),
+        axis=-1
+    )
+    obs_new = apply_coupling(obs, actions, W, cfg)
+    chex.assert_shape(obs_new, (cfg.n_agents, cfg.n_obs))
+
+
+def test_kappa_zero_no_influence(cfg):
+    cfg_zero = FEPConfig(n_agents=16, kappa=0.0)
+    W = build_coupling_matrix(cfg_zero, jax.random.PRNGKey(0))
+    obs = jax.nn.softmax(
+        jax.random.normal(jax.random.PRNGKey(1), (cfg_zero.n_agents, cfg_zero.n_obs)),
+        axis=-1
+    )
+    actions = jax.nn.softmax(
+        jax.random.normal(jax.random.PRNGKey(2), (cfg_zero.n_agents, cfg_zero.n_actions)),
+        axis=-1
+    )
+    obs_new = apply_coupling(obs, actions, W, cfg_zero)
+    assert jnp.allclose(obs_new, obs, atol=1e-6)
