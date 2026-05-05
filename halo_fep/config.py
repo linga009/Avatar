@@ -48,5 +48,7 @@ class HaloFEPConfig:
     seed: int = 42
 
     def __post_init__(self) -> None:
-        assert self.n_agents % self.coarse_k == 0, "n_agents must be divisible by coarse_k"
-        assert self.n_tokens >= 1, "n_tokens must be >= 1"
+        if self.n_agents % self.coarse_k != 0:
+            raise ValueError(f"n_agents ({self.n_agents}) must be divisible by coarse_k ({self.coarse_k})")
+        if self.n_tokens < 1:
+            raise ValueError(f"n_tokens must be >= 1, got {self.n_tokens}")

@@ -1,3 +1,4 @@
+import pytest
 from halo_fep.config import HaloFEPConfig
 
 def test_config_instantiates():
@@ -7,11 +8,18 @@ def test_config_instantiates():
     assert cfg.n_tokens == 2
 
 def test_config_frozen():
-    import pytest
     cfg = HaloFEPConfig()
-    with pytest.raises(Exception):
+    with pytest.raises((TypeError, ValueError, AttributeError)):
         cfg.d_model = 512
 
 def test_config_n_agents_divisible_by_coarse_k():
     cfg = HaloFEPConfig()
     assert cfg.n_agents % cfg.coarse_k == 0
+
+def test_config_invalid_n_agents_raises():
+    with pytest.raises(ValueError):
+        HaloFEPConfig(n_agents=7, coarse_k=4)
+
+def test_config_invalid_n_tokens_raises():
+    with pytest.raises(ValueError):
+        HaloFEPConfig(n_tokens=0)
