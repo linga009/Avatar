@@ -136,3 +136,40 @@ def test_page_memory_island_fills_on_eviction():
         x_i = jax.random.normal(jax.random.PRNGKey(i), (cfg.d_model,))
         state = mem(x_i, state)
     assert int(state.island_ptr) > 0
+
+from halo_fep.halo_jax.backbone import HALOBackbone
+
+def test_backbone_output_shape():
+    model = HALOBackbone(cfg, key)
+    h = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    x = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    z = jnp.ones((cfg.n_tokens, 1)) * 0.5
+    h_out = model(h, x, z)
+    assert h_out.shape == (cfg.n_tokens, cfg.d_model)
+
+def test_backbone_no_nan():
+    model = HALOBackbone(cfg, key)
+    h = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    x = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    z = jnp.ones((cfg.n_tokens, 1)) * 0.5
+    h_out = model(h, x, z)
+    assert not jnp.any(jnp.isnan(h_out))
+
+def test_backbone_jit_compiles():
+    model = HALOBackbone(cfg, key)
+    h = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    x = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    z = jnp.ones((cfg.n_tokens, 1)) * 0.5
+    jit_fn = eqx.filter_jit(model)
+    h_out = jit_fn(h, x, z)
+    assert h_out.shape == (cfg.n_tokens, cfg.d_model)
+
+def test_backbone_action_bias_changes_output():
+    model = HALOBackbone(cfg, key)
+    h = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    x = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    z = jnp.ones((cfg.n_tokens, 1)) * 0.5
+    delta_x = jax.random.normal(jax.random.PRNGKey(99), (cfg.n_tokens, cfg.d_boundary))
+    out_no_bias = model(h, x, z, delta_x=jnp.zeros_like(delta_x))
+    out_biased  = model(h, x, z, delta_x=delta_x)
+    assert not jnp.allclose(out_no_bias, out_biased)
