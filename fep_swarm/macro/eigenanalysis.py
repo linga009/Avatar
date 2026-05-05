@@ -6,21 +6,21 @@ from fep_swarm.config import FEPConfig
 
 
 def swarm_belief_rates(
-    mu_flat: jnp.ndarray,      # [N * n_hidden]
-    obs_indices: jnp.ndarray,  # [N]
+    mu_flat: jnp.ndarray,    # [N * n_hidden]
+    soft_obs: jnp.ndarray,   # [N, n_obs] float32
     gm: DiscreteGenerativeModel,
     cfg: FEPConfig,
 ) -> jnp.ndarray:
     """mu_dot = -grad_mu F for all N agents, flattened to [N * n_hidden]."""
     mu = mu_flat.reshape(cfg.n_agents, cfg.n_hidden)
     grad_F = jax.grad(free_energy)
-    mu_dot = jax.vmap(lambda m, o: -grad_F(m, o, gm))(mu, obs_indices)
+    mu_dot = jax.vmap(lambda m, o: -grad_F(m, o, gm))(mu, soft_obs)
     return mu_dot.reshape(-1)
 
 
 def compute_jacobian(
-    mu: jnp.ndarray,            # [N, n_hidden]
-    obs_indices: jnp.ndarray,   # [N]
+    mu: jnp.ndarray,         # [N, n_hidden]
+    soft_obs: jnp.ndarray,   # [N, n_obs] float32
     gm: DiscreteGenerativeModel,
     cfg: FEPConfig,
 ) -> tuple:
@@ -29,7 +29,7 @@ def compute_jacobian(
     Returns (eigenvalues [N*d complex], gap_ratio scalar, magnitudes [N*d]).
     """
     mu_flat = mu.reshape(-1)
-    f = lambda m: swarm_belief_rates(m, obs_indices, gm, cfg)
+    f = lambda m: swarm_belief_rates(m, soft_obs, gm, cfg)
     J = jax.jacobian(f)(mu_flat)                 # [N*d, N*d]
     eigenvalues = jnp.linalg.eigvals(J)          # complex [N*d]
     magnitudes = jnp.abs(eigenvalues)

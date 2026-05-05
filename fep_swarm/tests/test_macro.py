@@ -73,8 +73,8 @@ def test_macro_free_energy_scalar(cfg, W, gm):
 
 def test_micro_free_energy_sum_scalar(cfg, gm):
     mu = jax.random.normal(jax.random.PRNGKey(0), (cfg.n_agents, cfg.n_hidden))
-    obs_idx = jnp.zeros(cfg.n_agents, dtype=int)
-    F_sum = micro_free_energy_sum(mu, obs_idx, gm, cfg)
+    obs_soft = jax.nn.one_hot(jnp.zeros(cfg.n_agents, dtype=int), cfg.n_obs)
+    F_sum = micro_free_energy_sum(mu, obs_soft, gm, cfg)
     assert F_sum.shape == ()
     assert not jnp.isnan(F_sum)
 
@@ -87,10 +87,9 @@ def test_check_macro_bound_holds(cfg, W, gm):
     actions = jax.nn.softmax(
         jax.random.normal(jax.random.PRNGKey(2), (cfg.n_agents, cfg.n_actions)), axis=-1
     )
-    obs_idx = jnp.zeros(cfg.n_agents, dtype=int)
     macro = coarse_grain(mu, obs_soft, actions, W, cfg)
     F_macro = macro_free_energy(macro, gm, cfg)
-    F_sum = micro_free_energy_sum(mu, obs_idx, gm, cfg)
+    F_sum = micro_free_energy_sum(mu, obs_soft, gm, cfg)
     I_sync = jnp.array(0.0)
     holds, violation = check_macro_bound(F_macro, F_sum, I_sync)
     # Just verify outputs are valid scalars
@@ -108,8 +107,8 @@ from fep_swarm.macro.eigenanalysis import (
 def test_swarm_belief_rates_shape(cfg, gm):
     N, d = cfg.n_agents, cfg.n_hidden
     mu_flat = jax.random.normal(jax.random.PRNGKey(0), (N * d,))
-    obs_idx = jnp.zeros(N, dtype=int)
-    rates = swarm_belief_rates(mu_flat, obs_idx, gm, cfg)
+    obs_soft = jax.nn.one_hot(jnp.zeros(N, dtype=int), cfg.n_obs)
+    rates = swarm_belief_rates(mu_flat, obs_soft, gm, cfg)
     chex.assert_shape(rates, (N * d,))
     assert not jnp.any(jnp.isnan(rates))
 
@@ -120,8 +119,8 @@ def test_jacobian_shape():
     gm = DiscreteGenerativeModel(small_cfg, jax.random.PRNGKey(0))
     N, d = small_cfg.n_agents, small_cfg.n_hidden
     mu = jax.random.normal(jax.random.PRNGKey(1), (N, d))
-    obs_idx = jnp.zeros(N, dtype=int)
-    eigenvalues, gap, magnitudes = compute_jacobian(mu, obs_idx, gm, small_cfg)
+    obs_soft = jax.nn.one_hot(jnp.zeros(N, dtype=int), small_cfg.n_obs)
+    eigenvalues, gap, magnitudes = compute_jacobian(mu, obs_soft, gm, small_cfg)
     chex.assert_shape(eigenvalues, (N * d,))
     chex.assert_shape(magnitudes, (N * d,))
     assert not jnp.any(jnp.isnan(magnitudes))
@@ -132,8 +131,8 @@ def test_temporal_horizons_ordering():
     small_cfg = FEPConfig(n_agents=4, n_hidden=4, coarse_k=2)
     gm = DiscreteGenerativeModel(small_cfg, jax.random.PRNGKey(0))
     mu = jax.random.normal(jax.random.PRNGKey(1), (small_cfg.n_agents, small_cfg.n_hidden))
-    obs_idx = jnp.zeros(small_cfg.n_agents, dtype=int)
-    _, _, magnitudes = compute_jacobian(mu, obs_idx, gm, small_cfg)
+    obs_soft = jax.nn.one_hot(jnp.zeros(small_cfg.n_agents, dtype=int), small_cfg.n_obs)
+    _, _, magnitudes = compute_jacobian(mu, obs_soft, gm, small_cfg)
     micro_h, macro_h = temporal_horizons(magnitudes, small_cfg)
     # macro horizon (slow modes) must be >= micro horizon (fast modes)
     assert float(macro_h) >= float(micro_h)

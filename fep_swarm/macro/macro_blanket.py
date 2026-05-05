@@ -16,21 +16,21 @@ def macro_free_energy(
 
     def group_F(g):
         mu_g = macro.M[g]
-        obs_idx = jnp.argmax(jax.nn.softmax(macro.S[g]))
-        return free_energy(mu_g, obs_idx, gm)
+        soft_obs = jax.nn.softmax(macro.S[g])
+        return free_energy(mu_g, soft_obs, gm)
 
     F_groups = jax.vmap(group_F)(jnp.arange(n_groups))
     return F_groups.sum()
 
 
 def micro_free_energy_sum(
-    mu: jnp.ndarray,            # [N, n_hidden]
-    obs_indices: jnp.ndarray,   # [N] integer obs
+    mu: jnp.ndarray,         # [N, n_hidden]
+    soft_obs: jnp.ndarray,   # [N, n_obs] float32
     gm: DiscreteGenerativeModel,
     cfg: FEPConfig,
 ) -> jnp.ndarray:
     """Sum of F_i over all N agents."""
-    F_all = jax.vmap(lambda m, o: free_energy(m, o, gm))(mu, obs_indices)
+    F_all = jax.vmap(lambda m, o: free_energy(m, o, gm))(mu, soft_obs)
     return F_all.sum()
 
 

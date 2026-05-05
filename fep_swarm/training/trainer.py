@@ -54,12 +54,11 @@ def run_episode(
 
         # Coupling
         obs_coupled = apply_coupling(obs_soft, actions, W, cfg) # [N, n_obs]
-        obs_coupled_idx = jax.vmap(jnp.argmax)(obs_coupled)     # [N]
 
         # Belief update (vmapped)
         mu = jax.vmap(
             lambda m, o: belief_update(m, o, gm, cfg)
-        )(mu, obs_coupled_idx)
+        )(mu, obs_coupled)
 
         # Action selection (vmapped)
         policies = build_policies(cfg, key)
@@ -74,7 +73,7 @@ def run_episode(
         # Metrics -- Layer 2
         F_vals = jax.vmap(
             lambda m, o: free_energy(m, o, gm)
-        )(mu, obs_coupled_idx)
+        )(mu, obs_coupled)
         F_history.append(float(F_vals.mean()))
 
         # Metrics -- Layer 3
@@ -84,7 +83,7 @@ def run_episode(
         # Metrics -- Layer 4
         macro = coarse_grain(mu, obs_coupled, actions, W, cfg)
         F_m = macro_free_energy(macro, gm, cfg)
-        F_sum = micro_free_energy_sum(mu, obs_coupled_idx, gm, cfg)
+        F_sum = micro_free_energy_sum(mu, obs_coupled, gm, cfg)
         # Compute MI from sliding window of mu history
         if len(mu_history) >= 10:
             mu_window = jnp.stack(mu_history[-10:] + [mu])  # [11, N, n_hidden]
@@ -109,7 +108,8 @@ def run_episode(
 
     if compute_jacobian_at_end:
         obs_idx_final = observe(env, cfg, A_true, key)
-        _, gap, magnitudes = compute_jacobian(mu, obs_idx_final, gm, cfg)
+        obs_soft_final = jax.vmap(lambda o: jax.nn.one_hot(o, cfg.n_obs))(obs_idx_final)
+        _, gap, magnitudes = compute_jacobian(mu, obs_soft_final, gm, cfg)
         micro_h, macro_h = temporal_horizons(magnitudes, cfg)
         result["eigenvalue_magnitudes"] = magnitudes
         result["eig_gap"] = float(gap)
