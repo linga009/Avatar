@@ -81,7 +81,7 @@ def unified_elbo_loss(
 
     # KL prior term
     log_q = jnp.log(q_eta + 1e-8)                         # (N_agents, n_hidden)
-    log_D = jnp.log(jax.nn.softmax(model.gm.log_D) + 1e-8)  # (n_hidden,)
+    log_D = jnp.log(model.gm.D + 1e-8)  # (n_hidden,)
     l_prior = jnp.mean(jnp.sum(q_eta * (log_q - log_D), axis=-1))
 
     total = l_flow + l_obs + l_prior
