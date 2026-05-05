@@ -26,3 +26,31 @@ def test_holo_embedding_no_nan():
     x, z = model(h)
     assert not jnp.any(jnp.isnan(x))
     assert not jnp.any(jnp.isnan(z))
+
+from halo_fep.halo_jax.holo_attention import HoloAttention
+
+def test_holo_attention_shape():
+    model = HoloAttention(cfg, key)
+    h = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    x = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    z = jnp.ones((cfg.n_tokens, 1)) * 0.5
+    out = model(h, x, z)
+    assert out.shape == (cfg.n_tokens, cfg.d_model)
+
+def test_holo_attention_no_nan():
+    model = HoloAttention(cfg, key)
+    h = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    x = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    z = jnp.ones((cfg.n_tokens, 1)) * 0.5
+    out = model(h, x, z)
+    assert not jnp.any(jnp.isnan(out))
+
+def test_holo_attention_action_bias_changes_output():
+    model = HoloAttention(cfg, key)
+    h = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    x = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+    z = jnp.ones((cfg.n_tokens, 1)) * 0.5
+    delta_x = jax.random.normal(jax.random.PRNGKey(1), (cfg.n_tokens, cfg.d_boundary))
+    out_no_bias = model(h, x, z, delta_x=jnp.zeros_like(delta_x))
+    out_biased  = model(h, x, z, delta_x=delta_x)
+    assert not jnp.allclose(out_no_bias, out_biased)
