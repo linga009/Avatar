@@ -60,3 +60,13 @@ def test_update_d_remains_distribution():
         model = updater.update(model, carry, ep)
     d_sum = float(jnp.sum(model.gm.D))
     assert abs(d_sum - 1.0) < 1e-4
+
+
+def test_update_changes_log_b():
+    cfg = HaloFEPConfig()
+    model = HaloFEPModel(cfg, jax.random.PRNGKey(0))
+    carry = model.init_carry(jax.random.PRNGKey(1))
+    ep = make_episode(cfg)
+    updater = FEPUpdater(cfg)
+    new_model = updater.update(model, carry, ep)
+    assert not jnp.allclose(model.gm.log_B, new_model.gm.log_B)

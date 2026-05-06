@@ -16,6 +16,7 @@ import logging
 import numpy as np
 import jax.numpy as jnp
 import equinox as eqx
+from scipy.special import softmax as scipy_softmax
 
 from halo_fep.config import HaloFEPConfig
 from halo_fep.model import HaloFEPModel
@@ -44,7 +45,7 @@ class GoalUpdater:
         embedder  = self._get_embedder()
         text_emb  = embedder.embed_text(goal_text)                # (384,) float32
         logits    = text_emb @ self._proj                         # (n_obs,)
-        probs     = np.exp(logits) / (np.exp(logits).sum() + 1e-8)
+        probs     = scipy_softmax(logits).astype(np.float32)
         new_log_c = jnp.log(jnp.array(probs) + 1e-8)             # (n_obs,)
         return eqx.tree_at(lambda m: m.gm.log_C, model, new_log_c)
 

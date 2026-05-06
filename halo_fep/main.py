@@ -45,16 +45,19 @@ class HeartbeatLoop:
         goal_updater=None,   # GoalUpdater (optional)
         fep_updater=None,    # FEPUpdater (optional)
         lora_trainer=None,   # LoRATrainer (optional)
+        state_compressor=None,  # StateCompressor (optional)
     ) -> None:
-        self.cfg          = cfg
-        self.model        = model
-        self.carry        = model.init_carry(jax.random.PRNGKey(cfg.seed))
-        self.perception   = perception
-        self.memory       = memory
-        self.llm          = llm
-        self.goal_updater = goal_updater
-        self.fep_updater  = fep_updater
-        self.lora_trainer = lora_trainer
+        from halo_fep.intellect.state_compressor import StateCompressor
+        self.cfg              = cfg
+        self.model            = model
+        self.carry            = model.init_carry(jax.random.PRNGKey(cfg.seed))
+        self.perception       = perception
+        self.memory           = memory
+        self.llm              = llm
+        self.goal_updater     = goal_updater
+        self.fep_updater      = fep_updater
+        self.lora_trainer     = lora_trainer
+        self.state_compressor = state_compressor or StateCompressor(cfg)
         self._prev_fe: float | None = None
         self._nightly_done_date: str | None = None
 
@@ -78,8 +81,13 @@ class HeartbeatLoop:
             return
 
         fe = float(compute_free_energy(self.carry, self.model))
+        if not jnp.isfinite(fe):
+            log.error(f"NaN/Inf in free energy — skipping tick.")
+            return
         fe_delta = (fe - self._prev_fe) if self._prev_fe is not None else 0.0
         self._prev_fe = fe
+
+        query_embed_np = self.perception.embed_query(query)
 
         # --- Episode ---
         episode = Episode(
@@ -101,7 +109,7 @@ class HeartbeatLoop:
         if self.goal_updater is not None:
             self.model = self.goal_updater.decay(self.model)
 
-        self.memory.add(episode)
+        self.memory.add(episode, query_embed=query_embed_np)
         log.info(f"Tick | query={query!r} | FE={fe:.3f} | FE_delta={fe_delta:+.3f}")
 
         # --- Wake cycle ---
@@ -116,13 +124,11 @@ class HeartbeatLoop:
 
     def _wake_cycle(self, query: str, fe: float, episode: Episode) -> None:
         log.info(f"Wake cycle triggered (FE={fe:.3f}).")
-        from halo_fep.intellect.state_compressor import StateCompressor
         from halo_fep.intellect.llm_bridge import parse_llm_output
         try:
             query_embed = self.perception.embed_query(query)
             recent      = self.memory.retrieve(query_embed, k=5)
-            compressor  = StateCompressor(self.cfg)
-            prompt      = compressor.compress(self.carry, recent, query, fe)
+            prompt      = self.state_compressor.compress(self.carry, recent, query, fe)
             self.llm.load()
             output      = self.llm.think(prompt)
             self.llm.unload()
@@ -134,7 +140,7 @@ class HeartbeatLoop:
             elif response.action == "SEARCH":
                 log.info(f"New search target: {response.content!r}")
             episode.llm_output = output
-            self.memory.add(episode)
+            self.memory.update_llm_output(episode.id, output)
         except Exception as e:
             log.error(f"Wake cycle failed: {e}")
             if self.llm is not None:
@@ -172,18 +178,20 @@ def main() -> None:
     from halo_fep.memory.episode_store import EpisodeStore
     from halo_fep.intellect.llm_bridge import LLMBridge
     from halo_fep.intellect.goal_updater import GoalUpdater
+    from halo_fep.intellect.state_compressor import StateCompressor
     from halo_fep.training.fep_updater import FEPUpdater
     from halo_fep.training.lora_trainer import LoRATrainer
 
     loop = HeartbeatLoop(
-        cfg          = cfg,
-        model        = model,
-        perception   = PerceptionPipeline(cfg),
-        memory       = EpisodeStore("data/episodes/"),
-        llm          = LLMBridge(),
-        goal_updater = GoalUpdater(cfg),
-        fep_updater  = FEPUpdater(cfg),
-        lora_trainer = LoRATrainer(cfg),
+        cfg              = cfg,
+        model            = model,
+        perception       = PerceptionPipeline(cfg),
+        memory           = EpisodeStore("data/episodes/"),
+        llm              = LLMBridge(),
+        goal_updater     = GoalUpdater(cfg),
+        fep_updater      = FEPUpdater(cfg),
+        lora_trainer     = LoRATrainer(cfg),
+        state_compressor = StateCompressor(cfg),
     )
 
     log.info("Heartbeat started. Press Ctrl+C to stop.")

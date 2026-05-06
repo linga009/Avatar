@@ -63,6 +63,36 @@ class FEPUpdater:
         # Normalize each column (hidden state) so A[:,j] is a distribution
         new_log_A = new_log_A - jax.scipy.special.logsumexp(new_log_A, axis=0, keepdims=True)
 
+        # --- Update B (transition P(s'|s,a)) ---
+        # Use dominant action from swarm as the action index
+        # action_probs shape: (n_actions,) — average over agents
+        action_probs = jax.nn.softmax(jnp.mean(carry.swarm_action, axis=0))  # (n_actions,)
+        # Transition: outer product of next state and current state beliefs
+        # weighted by action probabilities
+        # outer_ss: (n_hidden, n_hidden) — self-transition
+        outer_ss = jnp.outer(q_eta, q_eta)  # (n_hidden, n_hidden)
+
+        # B is (n_hidden, n_hidden, n_actions) — update each action slice weighted by prob
+        log_outer_ss = jnp.log(outer_ss + 1e-8)
+
+        def update_b_slice(log_B, a):
+            # a: scalar action index
+            action_prob = action_probs[a]          # scalar
+            # EMA update for action a slice
+            new_slice = alpha * log_B[:, :, a] + (1.0 - alpha) * action_prob * log_outer_ss
+            # Normalize over axis 0 (s' dimension)
+            new_slice = new_slice - jax.scipy.special.logsumexp(new_slice, axis=0, keepdims=True)
+            return log_B, new_slice
+
+        _, b_slices = jax.lax.scan(
+            update_b_slice,
+            model.gm.log_B,
+            jnp.arange(self.cfg.n_actions)
+        )
+        # b_slices shape: (n_actions, n_hidden, n_hidden) — transpose back to (n_hidden, n_hidden, n_actions)
+        new_log_B = jnp.transpose(b_slices, (1, 2, 0))
+
         new_model = eqx.tree_at(lambda m: m.gm.log_D, model,    new_log_D)
         new_model = eqx.tree_at(lambda m: m.gm.log_A, new_model, new_log_A)
+        new_model = eqx.tree_at(lambda m: m.gm.log_B, new_model, new_log_B)
         return new_model
