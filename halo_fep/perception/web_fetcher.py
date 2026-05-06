@@ -1,6 +1,7 @@
 """DuckDuckGo web search wrapper with rate-limit handling."""
 from __future__ import annotations
 
+import html
 import logging
 from dataclasses import dataclass
 
@@ -28,7 +29,7 @@ class WebFetcher:
             for r in raw:
                 results.append(SearchResult(
                     title=r.get("title", ""),
-                    snippet=r.get("body", ""),
+                    snippet=html.unescape(r.get("body", "")),
                     url=r.get("href", ""),
                     image_url=r.get("image") or None,
                 ))
