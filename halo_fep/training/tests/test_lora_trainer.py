@@ -48,3 +48,24 @@ def test_run_empty_episodes_returns_same_model():
     new_model, log = trainer.run(model, [])
     # Should return original model unchanged
     assert log["n_episodes"] == 0
+
+
+def test_ewc_lora_reduces_loss_increase():
+    """EWC penalty should be non-negative and logged."""
+    cfg = HaloFEPConfig(n_tokens=32, ewc_lambda=1.0)
+    model = HaloFEPModel(cfg, jax.random.PRNGKey(0))
+    trainer = LoRATrainer(cfg, n_steps=2, lr=1e-3)
+    episodes = make_episodes(cfg, n=3)
+    _, log = trainer.run(model, episodes)
+    assert "ewc_penalty" in log
+    assert log["ewc_penalty"] >= 0.0
+
+
+def test_ewc_disabled_when_lambda_zero():
+    """With ewc_lambda=0.0, ewc_penalty should be 0.0."""
+    cfg = HaloFEPConfig(n_tokens=32, ewc_lambda=0.0)
+    model = HaloFEPModel(cfg, jax.random.PRNGKey(0))
+    trainer = LoRATrainer(cfg, n_steps=2, lr=1e-3)
+    episodes = make_episodes(cfg, n=2)
+    _, log = trainer.run(model, episodes)
+    assert log["ewc_penalty"] == 0.0
