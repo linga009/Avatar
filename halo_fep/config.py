@@ -47,6 +47,10 @@ class HaloFEPConfig:
     n_steps: int = 10_000
     seed: int = 42
 
+    # Heartbeat
+    wake_threshold: float = 2.5   # FE above this triggers LLM wake cycle
+    tick_interval:  int   = 60    # seconds between subconscious ticks
+
     def __post_init__(self) -> None:
         if self.n_agents % self.coarse_k != 0:
             raise ValueError(f"n_agents ({self.n_agents}) must be divisible by coarse_k ({self.coarse_k})")
