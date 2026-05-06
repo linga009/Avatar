@@ -47,6 +47,13 @@ class HaloFEPConfig:
     n_steps: int = 10_000
     seed: int = 42
 
+    # Continual learning
+    ewc_lambda:  float = 0.1    # EWC penalty weight (0 = disabled)
+    per_alpha:   float = 0.6    # PER priority exponent (0=uniform, 1=full priority)
+    per_beta:    float = 0.4    # PER importance-sampling correction exponent
+    use_mesu:    bool  = False   # Use MESU optimizer instead of Adam for nightly LoRA
+    mesu_eta:    float = 0.01   # MESU uncertainty EMA rate
+
     # Heartbeat
     wake_threshold: float = 2.5   # FE above this triggers LLM wake cycle
     tick_interval:  int   = 60    # seconds between subconscious ticks
