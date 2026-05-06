@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import math
 import os
 
 import jax
@@ -72,6 +73,9 @@ def _multiscale_elbo_loss(
     Returns:
         (mean_loss, aux_from_first_stride)
     """
+    if not strides:
+        raise ValueError("strides must be a non-empty tuple; got empty sequence")
+
     n_tokens = tokens.shape[0]
     total_loss = jnp.zeros(())
     first_aux = None
@@ -79,15 +83,12 @@ def _multiscale_elbo_loss(
     for stride in strides:
         # Subsample: take every `stride`-th token
         indices = jnp.arange(0, n_tokens, stride)
-        sub = tokens[indices]                                   # (n_tokens//stride, d_model)
-        # Pad back to n_tokens with zeros
-        pad_len = n_tokens - sub.shape[0]
-        padded  = jnp.concatenate(
-            [sub, jnp.zeros((pad_len, tokens.shape[1]), dtype=jnp.float32)],
-            axis=0,
-        )                                                       # (n_tokens, d_model)
+        sub = tokens[indices]                              # (n_tokens // stride, d_model)
+        # Tile the subsampled tokens to fill n_tokens (coarse pattern repeated)
+        repeats = math.ceil(n_tokens / int(sub.shape[0]))
+        tiled = jnp.tile(sub, (repeats, 1))[:n_tokens]    # (n_tokens, d_model)
         key, sk = jax.random.split(key)
-        loss_i, aux_i = unified_elbo_loss(model, carry, padded, sk)
+        loss_i, aux_i = unified_elbo_loss(model, carry, tiled, sk)
         total_loss = total_loss + loss_i
         if first_aux is None:
             first_aux = aux_i
@@ -143,7 +144,7 @@ def run_bootstrap(
         log.info(f"Bootstrap: {n_pretrain_steps} steps on MultimodalWorld.")
 
     for step in range(n_pretrain_steps):
-        key, sk1, sk2 = jax.random.split(key, 3)
+        key, sk1, sk2, sk3 = jax.random.split(key, 4)
 
         if use_wikipedia:
             tokens = jnp.array(next(token_iter))
@@ -155,7 +156,7 @@ def run_bootstrap(
         # Multi-scale ELBO loss
         (loss, _), grads = eqx.filter_value_and_grad(
             _multiscale_elbo_loss, has_aux=True
-        )(model, carry, tokens, sk2, multiscale_strides)
+        )(model, carry, tokens, sk3, multiscale_strides)
 
         updates, opt_state = opt.update(
             eqx.filter(grads, eqx.is_array),

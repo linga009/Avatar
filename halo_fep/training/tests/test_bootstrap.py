@@ -44,14 +44,26 @@ def test_multiscale_loss_is_scalar():
 
 
 def test_multiscale_loss_differs_from_single_scale():
-    """Multi-scale loss should differ from single-stride loss."""
+    """Multi-scale (stride 1+4) loss should differ from single-stride (stride 1) loss."""
     cfg = HaloFEPConfig(n_tokens=32)
     key = jax.random.PRNGKey(1)
     model = HaloFEPModel(cfg, key)
     carry = model.init_carry(key)
     tokens = jax.random.normal(key, (32, cfg.d_model))
-    from halo_fep.loss import unified_elbo_loss
-    single, _ = unified_elbo_loss(model, carry, tokens, key)
+    single, _ = _multiscale_elbo_loss(model, carry, tokens, key, strides=(1,))
     multi, _  = _multiscale_elbo_loss(model, carry, tokens, key, strides=(1, 4))
-    # They should not be identical (strides produce different subsampled inputs)
+    # mean(loss_1) != mean(loss_1 + loss_4) / 2 when stride-4 tokens differ
     assert not jnp.allclose(single, multi, atol=1e-5)
+
+
+def test_multiscale_stride1_is_scalar_and_nonneg():
+    """Verifies strides=(1,) returns a scalar non-negative loss (identity stride)."""
+    cfg = HaloFEPConfig(n_tokens=32)
+    key = jax.random.PRNGKey(2)
+    model = HaloFEPModel(cfg, key)
+    carry = model.init_carry(key)
+    tokens = jax.random.normal(key, (32, cfg.d_model))
+    loss, aux = _multiscale_elbo_loss(model, carry, tokens, key, strides=(1,))
+    assert loss.shape == ()
+    assert float(loss) >= 0.0
+    assert aux is not None
