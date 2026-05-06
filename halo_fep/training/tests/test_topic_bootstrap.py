@@ -35,19 +35,33 @@ def test_text_to_tokens_short_text_zero_padded():
 
 
 def test_iter_wikipedia_token_batches_with_mock():
-    """iter_wikipedia_token_batches yields (n_tokens, d_model) arrays."""
+    """iter_wikipedia_token_batches yields (n_tokens, d_model) arrays from all 8 clusters."""
     cfg = HaloFEPConfig(n_tokens=8, d_model=16)
 
-    # Mock the datasets library
+    # One article per cluster — each article is >= 80 chars and matches its cluster's keywords
     fake_articles = [
-        {"text": f"research study investigation findings topic {i} " * 10}
-        for i in range(50)
+        {"text": "research study investigation findings experiment analysis " * 3},   # cluster 0
+        {"text": "algorithm programming software api system network computing " * 3},  # cluster 1
+        {"text": "equation theorem proof mathematical calculus algebra formula " * 3}, # cluster 2
+        {"text": "philosophy theory ethics consciousness epistemology reasoning " * 3}, # cluster 3
+        {"text": "implementation code program function class compiler library " * 3},   # cluster 4
+        {"text": "error failure problem diagnosis defect crash exception " * 3},        # cluster 5
+        {"text": "history historical century ancient civilization war empire " * 3},    # cluster 6
+        {"text": "future prediction forecast trend emerging innovation disrupt " * 3},  # cluster 7
     ]
     mock_ds = iter(fake_articles)
 
     with patch("halo_fep.training.topic_bootstrap.load_dataset", return_value=mock_ds):
-        gen = iter_wikipedia_token_batches(cfg, seed=0)
+        gen = iter_wikipedia_token_batches(cfg, seed=0, articles_per_cluster=1)
         batch = next(gen)
 
     assert batch.shape == (cfg.n_tokens, cfg.d_model)
     assert batch.dtype == np.float32
+    # Verify actual content was embedded (not all zeros from fallback)
+    assert not np.allclose(batch, 0.0), "batch should contain embeddings, not zero fallback"
+
+
+def test_text_to_tokens_empty_text_returns_zeros():
+    tokens = _text_to_tokens("", n_tokens=8, d_model=16)
+    assert tokens.shape == (8, 16)
+    assert np.allclose(tokens, 0.0)
