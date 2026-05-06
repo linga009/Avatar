@@ -25,3 +25,33 @@ def test_run_bootstrap_minimal():
         model = run_bootstrap(cfg, n_pretrain_steps=2, n_synthetic_episodes=2,
                               checkpoint_dir=os.path.join(d, "ckpt"), seed=0)
     assert model is not None
+
+
+import jax.numpy as jnp
+from halo_fep.model import HaloFEPModel
+from halo_fep.training.bootstrap import _multiscale_elbo_loss
+
+
+def test_multiscale_loss_is_scalar():
+    cfg = HaloFEPConfig(n_tokens=32)
+    key = jax.random.PRNGKey(0)
+    model = HaloFEPModel(cfg, key)
+    carry = model.init_carry(key)
+    tokens = jnp.zeros((32, cfg.d_model))
+    loss, aux = _multiscale_elbo_loss(model, carry, tokens, key, strides=(1, 4))
+    assert loss.shape == ()
+    assert float(loss) >= 0.0
+
+
+def test_multiscale_loss_differs_from_single_scale():
+    """Multi-scale loss should differ from single-stride loss."""
+    cfg = HaloFEPConfig(n_tokens=32)
+    key = jax.random.PRNGKey(1)
+    model = HaloFEPModel(cfg, key)
+    carry = model.init_carry(key)
+    tokens = jax.random.normal(key, (32, cfg.d_model))
+    from halo_fep.loss import unified_elbo_loss
+    single, _ = unified_elbo_loss(model, carry, tokens, key)
+    multi, _  = _multiscale_elbo_loss(model, carry, tokens, key, strides=(1, 4))
+    # They should not be identical (strides produce different subsampled inputs)
+    assert not jnp.allclose(single, multi, atol=1e-5)
