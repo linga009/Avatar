@@ -160,7 +160,7 @@ class EpisodeStore:
         since_timestamp: float = 0.0,
         alpha: float = 0.6,
         beta: float = 0.4,
-    ) -> tuple[list, np.ndarray]:
+    ) -> tuple[list["Episode"], np.ndarray]:
         """Return up to n episodes sampled proportional to |free_energy_delta|^alpha.
 
         Higher |delta_fe| = more surprising/informative = higher priority.

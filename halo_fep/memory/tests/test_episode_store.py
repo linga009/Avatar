@@ -93,7 +93,7 @@ def test_get_prioritized_returns_correct_count():
         assert len(episodes) == 5
         assert weights.shape == (5,)
         assert np.all(weights > 0)
-        assert np.max(weights) <= 1.0 + 1e-6
+        assert np.max(weights) <= 1.0
 
 
 def test_get_prioritized_fewer_than_n():
