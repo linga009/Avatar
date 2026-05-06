@@ -73,3 +73,50 @@ def test_update_llm_output():
         store.update_llm_output(ep.id, "SEARCH: test query")
         results = store.retrieve(np.random.randn(256).astype(np.float32), k=1)
         assert results[0].llm_output == "SEARCH: test query"
+
+
+def test_get_prioritized_returns_correct_count():
+    with tempfile.TemporaryDirectory() as tmp:
+        store = EpisodeStore(tmp)
+        qe = np.random.randn(256).astype(np.float32)
+        qe /= np.linalg.norm(qe) + 1e-8
+        for i in range(10):
+            ep = Episode(
+                query=f"q{i}",
+                tokens=np.zeros((32, 256), dtype=np.float32),
+                swarm_mu=np.zeros((256, 8), dtype=np.float32),
+                free_energy=1.0,
+                free_energy_delta=-(0.05 + i * 0.01),
+            )
+            store.add(ep, query_embed=qe.copy())
+        episodes, weights = store.get_prioritized(n=5, alpha=0.6, beta=0.4)
+        assert len(episodes) == 5
+        assert weights.shape == (5,)
+        assert np.all(weights > 0)
+        assert np.max(weights) <= 1.0 + 1e-6
+
+
+def test_get_prioritized_fewer_than_n():
+    with tempfile.TemporaryDirectory() as tmp:
+        store = EpisodeStore(tmp)
+        qe = np.ones(256, dtype=np.float32)
+        qe /= np.linalg.norm(qe)
+        for delta in [-0.1, -0.2]:
+            ep = Episode(
+                query="q",
+                tokens=np.zeros((32, 256), dtype=np.float32),
+                swarm_mu=np.zeros((256, 8), dtype=np.float32),
+                free_energy=1.0,
+                free_energy_delta=delta,
+            )
+            store.add(ep, query_embed=qe.copy())
+        episodes, weights = store.get_prioritized(n=10, alpha=0.6, beta=0.4)
+        assert len(episodes) == 2
+
+
+def test_get_prioritized_empty_store():
+    with tempfile.TemporaryDirectory() as tmp:
+        store = EpisodeStore(tmp)
+        episodes, weights = store.get_prioritized(n=5, alpha=0.6, beta=0.4)
+        assert episodes == []
+        assert len(weights) == 0

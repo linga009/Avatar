@@ -154,6 +154,59 @@ class EpisodeStore:
             ).fetchall()
         return [self._row_to_episode(r) for r in rows]
 
+    def get_prioritized(
+        self,
+        n: int,
+        since_timestamp: float = 0.0,
+        alpha: float = 0.6,
+        beta: float = 0.4,
+    ) -> tuple[list, np.ndarray]:
+        """Return up to n episodes sampled proportional to |free_energy_delta|^alpha.
+
+        Higher |delta_fe| = more surprising/informative = higher priority.
+
+        Args:
+            n: Maximum number of episodes to return.
+            since_timestamp: Only consider episodes after this Unix timestamp.
+            alpha: Priority exponent. 0 = uniform, 1 = full priority.
+            beta: Importance-sampling correction exponent. 0 = no correction.
+
+        Returns:
+            (episodes, weights) — weights are IS corrections in [0, 1].
+        """
+        with self._engine.connect() as conn:
+            rows = conn.execute(
+                sa.select(_EPISODES)
+                .where(_EPISODES.c.timestamp >= since_timestamp)
+                .order_by(_EPISODES.c.timestamp)
+            ).fetchall()
+
+        if not rows:
+            return [], np.array([], dtype=np.float32)
+
+        episodes = [self._row_to_episode(r) for r in rows]
+
+        # Priority = |delta_fe|^alpha, clipped to avoid zeros
+        priorities = np.array(
+            [abs(ep.free_energy_delta) ** alpha for ep in episodes],
+            dtype=np.float32,
+        )
+        priorities = np.clip(priorities, 1e-8, None)
+        probs = priorities / priorities.sum()
+
+        n_sample = min(n, len(episodes))
+        indices = np.random.choice(len(episodes), size=n_sample, replace=False, p=probs)
+
+        sampled = [episodes[i] for i in indices]
+        sampled_probs = probs[indices]
+
+        # IS weights: w_i = (1/(N*p_i))^beta, normalized to [0,1]
+        N = len(episodes)
+        raw_weights = (1.0 / (N * sampled_probs + 1e-8)) ** beta
+        weights = (raw_weights / raw_weights.max()).astype(np.float32)
+
+        return sampled, weights
+
     def rebuild_index(self) -> None:
         """Reconstruct FAISS index from SQLite (recovery path)."""
         self._index = self._new_index()
