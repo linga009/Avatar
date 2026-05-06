@@ -56,3 +56,7 @@ class HaloFEPConfig:
             raise ValueError(f"n_agents ({self.n_agents}) must be divisible by coarse_k ({self.coarse_k})")
         if self.n_tokens < 1:
             raise ValueError(f"n_tokens must be >= 1, got {self.n_tokens}")
+        if self.wake_threshold <= 0.0:
+            raise ValueError(f"wake_threshold must be > 0, got {self.wake_threshold}")
+        if self.tick_interval <= 0:
+            raise ValueError(f"tick_interval must be > 0, got {self.tick_interval}")

@@ -29,3 +29,15 @@ def test_config_has_wake_threshold():
 def test_config_has_tick_interval():
     cfg = HaloFEPConfig()
     assert cfg.tick_interval == 60
+
+
+def test_config_wake_threshold_must_be_positive():
+    import pytest
+    with pytest.raises(ValueError):
+        HaloFEPConfig(wake_threshold=-1.0)
+
+
+def test_config_tick_interval_must_be_positive():
+    import pytest
+    with pytest.raises(ValueError):
+        HaloFEPConfig(tick_interval=0)
