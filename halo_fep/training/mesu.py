@@ -45,14 +45,14 @@ def mesu(
     """
     def init_fn(params: Any) -> MESUState:
         # Initialize sigma to 1 (maximum uncertainty / uninformative prior)
-        return {"sigma": jtu.tree_map(jnp.ones_like, params)}
+        return MESUState(sigma=jtu.tree_map(jnp.ones_like, params))
 
     def update_fn(
         updates: Any,
         state: MESUState,
         params: Any = None,
     ) -> tuple[Any, MESUState]:
-        sigma = state["sigma"]
+        sigma = state.sigma
 
         # Scale updates by inverse uncertainty: high sigma = small update
         scaled_updates = jtu.tree_map(
@@ -69,6 +69,6 @@ def mesu(
             updates,
         )
 
-        return scaled_updates, {"sigma": new_sigma}
+        return scaled_updates, MESUState(sigma=new_sigma)
 
     return optax.GradientTransformation(init_fn, update_fn)
