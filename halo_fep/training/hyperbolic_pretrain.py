@@ -189,7 +189,8 @@ def run_hyperbolic_pretrain(
         # Apply update then retract back into disk
         embeddings = embeddings + updates
         norms = jnp.linalg.norm(embeddings, axis=-1, keepdims=True)
-        embeddings = embeddings / jnp.maximum(norms, 1.0 + _EPS)
+        scale = jnp.where(norms >= 1.0, (1.0 - _EPS) / norms, 1.0)
+        embeddings = embeddings * scale
 
         if step % 200 == 0:
             log.info(f"WN18RR step {step}/{n_steps} | loss={float(loss):.4f}")

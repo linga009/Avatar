@@ -64,3 +64,4 @@ def test_run_hyperbolic_pretrain_returns_model():
 
     # Model should be returned (backbone updated)
     assert updated_model is not None
+    assert isinstance(updated_model, HaloFEPModel)
