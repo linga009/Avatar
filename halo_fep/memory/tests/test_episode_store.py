@@ -5,6 +5,16 @@ from halo_fep.memory.schema import Episode
 from halo_fep.memory.episode_store import EpisodeStore
 
 
+def _make_episode(delta=0.0, d_model=256, n_hidden=8, n_tokens=32):
+    return Episode(
+        query="test query",
+        tokens=np.zeros((n_tokens, d_model), dtype=np.float32),
+        swarm_mu=np.zeros((d_model, n_hidden), dtype=np.float32),
+        free_energy=1.0,
+        free_energy_delta=delta,
+    )
+
+
 def make_episode(free_energy=1.0, fe_delta=0.0, d_model=256, n_hidden=8, n_tokens=32):
     return Episode(
         query="test query",
@@ -118,5 +128,23 @@ def test_get_prioritized_empty_store():
     with tempfile.TemporaryDirectory() as tmp:
         store = EpisodeStore(tmp)
         episodes, weights = store.get_prioritized(n=5, alpha=0.6, beta=0.4)
+        assert episodes == []
+        assert len(weights) == 0
+
+
+def test_get_prioritized_since_timestamp_filters():
+    """Episodes before since_timestamp should not appear in results."""
+    with tempfile.TemporaryDirectory() as tmp:
+        store = EpisodeStore(tmp)
+        qe = np.ones(256, dtype=np.float32)
+        qe /= np.linalg.norm(qe)
+        # Add 5 episodes; EpisodeStore auto-assigns timestamps so we cannot
+        # control them precisely. Instead verify that an unreachable future
+        # timestamp returns empty results.
+        for i in range(5):
+            store.add(_make_episode(delta=-(0.1 + i * 0.01)), query_embed=qe.copy())
+        # A since_timestamp far in the future should exclude everything
+        future_ts = 9_999_999_999.0
+        episodes, weights = store.get_prioritized(n=5, since_timestamp=future_ts, alpha=0.6, beta=0.4)
         assert episodes == []
         assert len(weights) == 0

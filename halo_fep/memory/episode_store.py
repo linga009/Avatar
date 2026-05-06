@@ -175,6 +175,8 @@ class EpisodeStore:
             (episodes, weights) — weights are IS corrections in [0, 1].
         """
         with self._engine.connect() as conn:
+            # N is the true buffer size (for correct IS weight scaling)
+            total_count = conn.execute(sa.select(sa.func.count()).select_from(_EPISODES)).scalar()
             rows = conn.execute(
                 sa.select(_EPISODES)
                 .where(_EPISODES.c.timestamp >= since_timestamp)
@@ -201,8 +203,8 @@ class EpisodeStore:
         sampled_probs = probs[indices]
 
         # IS weights: w_i = (1/(N*p_i))^beta, normalized to [0,1]
-        N = len(episodes)
-        raw_weights = (1.0 / (N * sampled_probs + 1e-8)) ** beta
+        N = total_count  # true buffer size for IS weight normalization
+        raw_weights = (1.0 / (N * sampled_probs)) ** beta
         weights = (raw_weights / raw_weights.max()).astype(np.float32)
 
         return sampled, weights
