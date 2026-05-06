@@ -63,3 +63,13 @@ def test_rebuild_index():
         store.rebuild_index()
         results = store.retrieve(np.random.randn(256).astype(np.float32), k=3)
         assert len(results) == 3
+
+
+def test_update_llm_output():
+    with tempfile.TemporaryDirectory() as d:
+        store = EpisodeStore(path=d)
+        ep = make_episode()
+        store.add(ep)
+        store.update_llm_output(ep.id, "SEARCH: test query")
+        results = store.retrieve(np.random.randn(256).astype(np.float32), k=1)
+        assert results[0].llm_output == "SEARCH: test query"

@@ -119,6 +119,15 @@ class EpisodeStore:
         self._ids.append(episode.id)
         faiss.write_index(self._index, self._idx_path)
 
+    def update_llm_output(self, episode_id: str, llm_output: str) -> None:
+        """Update the llm_output field for an existing episode."""
+        with self._engine.begin() as conn:
+            conn.execute(
+                _EPISODES.update()
+                .where(_EPISODES.c.id == episode_id)
+                .values(llm_output=llm_output)
+            )
+
     def retrieve(self, query_embed: np.ndarray, k: int = 5) -> list[Episode]:
         """Return top-k episodes by cosine similarity to query_embed."""
         if self._index.ntotal == 0:
