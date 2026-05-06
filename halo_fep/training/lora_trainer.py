@@ -48,6 +48,8 @@ def _compute_fisher(
     """
     fisher = jtu.tree_map(lambda x: jnp.zeros_like(x), model.backbone)
     n_eval = min(len(episodes), 10)
+    if n_eval == 0:
+        return fisher  # return all-zeros Fisher (no data to estimate from)
 
     for ep in episodes[:n_eval]:
         tokens = jnp.array(ep.tokens)
@@ -135,7 +137,7 @@ class LoRATrainer:
         key   = jax.random.PRNGKey(self.cfg.seed)
         carry = model.init_carry(key)
 
-        loss_before = self._mean_loss(model, carry, episodes, key)
+        loss_before = self._mean_loss(model, episodes, key)
         log.info(
             f"LoRA fine-tune: loss_before={loss_before:.4f}, "
             f"n_episodes={len(episodes)}"
@@ -159,9 +161,14 @@ class LoRATrainer:
             w       = float(per_weights[ep_idx])
             key, sk = jax.random.split(key)
 
-            (loss, _), grads = eqx.filter_value_and_grad(
-                unified_elbo_loss, has_aux=True
-            )(model, carry, tokens, sk)
+            def _step_loss(m):
+                task_loss, aux = unified_elbo_loss(m, carry, tokens, sk)
+                if fisher is not None:
+                    ewc = _ewc_penalty(m.backbone, checkpoint_backbone, fisher, self.cfg.ewc_lambda)
+                    return task_loss + ewc, aux
+                return task_loss, aux
+
+            (loss, _), grads = eqx.filter_value_and_grad(_step_loss, has_aux=True)(model)
 
             # Scale loss gradient by PER importance weight
             grads = jtu.tree_map(lambda g: g * w, grads)
@@ -194,7 +201,7 @@ class LoRATrainer:
             )
             log.info(f"EWC penalty: {ewc_penalty_val:.4f}")
 
-        loss_after = self._mean_loss(model, carry, episodes, key)
+        loss_after = self._mean_loss(model, episodes, key)
         log.info(f"LoRA fine-tune: loss_after={loss_after:.4f}")
 
         # Revert-on-diverge: if loss increased, discard new weights
@@ -212,10 +219,12 @@ class LoRATrainer:
     def _mean_loss(
         self,
         model: HaloFEPModel,
-        carry,
         episodes: list[Episode],
         key: jnp.ndarray,
     ) -> float:
+        # Use a fresh carry for consistent comparison across calls
+        key, ck = jax.random.split(key)
+        carry = model.init_carry(ck)
         losses = []
         for ep in episodes[:10]:
             tokens = jnp.array(ep.tokens)
