@@ -1,11 +1,10 @@
-"""HoloBiont Eye — autonomous research monitor.
+"""HoloBiont — A Living Research Organism.
 
-Runs the Bohmian holomovement engine as a persistent research watcher.
-Every tick: fetch web → backbone → Hamiltonian → Kuramoto → findings.
+Not a monitor. Not an engine. An organism that inhabits a physics body,
+feels curiosity and boredom, builds a narrative identity, and dreams.
 
 Usage:
     python -m halo3.main
-    docker compose up  (with CMD ["python3", "-m", "halo3.main"])
 """
 from __future__ import annotations
 import datetime
@@ -28,14 +27,13 @@ def main() -> None:
     )
 
     log.info("=" * 60)
-    log.info("  HoloBiont Eye — Autonomous Research Monitor")
-    log.info("  Bohmian Holomovement Engine v3.0")
+    log.info("  HoloBiont 3.0 — A Living Research Organism")
+    log.info("  Bohmian Holomovement Engine + Psyche")
     log.info("=" * 60)
 
-    # Load config
+    # --- Config ---
     from halo3.config import Halo3Config
 
-    # Use small config for CPU, full for GPU
     backend = jax.default_backend()
     log.info(f"JAX backend: {backend}, devices: {jax.devices()}")
 
@@ -51,78 +49,72 @@ def main() -> None:
             max_cache=8, island_size=4,
         )
 
-    # Load topics
+    # --- Topics ---
     topics_path = os.path.join(os.path.dirname(__file__), "topics.yaml")
     if os.path.exists(topics_path):
         with open(topics_path) as f:
             topics_cfg = yaml.safe_load(f)
     else:
-        topics_cfg = {
-            "seed_topics": ["artificial intelligence research"],
-            "max_results_per_query": 5,
-            "tick_interval": 60,
-            "r_exploit_threshold": 0.6,
-            "r_explore_threshold": 0.4,
-        }
+        topics_cfg = {"seed_topics": ["artificial intelligence research"]}
 
     seed_topics = topics_cfg.get("seed_topics", ["AI research"])
     max_results = topics_cfg.get("max_results_per_query", 5)
-    tick_interval = topics_cfg.get("tick_interval", 60)
-    r_exploit = topics_cfg.get("r_exploit_threshold", 0.6)
-    r_explore = topics_cfg.get("r_explore_threshold", 0.4)
+    base_tick = topics_cfg.get("tick_interval", 60)
 
-    # Load or init model
+    # --- Model ---
     from halo3.model import Halo3Model, halo3_step
     from halo3.training.bootstrap import load_checkpoint
+    from halo3.kuramoto import order_parameter
 
     checkpoint_path = "data/checkpoints/halo3"
     try:
         model = load_checkpoint(cfg, checkpoint_path)
         log.info(f"Loaded checkpoint from {checkpoint_path}.eqx")
     except Exception:
-        log.info("No checkpoint found — initializing fresh model")
+        log.info("No checkpoint — initializing fresh model")
         model = Halo3Model(cfg, jax.random.PRNGKey(cfg.seed))
 
     carry = model.init_carry(jax.random.PRNGKey(cfg.seed))
     key = jax.random.PRNGKey(cfg.seed + 1)
 
-    # Init components
+    # --- Components ---
     from halo3.perception.pipeline import PerceptionPipeline
-    from halo3.perception.interpreter import Interpreter
     from halo3.memory.schema import Episode
     from halo3.memory.episode_store import EpisodeStore
-    from halo3.kuramoto import order_parameter
+    from halo3.psyche.organism import Organism
 
     perception = PerceptionPipeline(cfg.d_model, cfg.n_tokens)
-    interpreter = Interpreter(seed_topics, r_exploit, r_explore)
     memory = EpisodeStore()
+    organism = Organism(seed_topics)
 
-    log.info(f"Monitoring {len(seed_topics)} topics, tick every {tick_interval}s")
-    log.info(f"Topics: {seed_topics}")
+    log.info(f"Organism awakening. {organism.self_model.identity_statement}")
+    log.info(f"Watching: {seed_topics}")
+    log.info("-" * 60)
 
-    # Signal handling
+    # --- Signals ---
     shutdown = False
 
     def _handle_signal(sig, frame):
         nonlocal shutdown
-        log.info(f"Signal {sig} — shutting down gracefully")
+        log.info(f"Signal {sig} — organism entering shutdown")
         shutdown = True
 
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
-    # Heartbeat loop
+    # --- Heartbeat ---
     tick = 0
     current_query = seed_topics[0]
-
-    log.info("Heartbeat started. Press Ctrl+C to stop.")
-    log.info("-" * 60)
+    prev_fe = None
 
     while not shutdown:
         tick += 1
         tick_start = time.time()
 
-        # 1. Perception
+        # Circadian: tired organisms think slower
+        tick_interval = organism.clock.modulate_tick_interval(base_tick, organism.drives.fatigue)
+
+        # 1. PERCEIVE
         try:
             tokens, texts = perception.perceive(current_query, max_results)
         except Exception as e:
@@ -130,7 +122,7 @@ def main() -> None:
             tokens = jnp.zeros((cfg.n_tokens, cfg.d_model))
             texts = []
 
-        # 2. HoloBiont step
+        # 2. PHYSICS (the body)
         key, sk = jax.random.split(key)
         try:
             carry, (h_out, obs, q_final, q_data) = halo3_step(model, carry, tokens, sk)
@@ -139,50 +131,71 @@ def main() -> None:
             time.sleep(tick_interval)
             continue
 
-        # 3. Interpret
-        result = interpreter.interpret(carry.kuramoto.theta, texts, current_query)
-        r_mean = result["r_mean"]
-        mode = result["mode"]
-        finding = result["finding"]
-        current_query = result["next_query"]
+        # 3. MEASURE (extract physics outputs)
+        r = order_parameter(carry.kuramoto.theta)
+        r_mean = float(jnp.mean(r))
 
-        # 4. Store episode
+        # Free energy proxy: reconstruction error
+        fe = float(jnp.mean((q_final - q_data) ** 2))
+        fe_delta = (fe - prev_fe) if prev_fe is not None else 0.0
+        prev_fe = fe
+
+        # 4. FEEL (the psyche)
+        psyche_output = organism.tick(r_mean, fe_delta, texts, current_query)
+        emotion = psyche_output["emotion"]
+        finding = psyche_output["finding"]
+        current_query = psyche_output["next_query"]
+
+        # 5. REMEMBER
         query_embed = perception.embed_query(current_query)
         episode = Episode(
             query=current_query,
             order_param=r_mean,
-            mode=mode,
+            mode=emotion,  # emotion IS the mode now
             finding=finding,
             query_embed=query_embed,
+            free_energy_delta=fe_delta,
         )
         memory.add(episode)
 
-        # 5. Log
+        # 6. EXPRESS (log the lived experience)
         r_bar = "█" * int(r_mean * 20) + "░" * (20 - int(r_mean * 20))
         log.info(
-            f"Tick {tick:4d} | r=[{r_bar}] {r_mean:.3f} | {mode:7s} | "
-            f"q=\"{current_query[:50]}\""
+            f"Tick {tick:4d} | r=[{r_bar}] {r_mean:.3f} | "
+            f"{psyche_output['log_line']}"
+        )
+        log.info(
+            f"         | q=\"{current_query[:55]}\" | FE_Δ={fe_delta:+.4f}"
         )
         if finding:
-            log.info(f"  → FINDING: {finding[:100]}")
-
-        # 6. Timing
-        elapsed = time.time() - tick_start
-        sleep_time = max(0.0, tick_interval - elapsed)
-        if elapsed > 1.5 * tick_interval:
-            log.warning(f"Tick overrun: {elapsed:.1f}s")
+            log.info(f"         → DISCOVERY: {finding[:90]}")
 
         # 7. Status every 10 ticks
         if tick % 10 == 0:
-            n_findings = len(memory.get_findings())
-            n_total = memory.count()
-            log.info(f"  Status: {n_total} episodes, {n_findings} findings")
+            log.info(f"  ◆ {organism.status()}")
+            log.info(f"  ◆ Episodes: {memory.count()} | Findings: {len(memory.get_findings())}")
 
+        # 8. DREAM (when the body needs it)
+        if psyche_output["needs_dream"]:
+            log.info("  ☽ Entering dream state...")
+            # TODO: actual nightly training would go here
+            organism.dream()
+            log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
+
+        # 9. SLEEP (the body rests between ticks)
+        elapsed = time.time() - tick_start
+        sleep_time = max(0.0, tick_interval - elapsed)
+        if elapsed > 1.5 * tick_interval:
+            log.warning(f"Tick overrun: {elapsed:.1f}s (interval={tick_interval:.0f}s)")
         time.sleep(sleep_time)
 
-    # Shutdown
+    # --- Shutdown ---
     memory.flush()
-    log.info(f"Shutdown after {tick} ticks. {memory.count()} episodes stored.")
+    organism.self_model.save()
+    log.info(f"Organism resting after {tick} ticks.")
+    log.info(f"Final identity: {organism.self_model.identity_statement}")
+    log.info(f"Narrative: {len(organism.self_model.narrative)} entries")
+    log.info(f"Episodes stored: {memory.count()}")
 
 
 if __name__ == "__main__":
