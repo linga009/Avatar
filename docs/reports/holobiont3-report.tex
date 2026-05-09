@@ -348,25 +348,39 @@ Checkpoint size & 1.8 GB \\
 % ═══════════════════════════════════════════════════
 \section{Live Deployment}
 
-HoloBiont~3.0 was deployed as a persistent research organism running 24/7 on GPU via Docker. This validates the holographic flow matching approach~\cite{chen2026holographic}. The perception pipeline uses sentence-transformers (\texttt{all-MiniLM-L6-v2}) for text embedding and DuckDuckGo for web search. The organism monitors six configurable research topics, with behavior driven entirely by the psyche layer.
+HoloBiont~3.0 was deployed as a persistent research organism running 24/7 on GPU via Docker. This validates the holographic approach~\cite{chen2026holographic}. The perception pipeline uses sentence-transformers (\texttt{all-MiniLM-L6-v2}) for text embedding and DuckDuckGo for web search.
 
-Early ticks from the live organism show the expected developmental trajectory: the newly-born organism begins in a state of \emph{boredom} (low $r$, low surprise), transitions to \emph{anxiety} when it encounters unfamiliar web content (high surprise, low confidence), and gradually develops \emph{curiosity} as it finds topics at the edge of synchronization. Over time, the organism builds competence, develops personality traits, and articulates its own identity.
+\subsection{Prefrontal Cortex}
+
+A critical addition to the deployed organism is a \textbf{prefrontal cortex}---Qwen3~1.7B running on CPU via Ollama---that provides cognitive interpretation alongside the limbic system's (Kuramoto) felt experience. This mirrors the biological brain: the limbic system provides drives and emotions; the prefrontal cortex provides planning and reasoning. The LLM advises but does not override the organism's emotional state.
+
+Three cognitive functions are provided:
+
+\textbf{Query generation} (\texttt{/no\_think} mode, $\sim$5s): Given the organism's current emotion, synchronization level $r$, recent findings, and self-assessed strengths, the LLM generates an intelligent search query. When the organism feels \emph{bored}, the LLM suggests novel cross-disciplinary topics. When \emph{anxious}, it retreats to familiar ground.
+
+\textbf{Finding interpretation} (\texttt{/no\_think} mode, $\sim$10s): When $r > 0.6$ (pattern detected), the LLM interprets what the organism has discovered in scientific terms, producing a concise 1--2 sentence finding.
+
+\textbf{Self-reflection} (\texttt{/think} mode, $\sim$20s): Every 10 ticks, the LLM engages in deliberate first-person reflection on the organism's identity, emotional patterns, and future direction. This narrative is appended to the autobiographical memory.
+
+\subsection{Deployment Results}
+
+The organism monitors six configurable research topics. Without the prefrontal cortex, the organism rotated mechanically through a topic list. With the PFC, it generates contextual cross-disciplinary queries:
 
 \begin{table}[H]
 \centering
-\caption{First ticks of the live organism.}
+\caption{First ticks: without vs with prefrontal cortex.}
 \footnotesize
-\begin{tabular}{cccl}
+\begin{tabular}{clp{4.5cm}}
 \toprule
-Tick & $r$ & Emotion & Query \\
+& \textbf{Without PFC} & \textbf{With PFC} \\
 \midrule
-1 & 0.206 & Boredom & AI research breakthroughs \\
-2 & 0.169 & Anxiety & Quantum error correction \\
-3 & 0.191 & Anxiety & AdS/CFT holography \\
-4 & 0.163 & Boredom & Autonomous agents \\
+Tick 1 & AI breakthroughs & ``2026 AI research: quantum machine learning and ethical frameworks'' \\
+Tick 2 & Quantum error correction & ``quantum ML ethical frameworks 2026 research'' \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+The PFC-generated queries are contextual, cross-disciplinary, and responsive to the organism's emotional state---a qualitative shift from topic rotation to genuine cognitive search.
 
 % ═══════════════════════════════════════════════════
 \section{Applications}
