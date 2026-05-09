@@ -6,20 +6,20 @@ from dataclasses import dataclass
 class Halo3Config:
     """Immutable configuration for HoloBiont 3.0 Physics Engine."""
 
-    # Backbone
-    d_model: int = 2048
-    d_boundary: int = 64
-    n_heads: int = 16
+    # Backbone — scaled for 5 GB VRAM (GTX 1660 Ti)
+    d_model: int = 16384
+    d_boundary: int = 128
+    n_heads: int = 128
     d_head: int = 128
-    n_layers: int = 24
-    d_state: int = 64
+    n_layers: int = 96
+    d_state: int = 512
     layer_pattern: str = "SSSSSH"
     n_shared_attn: int = 2
     lora_rank: int = 16
     reversible: bool = True
 
     # MERA-FFN
-    mera_bond_dim: int = 64
+    mera_bond_dim: int = 256
     mera_n_cores: int = 4
 
     # Lorentz
@@ -31,8 +31,8 @@ class Halo3Config:
     lambda_energy: float = 0.1
 
     # Kuramoto
-    n_clusters: int = 32
-    n_hidden: int = 16
+    n_clusters: int = 128
+    n_hidden: int = 32
     kuramoto_dt: float = 0.1
     init_coupling: float = 1.0
     lambda_sync: float = 0.01
