@@ -4,11 +4,11 @@ from halo3.config import Halo3Config
 
 def test_default_instantiation():
     cfg = Halo3Config()
-    assert cfg.d_model == 16384
-    assert cfg.n_layers == 96
-    assert cfg.n_clusters == 128
-    assert cfg.mera_bond_dim == 256
-    assert cfg.d_state == 512
+    assert cfg.d_model == 4096
+    assert cfg.n_layers == 48
+    assert cfg.n_clusters == 64
+    assert cfg.mera_bond_dim == 128
+    assert cfg.d_state == 256
     assert cfg.kuramoto_dt == 0.1
 
 def test_frozen():
