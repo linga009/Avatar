@@ -83,7 +83,14 @@ def halo3_step(model: Halo3Model, carry: Halo3Carry, tokens: jnp.ndarray, key: j
 
     # Observations from backbone -> drive Kuramoto
     obs = model.obs_bridge(h_out)                              # (K, n_obs)
-    new_kuramoto = kuramoto_step(carry.kuramoto, obs, cfg)
+
+    # Bohmian pilot wave: momentum field from Hamiltonian guides the swarm
+    # p_final is the evolved momentum (∇S of the wave function)
+    # Project from (n_tokens, d_boundary) to (K, n_hidden) via assignment
+    assignment = jax.nn.softmax(model.obs_bridge.assignment_logits, axis=-1)  # (K, n_tokens)
+    pilot_wave = assignment @ p_final                          # (K, d_boundary)
+
+    new_kuramoto = kuramoto_step(carry.kuramoto, obs, cfg, pilot_wave=pilot_wave)
 
     new_carry = Halo3Carry(
         kuramoto=new_kuramoto,
