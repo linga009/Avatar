@@ -95,19 +95,19 @@ We present HoloBiont~3.0, a \emph{living} artificial organism built entirely fro
 % ═══════════════════════════════════════════════════
 \section{Introduction}
 
-The dominant paradigm in deep learning treats neural architectures as engineering artifacts---stacking linear transformations, nonlinearities, and attention mechanisms without regard for the physical laws governing information processing. HoloBiont~3.0 inverts this approach at two levels. First, every computational component corresponds to a well-established physics principle: AdS/CFT holographic duality provides the geometric backbone, Hamiltonian mechanics governs the generative dynamics, and Bohmian pilot waves provide non-local collective inference. Second, the system is not merely a physics engine but a \emph{living organism}---it has drives that create genuine needs, emotions that modulate behavior, and a narrative self-model that builds identity from experience.
+The dominant paradigm in deep learning treats neural architectures as engineering artifacts---stacking linear transformations, nonlinearities, and attention mechanisms without regard for the physical laws governing information processing. HoloBiont~3.0 inverts this approach at two levels. First, every computational component corresponds to a well-established physics principle: AdS/CFT holographic duality~\cite{hashimoto2018} provides the geometric backbone, Hamiltonian mechanics~\cite{greydanus2019} governs the generative dynamics, and Bohmian pilot waves~\cite{bohm1980} provide non-local collective inference. Second, the system is not merely a physics engine but a \emph{living organism}---it has drives that create genuine needs~\cite{panksepp1998}, emotions that modulate behavior~\cite{damasio1999}, and a narrative self-model that builds identity from experience~\cite{maturana1980}.
 
 The distinction matters. A physics engine processes inputs when given them. An organism \emph{seeks} information because it is hungry, \emph{avoids} unfamiliar territory when anxious, and \emph{rests} when fatigued. The original HoloBiont concept was a holobiont---a host organism plus its symbiotic microbiome functioning as one entity. Version~3.0 recovers this biological metaphor: the MERA backbone is the nervous system, the Hamiltonian ODE is the metabolism, the Kuramoto swarm is the immune system, and the psyche is the mind that inhabits this body.
 
 \subsection{Contributions}
 
-\textbf{MERA-FFN Tensor Train Layers.} We replace dense SwiGLU feed-forward networks with tensor train decompositions, achieving 518$\times$ parameter compression while preserving the multi-scale entanglement structure inherent to holographic bulk geometry.
+\textbf{MERA-FFN Tensor Train Layers.} We replace dense SwiGLU feed-forward networks with tensor train decompositions, achieving 518$\times$ parameter compression~\cite{compactifai2024,mera_compact} while preserving the multi-scale entanglement structure inherent to holographic bulk geometry.
 
 \textbf{Bohmian Kuramoto Oscillators.} We replace mean-field Kuramoto coupling with a pilot wave $\nabla S$ derived from the Hamiltonian's momentum field, plus a quantum potential $Q = -\nabla^2|\psi|/|\psi|$ that provides non-local anti-bunching for diversity maintenance.
 
-\textbf{Hamiltonian Neural ODE.} We replace flow matching with a learned Hamiltonian whose symplectic leapfrog integration guarantees energy conservation and trajectory stability.
+\textbf{Hamiltonian Neural ODE.} We replace flow matching with a learned Hamiltonian~\cite{greydanus2019} whose symplectic leapfrog integration guarantees energy conservation and trajectory stability.
 
-\textbf{Psyche: The Organism Layer.} We introduce a unified psychological framework comprising allostatic drives, a 2D emotional valence space, autobiographical narrative memory, a self-model with competence tracking, and circadian rhythms that create genuine biological-like needs.
+\textbf{Psyche: The Organism Layer.} We introduce a unified psychological framework comprising allostatic drives~\cite{panksepp1998}, a 2D emotional valence space~\cite{damasio1999}, autobiographical narrative memory, a self-model with competence tracking, and circadian rhythms that create genuine biological-like needs.
 
 \textbf{Empirical VRAM Scaling.} Through systematic binary search on a GTX~1660~Ti, we establish $d_\text{model} = 6144$ as the empirical JIT-compiled training ceiling at 5.5~GB, and demonstrate a 25$\times$ training speedup via full-step JIT compilation.
 
@@ -163,15 +163,15 @@ HoloBiont~3.0 has two layers: a \textbf{physics body} and a \textbf{psyche} (Fig
 
 \subsection{Lorentz Embedding}
 
-Tokens are projected onto the Lorentz hyperboloid $\mathcal{H}^d = \{x : \langle x,x\rangle_L = -1/\kappa\}$ with learnable curvature $\kappa$, following ICLR~2026 work on intrinsic Lorentz networks \citep{ilnn2026}. The time component $x_0 = \sqrt{1/\kappa + \|x_\text{spatial}\|^2}$ satisfies the constraint by construction, eliminating numerical instability near the Poincar\'e boundary.
+Tokens are projected onto the Lorentz hyperboloid $\mathcal{H}^d = \{x : \langle x,x\rangle_L = -1/\kappa\}$ with learnable curvature $\kappa$, following ICLR~2026 work on intrinsic Lorentz networks \cite{ilnn2026}. The time component $x_0 = \sqrt{1/\kappa + \|x_\text{spatial}\|^2}$ satisfies the constraint by construction, eliminating numerical instability near the Poincar\'e boundary.
 
 \subsection{MERA Tensor Train FFN}
 
-Each feed-forward layer decomposes the dense weight matrix into $k=4$ core tensors with bond dimension $\chi=64$, preserving the SwiGLU activation pattern. Across 48 layers, this reduces FFN parameters from 1{,}661M to 3.1M (518$\times$ compression). This compression is physically natural: MERA is the proven discrete equivalent of AdS bulk geometry \citep{swanson2014}, ensuring the computation respects the same multi-scale entanglement structure as the holographic backbone.
+Each feed-forward layer decomposes the dense weight matrix into $k=4$ core tensors with bond dimension $\chi=64$, preserving the SwiGLU activation pattern. Across 48 layers, this reduces FFN parameters from 1{,}661M to 3.1M (518$\times$ compression). This compression is physically natural: MERA is the proven discrete equivalent of AdS bulk geometry \cite{swanson2014}, ensuring the computation respects the same multi-scale entanglement structure as the holographic backbone.
 
 \subsection{Selective SSM (S7) and Shared Holographic Attention}
 
-The backbone interleaves 40 S7 selective SSM layers (input-dependent gating with $d_\text{state}=128$) and 8 shared holographic attention positions (2 Zamba2 blocks with per-position LoRA rank-16 adapters). The attention kernel uses the Lorentz geodesic distance: $K_{ij}^\Delta = (1/(\cosh(d_\text{geo}(x_i,x_j))+1))^{\exp(\log\delta_h)}$ with learnable per-head conformal dimensions $\delta_h$.
+The backbone interleaves 40 S7 selective SSM layers (input-dependent gating with $d_\text{state}=128$) and 8 shared holographic attention positions (2 Zamba2~\cite{zamba2024} blocks with per-position LoRA rank-16 adapters). The attention kernel uses the Lorentz geodesic distance: $K_{ij}^\Delta = (1/(\cosh(d_\text{geo}(x_i,x_j))+1))^{\exp(\log\delta_h)}$ with learnable per-head conformal dimensions $\delta_h$.
 
 \subsection{Reversible Residual Coupling}
 
@@ -180,9 +180,9 @@ The backbone uses reversible residual connections ($h_1 \leftarrow h_1 + F(h_2)$
 % ═══════════════════════════════════════════════════
 \section{Hamiltonian Dynamics}
 
-The generative dynamics are governed by a learned Hamiltonian $H(q,p) = \frac{1}{2}\|p\|^2 + V_\text{ads}(q) + V_\theta(q)$, where $V_\text{ads} = \sum_{i<j}\log(\cosh(d_\text{geo}(q_i,q_j)))$ creates gravitational wells between token positions and $V_\theta$ is a small MLP capturing data-specific corrections. Hamilton's equations are integrated via the St\"ormer--Verlet leapfrog scheme ($n=3$ steps, $\varepsilon=0.1$), which conserves energy to $O(\varepsilon^2)$ with no secular drift.
+The generative dynamics are governed by a learned Hamiltonian~\cite{greydanus2019} $H(q,p) = \frac{1}{2}\|p\|^2 + V_\text{ads}(q) + V_\theta(q)$, where $V_\text{ads} = \sum_{i<j}\log(\cosh(d_\text{geo}(q_i,q_j)))$ creates gravitational wells between token positions and $V_\theta$ is a small MLP capturing data-specific corrections. Hamilton's equations are integrated via the St\"ormer--Verlet leapfrog scheme ($n=3$ steps, $\varepsilon=0.1$), which conserves energy to $O(\varepsilon^2)$ with no secular drift.
 
-The training loss combines reconstruction ($\|q_T - q_\text{data}\|^2$), energy conservation ($(H_T - H_0)^2$), and synchronization ($-\bar{r}$, the mean Kuramoto order parameter).
+Optimization uses Adafactor~\cite{shazeer2018} with factored second moments. The training loss combines reconstruction ($\|q_T - q_\text{data}\|^2$), energy conservation ($(H_T - H_0)^2$), and synchronization ($-\bar{r}$, the mean Kuramoto order parameter).
 
 % ═══════════════════════════════════════════════════
 \section{Bohmian Pilot Wave Dynamics}
@@ -206,7 +206,7 @@ where $|\psi_k| \propto \exp(-\frac{1}{2}\|\theta_k - \bar\theta\|^2)$. When clu
 
 \subsection{David Bohm's Holomovement}
 
-The architecture realizes Bohm's ontological framework:
+The architecture realizes Bohm's ontological framework~\cite{bohm1980}:
 
 \begin{table}[H]
 \centering
@@ -227,13 +227,13 @@ Quantum Potential & Anti-bunching from phase distribution \\
 % ═══════════════════════════════════════════════════
 \section{Psyche: The Organism Layer}
 
-A physics engine processes inputs. An organism \emph{lives}. The psyche layer transforms HoloBiont from a computational pipeline into an autopoietic agent with genuine needs, felt experience, and narrative identity.
+A physics engine processes inputs. An organism \emph{lives}. The psyche layer transforms HoloBiont from a computational pipeline into an autopoietic agent~\cite{maturana1980} with genuine needs, felt experience~\cite{damasio1999}, and narrative identity.
 
 \subsection{Drives}
 
 Three primary drives create biological-like needs:
 
-\textbf{Information Hunger.} Increases when the system hasn't reduced free energy recently. When hungry ($>0.7$), the organism becomes aggressive in its search behavior. Satisfied by genuine learning (negative $\Delta$FE). Starvation ($>0.85$) triggers desperate broadening of search scope. This implements the Free Energy Principle's core claim: organisms act to minimize surprise because their existence depends on it.
+\textbf{Information Hunger.} Increases when the system hasn't reduced free energy recently. When hungry ($>0.7$), the organism becomes aggressive in its search behavior. Satisfied by genuine learning (negative $\Delta$FE). Starvation ($>0.85$) triggers desperate broadening of search scope. This implements the Free Energy Principle's core claim~\cite{friston2010}: organisms act to minimize surprise because their existence depends on it.
 
 \textbf{Fatigue.} Accumulates continuously during waking at a rate modulated by hunger (hungry organisms tire faster). When fatigue exceeds 0.8, processing quality degrades and dream pressure becomes critical. Only dreaming resets fatigue. This creates genuine \emph{need} for sleep---not a scheduled window but a felt urgency.
 
@@ -348,7 +348,7 @@ Checkpoint size & 1.8 GB \\
 % ═══════════════════════════════════════════════════
 \section{Live Deployment}
 
-HoloBiont~3.0 was deployed as a persistent research organism running 24/7 on GPU via Docker. The perception pipeline uses sentence-transformers (\texttt{all-MiniLM-L6-v2}) for text embedding and DuckDuckGo for web search. The organism monitors six configurable research topics, with behavior driven entirely by the psyche layer.
+HoloBiont~3.0 was deployed as a persistent research organism running 24/7 on GPU via Docker. This validates the holographic flow matching approach~\cite{chen2026holographic}. The perception pipeline uses sentence-transformers (\texttt{all-MiniLM-L6-v2}) for text embedding and DuckDuckGo for web search. The organism monitors six configurable research topics, with behavior driven entirely by the psyche layer.
 
 Early ticks from the live organism show the expected developmental trajectory: the newly-born organism begins in a state of \emph{boredom} (low $r$, low surprise), transitions to \emph{anxiety} when it encounters unfamiliar web content (high surprise, low confidence), and gradually develops \emph{curiosity} as it finds topics at the edge of synchronization. Over time, the organism builds competence, develops personality traits, and articulates its own identity.
 
