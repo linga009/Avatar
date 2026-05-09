@@ -180,9 +180,9 @@ class Organism:
 
         if reflection:
             self.self_model.narrative.append(
-                f"[Tick {self.self_model.age}] Dream reflection: {reflection}"
+                f"[Tick {self.self_model.age}] Dream narrative (LLM): {reflection}"
             )
-            log.info(f"Dream reflection: {reflection}")
+            log.info(f"Dream narrative (LLM-generated): {reflection}")
         else:
             self.self_model.narrative.append(
                 f"[Tick {self.self_model.age}] Dreamed. "
@@ -214,5 +214,5 @@ class Organism:
                 self.self_model.narrative.append(
                     f"[Tick {self.self_model.age}] Reflection: {reflection}"
                 )
-                log.info(f"  🧠 Reflection: {reflection}")
+                log.info(f"  📋 Self-narrative (LLM-generated, not sentient): {reflection}")
         return base
