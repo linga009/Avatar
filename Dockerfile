@@ -12,11 +12,14 @@ WORKDIR /app
 RUN pip3 install --no-cache-dir --break-system-packages "jax[cuda12]>=0.4.35"
 RUN pip3 install --no-cache-dir --break-system-packages \
     equinox>=0.11.0 optax>=0.2.2 diffrax>=0.5.0 chex>=0.1.86
-RUN pip3 install --no-cache-dir --break-system-packages numpy>=1.24 einops>=0.7.0
+RUN pip3 install --no-cache-dir --break-system-packages \
+    numpy>=1.24 einops>=0.7.0 pyyaml
+RUN pip3 install --no-cache-dir --break-system-packages \
+    sentence-transformers duckduckgo-search
 
 COPY halo3/ /app/halo3/
 COPY train_halo3.py /app/train_halo3.py
 
 RUN mkdir -p /app/data/checkpoints /app/data/episodes
 
-CMD ["python3", "train_halo3.py"]
+CMD ["python3", "-m", "halo3.main"]

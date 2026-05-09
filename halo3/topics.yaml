@@ -1,0 +1,11 @@
+seed_topics:
+  - "artificial intelligence research breakthroughs 2026"
+  - "quantum computing error correction advances"
+  - "tensor networks machine learning applications"
+  - "AdS CFT holography neural networks"
+  - "autonomous AI agents research"
+  - "physics-informed neural networks"
+max_results_per_query: 5
+tick_interval: 60
+r_exploit_threshold: 0.6
+r_explore_threshold: 0.4
