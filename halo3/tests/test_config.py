@@ -4,7 +4,7 @@ from halo3.config import Halo3Config
 
 def test_default_instantiation():
     cfg = Halo3Config()
-    assert cfg.d_model == 7168
+    assert cfg.d_model == 6144
     assert cfg.n_layers == 48
     assert cfg.n_clusters == 32
     assert cfg.mera_bond_dim == 64
