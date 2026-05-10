@@ -83,12 +83,16 @@ def main() -> None:
     from halo3.memory.episode_store import EpisodeStore
     from halo3.psyche.organism import Organism
 
+    from halo3.predictive import PredictiveProcessor
+
     perception = PerceptionPipeline(cfg.d_model, cfg.n_tokens)
     memory = EpisodeStore()
     organism = Organism(seed_topics)
+    predictor = PredictiveProcessor(lr=1e-5)
 
     log.info(f"Organism awakening. {organism.self_model.identity_statement}")
     log.info(f"Watching: {seed_topics}")
+    log.info(f"Predictive processing: ON — body learns every tick")
     log.info("-" * 60)
 
     # --- Signals ---
@@ -122,8 +126,14 @@ def main() -> None:
             tokens = jnp.zeros((cfg.n_tokens, cfg.d_model))
             texts = []
 
-        # 2. PHYSICS (the body)
-        key, sk = jax.random.split(key)
+        # 2. PREDICT (before perceiving — the organism anticipates)
+        key, sk, pk = jax.random.split(key, 3)
+        try:
+            q_predicted = predictor.predict(model, carry, pk)
+        except Exception:
+            q_predicted = None
+
+        # 3. PHYSICS (the body processes actual input)
         try:
             carry, (h_out, obs, q_final, q_data) = halo3_step(model, carry, tokens, sk)
         except Exception as e:
@@ -131,17 +141,32 @@ def main() -> None:
             time.sleep(tick_interval)
             continue
 
-        # 3. MEASURE (extract physics outputs)
+        # 4. PREDICTION ERROR (how surprised was the body?)
+        if q_predicted is not None:
+            epsilon, pred_error = predictor.compute_prediction_error(q_predicted, q_data)
+        else:
+            pred_error = 0.0
+
+        # 5. LEARN (the body adapts — weights change every tick)
+        key, lk = jax.random.split(key)
+        try:
+            model, pred_loss = predictor.learn_from_error(model, carry, tokens, q_data, lk)
+        except Exception as e:
+            pred_loss = 0.0
+
+        # 6. MEASURE (extract physics outputs)
         r = order_parameter(carry.kuramoto.theta)
         r_mean = float(jnp.mean(r))
 
-        # Free energy proxy: reconstruction error
+        # Free energy proxy: reconstruction error + prediction error
         fe = float(jnp.mean((q_final - q_data) ** 2))
         fe_delta = (fe - prev_fe) if prev_fe is not None else 0.0
         prev_fe = fe
 
-        # 4. FEEL (the psyche)
-        psyche_output = organism.tick(r_mean, fe_delta, texts, current_query)
+        # 7. FEEL (the psyche — now informed by prediction error too)
+        # Combine FE delta with prediction error for richer surprise signal
+        combined_surprise = fe_delta + pred_error * 0.001  # scale pred_error
+        psyche_output = organism.tick(r_mean, combined_surprise, texts, current_query)
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
@@ -164,8 +189,9 @@ def main() -> None:
             f"Tick {tick:4d} | r=[{r_bar}] {r_mean:.3f} | "
             f"{psyche_output['log_line']}"
         )
+        improving = "↑" if predictor.is_improving else "→"
         log.info(
-            f"         | q=\"{current_query[:55]}\" | FE_Δ={fe_delta:+.4f}"
+            f"         | q=\"{current_query[:45]}\" | FE_Δ={fe_delta:+.2e} | ε={pred_error:.2e}{improving}"
         )
         if finding:
             log.info(f"         → DISCOVERY: {finding[:90]}")
@@ -177,9 +203,23 @@ def main() -> None:
 
         # 8. DREAM (when the body needs it)
         if psyche_output["needs_dream"]:
-            log.info("  ☽ Entering dream state — fine-tuning prefrontal cortex...")
+            log.info("  ☽ Entering dream state...")
+
+            # Phase 1: Dream replay — the physics body learns
+            log.info("  ☽ Phase 1: Body dreaming (replay + recombine + imagine)...")
+            try:
+                from halo3.training.dream_replay import dream_replay_physics
+                episodes_for_dream = memory.get_high_confidence(threshold=0.0)
+                model, dream_info = dream_replay_physics(model, episodes_for_dream)
+                log.info(f"  ☽ Body dream: {dream_info}")
+            except Exception as e:
+                log.warning(f"  ☽ Body dream failed: {e}")
+
+            # Phase 2: PFC fine-tuning — the mind learns
+            log.info("  ☽ Phase 2: Mind dreaming (PFC LoRA fine-tune)...")
             organism.dream(memory=memory)
             log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
+            log.info(f"  ☽ Prediction accuracy: {predictor.recent_prediction_accuracy:.4f}")
 
         # 9. SLEEP (the body rests between ticks)
         elapsed = time.time() - tick_start
