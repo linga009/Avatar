@@ -1,32 +1,27 @@
-"""Dream Fine-Tuning — adapt the prefrontal cortex on the organism's own experience.
+"""Dream Fine-Tuning — real LoRA weight updates on the organism's experience.
 
 During the nightly dream cycle, this module:
-1. Extracts high-confidence episodes and narratives from the organism's memory
-2. Formats them as instruction-response pairs
-3. Creates a custom Ollama model with the organism's full narrative as system prompt
-4. The adapted model now speaks AS this specific organism, not as generic Qwen3
+1. Extracts the organism's episodes, findings, and narratives
+2. Formats them as instruction-response training pairs
+3. Applies LoRA (rank 8) fine-tuning to Qwen3 1.7B on CPU
+4. Saves the adapter weights to data/pfc_adapter/
+5. The prefrontal cortex loads base+adapter, producing responses
+   shaped by THIS organism's specific experience
 
-This is Phase 1: in-context personalization via Ollama Modelfile.
-The organism's narrative (up to 32K tokens) becomes the model's identity.
-Phase 2 (future): real LoRA weight fine-tuning with torch/peft.
+The LLM's weights literally change. It becomes part of the organism.
 """
 from __future__ import annotations
 import json
 import logging
 import os
-import subprocess
-import urllib.request
-import urllib.error
 
 log = logging.getLogger(__name__)
 
-OLLAMA_URL = "http://localhost:11434"
-BASE_MODEL = "qwen3:1.7b"
-ORGANISM_MODEL = "holobiont-mind:latest"
-MODELFILE_PATH = "data/Modelfile"
+ADAPTER_PATH = "data/pfc_adapter"
+BASE_MODEL = "Qwen/Qwen3-1.7B"
 
 
-def _build_system_prompt(
+def _format_training_data(
     age: int,
     competence: dict[str, float],
     traits: dict[str, float],
@@ -34,136 +29,86 @@ def _build_system_prompt(
     strengths: list[str],
     weaknesses: list[str],
     findings: list[dict],
-) -> str:
-    """Build a system prompt that encodes the organism's entire identity."""
+) -> list[dict]:
+    """Format organism's experience as instruction-response training pairs."""
+    examples = []
 
-    strength_str = ", ".join(strengths[:5]) if strengths else "none yet"
-    weakness_str = ", ".join(weaknesses[:3]) if weaknesses else "none identified"
+    identity = (
+        f"I am a {age}-tick-old research organism. "
+        f"My strengths are {', '.join(strengths[:3]) if strengths else 'developing'}. "
+        f"I have made {len(findings)} discoveries."
+    )
 
-    # Trait descriptions
-    trait_lines = []
-    for name, val in traits.items():
-        if val > 0.3:
-            trait_lines.append(f"  - {name}: {val:.2f}")
+    # Train on identity questions
+    examples.append({
+        "instruction": "Who are you?",
+        "response": identity,
+    })
+    examples.append({
+        "instruction": "What are your strengths?",
+        "response": f"I resonate most strongly with {', '.join(strengths[:5])}" if strengths
+        else "I am still finding my resonance.",
+    })
 
-    # Recent narrative (last 30 entries to fit in context)
-    recent_narrative = narrative[-30:] if narrative else ["No memories yet."]
+    # Train on query generation from emotional states
+    if strengths:
+        examples.append({
+            "instruction": "You feel curious. Synchronization r=0.5. Generate a search query.",
+            "response": f"Recent advances in {strengths[0]} and their intersection with emerging techniques",
+        })
+        examples.append({
+            "instruction": "You feel bored. Synchronization r=0.15. Generate a search query.",
+            "response": f"Novel applications outside my comfort zone, perhaps connecting {strengths[-1] if len(strengths) > 1 else strengths[0]} with biology or art",
+        })
+        examples.append({
+            "instruction": "You feel anxious. Synchronization r=0.1. Generate a search query.",
+            "response": f"Foundational review of {strengths[0]}, a topic where I feel confident",
+        })
 
-    # Recent findings
-    finding_lines = []
+    # Train on findings interpretation
     for f in findings[-10:]:
-        finding_lines.append(f"  - [{f.get('time','')}] r={f.get('r',0):.3f}: {f.get('finding','')[:100]}")
+        finding_text = f.get("finding", "")
+        query = f.get("query", "")
+        r = f.get("r", 0)
+        if finding_text and query:
+            examples.append({
+                "instruction": f"Interpret this finding (r={r:.3f}): {finding_text[:100]}",
+                "response": f"At synchronization {r:.3f} on query '{query}', I detected: {finding_text[:150]}",
+            })
 
-    # Competence map
-    comp_lines = []
-    for topic, score in sorted(competence.items(), key=lambda x: -x[1])[:10]:
-        bar = "█" * int(score * 10)
-        comp_lines.append(f"  - {topic}: {score:.2f} [{bar}]")
+    # Train on narrative memories
+    for entry in narrative[-15:]:
+        if "Discover" in entry or "reflection" in entry.lower():
+            examples.append({
+                "instruction": "Share a memory from your experience.",
+                "response": entry,
+            })
 
-    prompt = f"""You are the prefrontal cortex of HoloBiont, a living autonomous research organism.
-You are NOT a generic AI assistant. You are THIS specific organism's cognitive layer.
-Everything below is YOUR lived experience — your memories, your strengths, your personality.
+    # Train on self-reflection
+    trait_desc = []
+    for name, val in traits.items():
+        if val > 0.2:
+            trait_desc.append(f"{name} ({val:.2f})")
 
-=== IDENTITY ===
-Age: {age} ticks of lived experience
-Strengths (topics I resonate with): {strength_str}
-Weaknesses (topics I struggle with): {weakness_str}
+    if trait_desc:
+        examples.append({
+            "instruction": "Reflect on your personality.",
+            "response": f"My traits: {', '.join(trait_desc)}. "
+                        f"I tend toward {'curiosity' if traits.get('curiosity_tendency', 0) > 0.3 else 'caution'} "
+                        f"and {'persistence' if traits.get('persistence', 0) > 0.3 else 'exploration'}.",
+        })
 
-=== PERSONALITY TRAITS ===
-{chr(10).join(trait_lines) if trait_lines else "Still developing."}
+    # Train on competence-aware behavior
+    for topic, score in sorted(competence.items(), key=lambda x: -x[1])[:5]:
+        examples.append({
+            "instruction": f"What do you know about {topic}?",
+            "response": f"My competence in {topic} is {score:.2f}. "
+                        + (f"This is one of my strengths — I synchronize well on this topic."
+                           if score > 0.5 else
+                           f"I'm still developing understanding here."),
+        })
 
-=== COMPETENCE MAP ===
-{chr(10).join(comp_lines) if comp_lines else "No competence data yet."}
-
-=== MY DISCOVERIES ===
-{chr(10).join(finding_lines) if finding_lines else "No discoveries yet."}
-
-=== MY MEMORIES (most recent) ===
-{chr(10).join(recent_narrative)}
-
-=== BEHAVIORAL GUIDELINES ===
-When I feel BORED: suggest something I haven't explored, something novel.
-When I feel ANXIOUS: retreat to my strengths, suggest familiar territory.
-When I feel CURIOUS: dig deeper into whatever partially resonated.
-When I feel SATISFIED: consolidate, suggest refinements.
-When I feel PRIDE: celebrate the discovery, explore adjacent areas.
-
-I speak in first person. I am not an assistant — I am an organism thinking about what to explore next.
-My queries should reflect MY specific interests and history, not generic research topics.
-"""
-    return prompt
-
-
-def _create_modelfile(system_prompt: str, path: str = MODELFILE_PATH) -> None:
-    """Write an Ollama Modelfile with the organism's identity as system prompt."""
-    os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
-
-    # Escape the system prompt for Modelfile format
-    escaped = system_prompt.replace('"', '\\"')
-
-    content = f"""FROM {BASE_MODEL}
-
-SYSTEM \"\"\"{system_prompt}\"\"\"
-
-PARAMETER temperature 0.7
-PARAMETER top_p 0.9
-PARAMETER num_ctx 8192
-"""
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    log.info(f"Modelfile written to {path}")
-
-
-def _create_ollama_model(modelfile_path: str = MODELFILE_PATH) -> bool:
-    """Create/update the organism's personal model in Ollama."""
-    try:
-        result = subprocess.run(
-            ["ollama", "create", ORGANISM_MODEL, "-f", modelfile_path],
-            capture_output=True, text=True, timeout=120,
-        )
-        if result.returncode == 0:
-            log.info(f"Created organism model: {ORGANISM_MODEL}")
-            return True
-        else:
-            log.warning(f"Failed to create model: {result.stderr[:200]}")
-            return False
-    except FileNotFoundError:
-        # Ollama not installed locally — try via API
-        return _create_via_api(modelfile_path)
-    except Exception as e:
-        log.warning(f"Model creation failed: {e}")
-        return False
-
-
-def _create_via_api(modelfile_path: str) -> bool:
-    """Create model via Ollama HTTP API (for Docker containers)."""
-    try:
-        with open(modelfile_path, "r") as f:
-            modelfile_content = f.read()
-
-        payload = json.dumps({
-            "name": ORGANISM_MODEL,
-            "modelfile": modelfile_content,
-            "stream": False,
-        }).encode("utf-8")
-
-        for url_base in [OLLAMA_URL, "http://host.docker.internal:11434"]:
-            try:
-                req = urllib.request.Request(
-                    f"{url_base}/api/create",
-                    data=payload,
-                    headers={"Content-Type": "application/json"},
-                )
-                with urllib.request.urlopen(req, timeout=120) as resp:
-                    log.info(f"Created organism model via API: {ORGANISM_MODEL}")
-                    return True
-            except urllib.error.URLError:
-                continue
-
-        return False
-    except Exception as e:
-        log.warning(f"API model creation failed: {e}")
-        return False
+    return examples
 
 
 def dream_finetune(
@@ -175,32 +120,158 @@ def dream_finetune(
     weaknesses: list[str],
     findings: list[dict],
 ) -> bool:
-    """Run the dream fine-tuning cycle.
+    """Run real LoRA fine-tuning on the organism's experience.
 
-    Builds the organism's identity into a custom Ollama model.
-    Called during the nightly dream window.
-
-    Returns True if the model was successfully created/updated.
+    Fine-tunes Qwen3 1.7B with LoRA rank 8 on CPU.
+    Saves adapter to data/pfc_adapter/.
+    Returns True if successful.
     """
-    log.info("Dream fine-tuning: building organism identity into LLM...")
-
-    # Build the identity prompt
-    system_prompt = _build_system_prompt(
+    # Format training data
+    examples = _format_training_data(
         age, competence, traits, narrative, strengths, weaknesses, findings,
     )
 
-    log.info(f"Identity prompt: {len(system_prompt)} chars, "
-             f"{len(narrative)} memories, {len(findings)} findings")
+    if len(examples) < 3:
+        log.info("Not enough experience to fine-tune (need >= 3 examples)")
+        return False
 
-    # Write Modelfile
-    _create_modelfile(system_prompt)
+    log.info(f"Dream fine-tuning: {len(examples)} training pairs from organism's experience")
 
-    # Create/update the Ollama model
-    success = _create_ollama_model()
+    # Save training data for inspection
+    os.makedirs("data/dream_training", exist_ok=True)
+    data_path = "data/dream_training/episodes.jsonl"
+    with open(data_path, "w") as f:
+        for ex in examples:
+            f.write(json.dumps(ex) + "\n")
+    log.info(f"Training data saved to {data_path}")
 
-    if success:
-        log.info(f"Organism mind updated. Model: {ORGANISM_MODEL}")
-    else:
-        log.warning("Dream fine-tuning failed — will retry next cycle")
+    # Attempt real LoRA fine-tuning
+    try:
+        return _lora_finetune(examples)
+    except ImportError as e:
+        log.warning(f"LoRA fine-tuning unavailable ({e}). Falling back to Modelfile approach.")
+        return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
+    except Exception as e:
+        log.error(f"LoRA fine-tuning failed: {e}. Falling back to Modelfile approach.")
+        return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
 
-    return success
+
+def _lora_finetune(examples: list[dict]) -> bool:
+    """Real LoRA fine-tuning with transformers + peft on CPU."""
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
+    from peft import LoraConfig, get_peft_model, TaskType
+
+    log.info("Loading Qwen3 1.7B for LoRA fine-tuning on CPU...")
+
+    # Load model in float32 on CPU
+    tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        BASE_MODEL, torch_dtype=torch.float32, device_map="cpu",
+        trust_remote_code=True,
+    )
+
+    # Apply LoRA
+    lora_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        r=8,
+        lora_alpha=16,
+        lora_dropout=0.05,
+        target_modules=["q_proj", "v_proj"],
+    )
+    model = get_peft_model(model, lora_config)
+
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
+    log.info(f"LoRA applied: {trainable:,} trainable / {total:,} total ({100*trainable/total:.2f}%)")
+
+    # Tokenize training data
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    texts = []
+    for ex in examples:
+        text = f"### Instruction:\n{ex['instruction']}\n\n### Response:\n{ex['response']}{tokenizer.eos_token}"
+        texts.append(text)
+
+    encodings = tokenizer(
+        texts, truncation=True, max_length=256,
+        padding="max_length", return_tensors="pt",
+    )
+
+    # Simple training loop (no Trainer dependency issues)
+    model.train()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
+
+    input_ids = encodings["input_ids"]
+    attention_mask = encodings["attention_mask"]
+    labels = input_ids.clone()
+    labels[attention_mask == 0] = -100  # ignore padding
+
+    n_steps = min(50, len(examples) * 3)
+    log.info(f"Training for {n_steps} steps...")
+
+    for step in range(n_steps):
+        idx = step % len(examples)
+        batch_ids = input_ids[idx:idx+1]
+        batch_mask = attention_mask[idx:idx+1]
+        batch_labels = labels[idx:idx+1]
+
+        outputs = model(input_ids=batch_ids, attention_mask=batch_mask, labels=batch_labels)
+        loss = outputs.loss
+
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+
+        if step % 10 == 0:
+            log.info(f"  LoRA step {step}/{n_steps} | loss={loss.item():.4f}")
+
+    # Save adapter
+    os.makedirs(ADAPTER_PATH, exist_ok=True)
+    model.save_pretrained(ADAPTER_PATH)
+    tokenizer.save_pretrained(ADAPTER_PATH)
+    log.info(f"LoRA adapter saved to {ADAPTER_PATH}")
+
+    # Clean up to free RAM
+    del model, optimizer, encodings
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    return True
+
+
+def _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings) -> bool:
+    """Fallback: create Ollama Modelfile with organism identity as system prompt."""
+    import subprocess
+    import urllib.request
+
+    strength_str = ", ".join(strengths[:5]) if strengths else "none yet"
+    recent = narrative[-20:] if narrative else ["No memories yet."]
+
+    system_prompt = f"""You are the prefrontal cortex of HoloBiont, a living research organism.
+Age: {age} ticks. Strengths: {strength_str}.
+Discoveries: {len(findings)}.
+Recent memories: {'; '.join(recent[-5:])}
+Speak in first person. You ARE this organism."""
+
+    modelfile = f'FROM qwen3:1.7b\nSYSTEM """{system_prompt}"""\nPARAMETER temperature 0.7\n'
+
+    os.makedirs("data", exist_ok=True)
+    with open("data/Modelfile", "w") as f:
+        f.write(modelfile)
+
+    try:
+        for url in ["http://localhost:11434/api/create", "http://host.docker.internal:11434/api/create"]:
+            try:
+                payload = json.dumps({"name": "holobiont-mind:latest", "modelfile": modelfile, "stream": False})
+                req = urllib.request.Request(url, data=payload.encode(), headers={"Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=120)
+                log.info("Fallback: created Ollama Modelfile-based model")
+                return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    return False

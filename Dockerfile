@@ -16,6 +16,11 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     numpy>=1.24 einops>=0.7.0 pyyaml
 RUN pip3 install --no-cache-dir --break-system-packages \
     sentence-transformers duckduckgo-search
+# Prefrontal cortex: LoRA fine-tuning during dreaming
+RUN pip3 install --no-cache-dir --break-system-packages \
+    torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip3 install --no-cache-dir --break-system-packages \
+    transformers peft
 
 COPY halo3/ /app/halo3/
 COPY train_halo3.py /app/train_halo3.py
