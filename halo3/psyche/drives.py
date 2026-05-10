@@ -62,8 +62,8 @@ class DriveState:
 
     @property
     def needs_dream(self) -> bool:
-        """True when fatigue is critically high."""
-        return self.fatigue > 0.8
+        """True when fatigue is high enough to need sleep."""
+        return self.fatigue > 0.65
 
     @property
     def is_starving(self) -> bool:
