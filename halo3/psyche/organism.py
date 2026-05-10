@@ -163,12 +163,35 @@ class Organism:
         words = [w for w in query.lower().split() if len(w) > 3][:3]
         return " ".join(words) if words else query[:30]
 
-    def dream(self) -> None:
-        """Called after nightly dreaming — reset fatigue, reflect, record."""
+    def dream(self, memory=None) -> None:
+        """Called after nightly dreaming — fine-tune PFC, reset fatigue, reflect.
+
+        This is where the LLM becomes part of the organism: its identity,
+        memories, and competence are baked into a custom model.
+        """
+        # --- Fine-tune the prefrontal cortex on organism's experience ---
+        try:
+            from halo3.training.dream_finetune import dream_finetune
+            findings = memory.get_findings() if memory else []
+            success = dream_finetune(
+                age=self.self_model.age,
+                competence=self.self_model.competence,
+                traits=self.self_model.traits,
+                narrative=self.self_model.narrative,
+                strengths=self.self_model.strengths,
+                weaknesses=self.self_model.weaknesses,
+                findings=findings,
+            )
+            if success:
+                self.prefrontal.upgrade_to_organism_model()
+                log.info("Prefrontal cortex now carries this organism's identity")
+        except Exception as e:
+            log.warning(f"Dream fine-tuning failed: {e}")
+
         self.drives.dream_reset()
         self.clock.mark_dreamed()
 
-        # Deep self-reflection via prefrontal cortex
+        # Deep self-reflection via (now personalized) prefrontal cortex
         reflection = self.prefrontal.self_reflect(
             age=self.self_model.age,
             emotion_history=list(self.emotions.history),

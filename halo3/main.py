@@ -177,9 +177,8 @@ def main() -> None:
 
         # 8. DREAM (when the body needs it)
         if psyche_output["needs_dream"]:
-            log.info("  ☽ Entering dream state...")
-            # TODO: actual nightly training would go here
-            organism.dream()
+            log.info("  ☽ Entering dream state — fine-tuning prefrontal cortex...")
+            organism.dream(memory=memory)
             log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
 
         # 9. SLEEP (the body rests between ticks)

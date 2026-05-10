@@ -19,14 +19,15 @@ log = logging.getLogger(__name__)
 
 OLLAMA_URL = "http://host.docker.internal:11434/api/generate"
 OLLAMA_URL_LOCAL = "http://localhost:11434/api/generate"
-MODEL = "qwen3:1.7b"
+BASE_MODEL = "qwen3:1.7b"
+ORGANISM_MODEL = "holobiont-mind:latest"
 TIMEOUT = 30
 
 
-def _call_ollama(prompt: str, url: str = OLLAMA_URL) -> str | None:
+def _call_ollama(prompt: str, url: str = OLLAMA_URL, model: str = BASE_MODEL) -> str | None:
     """Call Ollama API. Returns response text or None on failure."""
     payload = json.dumps({
-        "model": MODEL,
+        "model": model,
         "prompt": prompt,
         "stream": False,
     }).encode("utf-8")
@@ -60,18 +61,34 @@ class PrefrontalCortex:
 
     def __init__(self) -> None:
         self._available: bool | None = None
+        self._model: str = BASE_MODEL  # switches to ORGANISM_MODEL after first dream
 
     @property
     def is_available(self) -> bool:
         """Check if Ollama is reachable (cached after first check)."""
         if self._available is None:
-            result = _call_ollama("/no_think Say OK")
+            result = _call_ollama("/no_think Say OK", model=self._model)
+            if result is None and self._model == ORGANISM_MODEL:
+                # Fall back to base model if organism model not yet created
+                result = _call_ollama("/no_think Say OK", model=BASE_MODEL)
+                if result is not None:
+                    self._model = BASE_MODEL
             self._available = result is not None
             if self._available:
-                log.info(f"Prefrontal cortex online ({MODEL} via Ollama)")
+                log.info(f"Prefrontal cortex online ({self._model} via Ollama)")
             else:
                 log.warning("Prefrontal cortex offline — Ollama not reachable")
         return self._available
+
+    def upgrade_to_organism_model(self) -> bool:
+        """Switch from base model to organism-specific model after dreaming."""
+        result = _call_ollama("/no_think Say OK", model=ORGANISM_MODEL)
+        if result is not None:
+            self._model = ORGANISM_MODEL
+            log.info(f"Prefrontal cortex upgraded to {ORGANISM_MODEL}")
+            return True
+        log.warning(f"Organism model {ORGANISM_MODEL} not available, keeping {self._model}")
+        return False
 
     def generate_query(
         self,
@@ -99,7 +116,7 @@ My strengths: {strength_str}
 
 Based on my emotional state and findings, generate ONE specific search query (just the query, nothing else) that would help me learn. If I'm bored, try something novel. If I'm anxious, retreat to familiar ground. If I'm curious, dig deeper."""
 
-        result = _call_ollama(prompt)
+        result = _call_ollama(prompt, model=self._model)
         if result:
             # Clean: take first line, strip quotes
             query = result.strip().split("\n")[0].strip('"\'')
@@ -128,7 +145,7 @@ Content that triggered synchronization: {context}
 
 In 1-2 sentences, explain what pattern or insight the organism has detected. Be specific and scientific."""
 
-        result = _call_ollama(prompt)
+        result = _call_ollama(prompt, model=self._model)
         if result:
             return result.strip()[:200]
         return None
@@ -165,7 +182,7 @@ Recent memories: {recent_narrative}
 
 Reflect deeply: Who am I becoming? What patterns do I notice in my emotional life? What should I focus on next? Respond in first person, 2-3 sentences."""
 
-        result = _call_ollama(prompt)
+        result = _call_ollama(prompt, model=self._model)
         if result:
             # Strip thinking tags if present
             clean = result.strip()
