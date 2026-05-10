@@ -162,15 +162,19 @@ Search query:"""
 
         result = self._generate(prompt, max_tokens=30)
         if result:
-            # Aggressive cleanup: strip all formatting artifacts
             query = result.strip()
-            # Remove common LLM artifacts
-            for prefix in ["**Query:**", "Query:", "**", "```", "/no_think", "/think"]:
-                query = query.replace(prefix, "")
-            # Take first line, strip quotes and whitespace
-            query = query.strip().split("\n")[0].strip('"\'*: ')
-            # If still empty or too short, return None (fallback to heuristic)
-            if len(query) < 5:
+            # Aggressive cleanup: strip ALL formatting and meta-text
+            for junk in ["**Query:**", "Query:", "**", "```", "/no_think", "/think",
+                          "Search query:", "search query:", "Here is", "Here's",
+                          "/seeking", "/search", "feelings of", "feeling"]:
+                query = query.replace(junk, "")
+            # Remove emotion/state words that leaked from prompt
+            for state_word in ["pride", "anxiety", "boredom", "satisfaction",
+                               "curiosity", "synchronization", "r=", "0."]:
+                if query.lower().startswith(state_word):
+                    query = query[len(state_word):]
+            query = query.strip().split("\n")[0].strip('"\'*:/ ')
+            if len(query) < 5 or query.startswith("/") or query.startswith("*"):
                 return None
             return query[:80]
         return None

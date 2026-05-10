@@ -34,7 +34,7 @@ class Halo3Config:
     n_clusters: int = 32
     n_hidden: int = 16
     kuramoto_dt: float = 0.1
-    init_coupling: float = 1.0
+    init_coupling: float = 0.3
     lambda_sync: float = 0.01
 
     # Page memory
