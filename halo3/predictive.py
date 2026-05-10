@@ -96,13 +96,22 @@ class PredictiveProcessor:
 
         # Loss: how far was our prediction from reality?
         def prediction_loss(m):
-            q_pred = self.predict(m, carry, key)
-            return jnp.mean((q_pred - q_actual) ** 2)
+            from halo3.loss import halo3_loss
+            return halo3_loss(m, carry, tokens, key)[0]
 
         loss, grads = eqx.filter_value_and_grad(prediction_loss)(model)
 
-        # Very gentle adaptation — prevent Kuramoto collapse from aggressive learning
-        grads = jax.tree_util.tree_map(lambda g: g * 0.001, grads)
+        # SELECTIVE LEARNING: only update Hamiltonian + MERA, NOT SSM/attention
+        # SSM/attention feed the Kuramoto; training them causes r→1.0 collapse
+        # Hamiltonian + MERA learn the data structure without disrupting sync
+        def _zero_non_target(path, grad):
+            p = str(path)
+            # Only keep gradients for hamiltonian and mera_ffn
+            if "hamiltonian" in p or "mera" in p or "ffns" in p:
+                return grad * 0.001  # gentle
+            return jax.tree_util.tree_map(jnp.zeros_like, grad)  # freeze everything else
+
+        grads = jax.tree_util.tree_map_with_path(_zero_non_target, grads)
 
         updates, self._opt_state = self.opt.update(
             eqx.filter(grads, eqx.is_array),
