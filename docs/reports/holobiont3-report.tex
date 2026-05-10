@@ -859,6 +859,12 @@ c = \exp\!\left(-\frac{1}{2}\left(\frac{r - 0.5}{0.15}\right)^{\!2}\right)
 This Gaussian peaks exactly where the organism has enough understanding to form hypotheses ($r > 0$) but not enough to confirm them ($r < 1$).
 Maximum curiosity occurs at the boundary between order and chaos---the ``edge of understanding'' where genuine discovery is most likely.
 
+\textbf{Satiation.} When per-tick body learning is active, the Kuramoto oscillators can collapse to $r = 1.0$ (permanent synchronization), trapping the organism in perpetual pride with no exploration. Satiation prevents this by creating restlessness after sustained high synchronization. After $N$ consecutive ticks with $r > 0.7$, satiation $s$ accumulates:
+\begin{equation}
+s_{t+1} = \begin{cases} \min(1,\; s_t + 0.08) & \text{if } r > 0.7 \\ \max(0,\; s_t - 0.1) & \text{otherwise} \end{cases}
+\end{equation}
+When $s > 0.6$, the organism actively reduces Kuramoto coupling $K$ by up to 80\%, forcing desynchronization. Satiation also boosts curiosity: $c_\text{eff} = \min(1,\; c_\text{base} + 0.8\,s)$, ensuring the organism seeks novelty even when the current topic is well-understood. This produces the biological explore-exploit cycle: discover $\to$ synchronize $\to$ pride $\to$ satiation $\to$ desynchronize $\to$ curiosity $\to$ explore $\to$ discover. In live deployment, this cycle completes in approximately 12--15 ticks.
+
 \subsection{Emotional Valence Space}
 
 A two-dimensional emotional valence space maps the physics outputs---order parameter $r$ (confidence) and free energy delta $\Delta\mathrm{FE}$ (surprise)---into five discrete felt states.
