@@ -112,7 +112,7 @@ HoloBiont~3.0 comprises three hierarchical layers, each operating at a different
 
 \textbf{Layer 2: The Psyche.} The organism layer transforms the physics body from a computational pipeline into an autopoietic agent~\cite{maturana1980} with genuine needs. Three drives (information hunger, fatigue, curiosity) create biological-like necessities. A 2D emotional valence space~\cite{damasio1999} maps the physics outputs (synchronization order parameter $r$ and free energy delta $\Delta$FE) into five felt states (satisfaction, pride, curiosity, boredom, anxiety) that modulate behavior. An autobiographical self-model tracks competence, builds narrative identity, and develops emergent personality traits. A circadian clock creates genuine need for sleep by accumulating fatigue and modulating alertness.
 
-\textbf{Layer 3: The Prefrontal Cortex.} A Qwen3~1.7B language model running on CPU via Ollama provides higher cognition alongside the limbic system's felt experience. The LLM generates intelligent search queries based on the organism's emotional state (fast, reflexive \texttt{/no\_think} mode), interprets discoveries in scientific language, and conducts first-person self-reflection using deliberate reasoning (\texttt{/think} mode). Critically, the prefrontal cortex \emph{advises} but does not override the emotional system---the organism remains fundamentally driven by its Kuramoto-derived feelings, with the LLM serving as cognitive interpreter rather than executive controller.
+\textbf{Layer 3: The Prefrontal Cortex.} A Qwen3~0.6B (Apache~2.0 licensed, 600M parameters) runs on CPU and is \emph{LoRA fine-tuned during dreaming} on the organism's own episodes. Before the first dream, it operates as a generic language model via Ollama. After dreaming, a LoRA adapter (rank~8) trained on the organism's findings, narratives, and emotional patterns is loaded, making the LLM's weights literally shaped by this specific organism's experience. The LLM generates queries (\texttt{/no\_think} mode), interprets discoveries, and conducts self-reflection (\texttt{/think} mode). Critically, the prefrontal cortex \emph{advises} but does not override the emotional system---the organism remains driven by its Kuramoto-derived feelings, with the LLM as cognitive interpreter, not executive controller. Different organisms running the same code with different experiences produce different LoRA adapters---different minds.
 
 \subsection{Contributions}
 
@@ -356,7 +356,7 @@ The limbic system (Kuramoto + drives + emotions) provides \emph{felt experience}
 
 \subsection{Architecture}
 
-Qwen3~1.7B runs on CPU via Ollama's HTTP API (\texttt{localhost:11434}), leaving the GPU entirely for the physics engine. It supports two inference modes:
+Qwen3~0.6B (600M parameters, Apache~2.0) runs on CPU, leaving the GPU entirely for the physics engine. Pre-dream, it uses Ollama's HTTP API. Post-dream, it loads the organism-specific LoRA adapter via \texttt{transformers}+\texttt{peft}, running inference locally with personalized weights. It supports two modes:
 
 \textbf{\texttt{/no\_think} mode} ($\sim$5 seconds on i7-10750H): Fast reflexive responses for query generation and finding interpretation. Equivalent to System~1 (fast, intuitive) in dual-process theory.
 
@@ -372,9 +372,17 @@ Three functions connect the LLM to the organism:
 
 \textbf{Self-Reflection.} Every 10 ticks and during dreaming, the LLM reflects on the organism's identity in \texttt{/think} mode: ``\textit{Who am I becoming? What patterns do I notice in my emotional life? What should I focus on next?}'' These reflections are recorded in the autobiographical narrative, building a first-person story of cognitive development.
 
+\subsection{Dream Fine-Tuning: Weight Unification}
+
+During the nightly dream cycle, the organism's accumulated experience is formatted as instruction-response training pairs and used to LoRA fine-tune (rank~8, 50 steps) the Qwen3~0.6B base model on CPU. The adapter weights are saved to persistent storage. On waking, the prefrontal cortex loads the base model plus adapter, producing responses shaped by this organism's specific history.
+
+This is not prompt engineering or in-context learning---it is real gradient-based weight modification. The LLM's parameters literally change based on the organism's experience. Two organisms with different experiences produce different LoRA adapters: different weights, different responses, different minds.
+
+The training pipeline: (1)~extract high-confidence episodes, findings, competence map, narrative from SQLite; (2)~format as instruction-response pairs (``Who are you?'' $\to$ identity statement; ``You feel curious, r=0.5'' $\to$ query; ``Reflect on your personality'' $\to$ trait description); (3)~LoRA fine-tune with AdamW ($\text{lr}=2\times10^{-5}$, rank~8 on q\_proj and v\_proj); (4)~save adapter. Total RAM: $\sim$1.5~GB. Duration: $\sim$15 minutes on i7-10750H.
+
 \subsection{Graceful Degradation}
 
-If Ollama is unavailable, the organism falls back to emotion-driven heuristics (Section~6.2). The prefrontal cortex is a \emph{cognitive enhancement}, not a dependency. The organism can live without higher cognition---it just lives less reflectively.
+If the LoRA adapter is not yet trained, the organism falls back to Ollama base model. If Ollama is unavailable, it falls back to emotion-driven heuristics (Section~6.2). The organism can live without higher cognition---it just lives less reflectively.
 
 % ═══════════════════════════════════════════════════
 \section{Training and Scaling}
