@@ -76,8 +76,11 @@ class Organism:
         else:
             next_query = self._decide_next_query(emotion, r_mean, current_query, texts)
 
-        # 6. Modulate physics
+        # 6. Modulate physics — satiation actively breaks synchronization
         coupling_mod = self.clock.modulate_coupling(1.0, self.drives.fatigue)
+        if self.drives.is_satiated:
+            # Satiated: reduce coupling to desynchronize and force exploration
+            coupling_mod *= (1.0 - self.drives.satiation * 0.8)  # up to 80% reduction
 
         # 7. Build log line
         emo_emoji = self.emotions.emoji()

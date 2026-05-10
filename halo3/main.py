@@ -165,6 +165,16 @@ def main() -> None:
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
 
+        # 8. SATIATION — actively break Kuramoto sync when restless
+        coupling_mod = psyche_output["coupling_mod"]
+        if coupling_mod < 1.0:
+            # Reduce coupling in the carry state to desynchronize
+            old_K = carry.kuramoto.coupling
+            new_K = old_K * coupling_mod
+            carry = carry._replace(
+                kuramoto=carry.kuramoto._replace(coupling=new_K)
+            )
+
         # 5. REMEMBER
         query_embed = perception.embed_query(current_query)
         episode = Episode(
