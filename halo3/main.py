@@ -126,14 +126,8 @@ def main() -> None:
             tokens = jnp.zeros((cfg.n_tokens, cfg.d_model))
             texts = []
 
-        # 2. PREDICT (before perceiving — the organism anticipates)
-        key, sk, pk = jax.random.split(key, 3)
-        try:
-            q_predicted = predictor.predict(model, carry, pk)
-        except Exception:
-            q_predicted = None
-
-        # 3. PHYSICS (the body processes actual input)
+        # 2. PHYSICS (the body processes input)
+        key, sk = jax.random.split(key)
         try:
             carry, (h_out, obs, q_final, q_data) = halo3_step(model, carry, tokens, sk)
         except Exception as e:
@@ -141,18 +135,11 @@ def main() -> None:
             time.sleep(tick_interval)
             continue
 
-        # 4. PREDICTION ERROR (how surprised was the body?)
-        if q_predicted is not None:
-            epsilon, pred_error = predictor.compute_prediction_error(q_predicted, q_data)
-        else:
-            pred_error = 0.0
-
-        # 5. LEARN (the body adapts — weights change every tick)
-        key, lk = jax.random.split(key)
-        try:
-            model, pred_loss = predictor.learn_from_error(model, carry, tokens, q_data, lk)
-        except Exception as e:
-            pred_loss = 0.0
+        # 3. PREDICTION ERROR (lightweight — no gradients, just compare)
+        # The organism remembers how surprising each tick was
+        pred_error = float(jnp.mean((q_final - q_data) ** 2))
+        predictor._prediction_history.append(pred_error)
+        pred_loss = pred_error
 
         # 6. MEASURE (extract physics outputs)
         r = order_parameter(carry.kuramoto.theta)
