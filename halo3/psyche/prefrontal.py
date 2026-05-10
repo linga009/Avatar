@@ -17,8 +17,8 @@ log = logging.getLogger(__name__)
 
 OLLAMA_URL = "http://host.docker.internal:11434/api/generate"
 OLLAMA_URL_LOCAL = "http://localhost:11434/api/generate"
-BASE_MODEL_NAME = "qwen3:1.7b"
-BASE_MODEL_HF = "Qwen/Qwen3-1.7B"
+BASE_MODEL_NAME = "gemma3:1b"
+BASE_MODEL_HF = "google/gemma-3-1b-pt"
 ADAPTER_PATH = "data/pfc_adapter"
 TIMEOUT = 45
 

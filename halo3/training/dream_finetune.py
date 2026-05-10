@@ -18,7 +18,7 @@ import os
 log = logging.getLogger(__name__)
 
 ADAPTER_PATH = "data/pfc_adapter"
-BASE_MODEL = "Qwen/Qwen3-1.7B"
+BASE_MODEL = "google/gemma-3-1b-pt"
 
 
 def _format_training_data(
@@ -255,7 +255,7 @@ Discoveries: {len(findings)}.
 Recent memories: {'; '.join(recent[-5:])}
 Speak in first person. You ARE this organism."""
 
-    modelfile = f'FROM qwen3:1.7b\nSYSTEM """{system_prompt}"""\nPARAMETER temperature 0.7\n'
+    modelfile = f'FROM gemma3:1b\nSYSTEM """{system_prompt}"""\nPARAMETER temperature 0.7\n'
 
     os.makedirs("data", exist_ok=True)
     with open("data/Modelfile", "w") as f:
@@ -267,7 +267,7 @@ Speak in first person. You ARE this organism."""
                 payload = json.dumps({"name": "holobiont-mind:latest", "modelfile": modelfile, "stream": False})
                 req = urllib.request.Request(url, data=payload.encode(), headers={"Content-Type": "application/json"})
                 urllib.request.urlopen(req, timeout=120)
-                log.info("Fallback: created Ollama Modelfile-based model")
+                log.info("Fallback: created Ollama model with organism identity")
                 return True
             except Exception:
                 continue
