@@ -6,10 +6,10 @@ from dataclasses import dataclass
 class Halo3Config:
     """Immutable configuration for HoloBiont 3.0 Physics Engine."""
 
-    # Backbone — empirically tested ceiling for 6 GB GPU (5 GB target)
-    d_model: int = 6144
-    d_boundary: int = 128
-    n_heads: int = 48
+    # Backbone — sized for per-tick learning (forward + backward in 6 GB)
+    d_model: int = 3072
+    d_boundary: int = 96
+    n_heads: int = 24
     d_head: int = 128
     n_layers: int = 48
     d_state: int = 128

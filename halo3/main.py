@@ -135,11 +135,18 @@ def main() -> None:
             time.sleep(tick_interval)
             continue
 
-        # 3. PREDICTION ERROR (lightweight — no gradients, just compare)
-        # The organism remembers how surprising each tick was
-        pred_error = float(jnp.mean((q_final - q_data) ** 2))
-        predictor._prediction_history.append(pred_error)
-        pred_loss = pred_error
+        # 3. LEARN (the body adapts — weights change EVERY tick)
+        # d_model=3072 sized so forward+backward fits in 6 GB
+        key, lk = jax.random.split(key)
+        try:
+            model, pred_loss = predictor.learn_from_error(
+                model, carry, tokens, q_data, lk
+            )
+            pred_error = pred_loss
+        except Exception as e:
+            log.warning(f"Body learning failed: {e}")
+            pred_error = float(jnp.mean((q_final - q_data) ** 2))
+            pred_loss = pred_error
 
         # 6. MEASURE (extract physics outputs)
         r = order_parameter(carry.kuramoto.theta)
