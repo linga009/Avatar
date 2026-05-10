@@ -148,20 +148,31 @@ class PrefrontalCortex:
         if not self.is_available:
             return None
 
-        context = "; ".join(texts[:3]) if texts else "no results"
-        strength_str = ", ".join(strengths[:3]) if strengths else "none yet"
+        context = "; ".join(texts[:3]) if texts else "no recent findings"
+        strength_str = ", ".join(strengths[:3]) if strengths else "general research"
 
-        prompt = f"""/no_think Generate ONE search query.
-Emotion: {emotion} (r={r_mean:.3f})
-Current: "{current_query}"
+        prompt = f"""/no_think You are a research organism. Based on your state, output ONLY a web search query — no formatting, no labels, no markdown, just the raw search string.
+
+State: feeling {emotion}, synchronization {r_mean:.2f}
+Recent topic: {current_query}
 Findings: {context}
-Strengths: {strength_str}
-Query:"""
+Interests: {strength_str}
 
-        result = self._generate(prompt, max_tokens=50)
+Search query:"""
+
+        result = self._generate(prompt, max_tokens=30)
         if result:
-            query = result.strip().split("\n")[0].strip('"\'')
-            return query[:100]
+            # Aggressive cleanup: strip all formatting artifacts
+            query = result.strip()
+            # Remove common LLM artifacts
+            for prefix in ["**Query:**", "Query:", "**", "```", "/no_think", "/think"]:
+                query = query.replace(prefix, "")
+            # Take first line, strip quotes and whitespace
+            query = query.strip().split("\n")[0].strip('"\'*: ')
+            # If still empty or too short, return None (fallback to heuristic)
+            if len(query) < 5:
+                return None
+            return query[:80]
         return None
 
     def interpret_finding(self, texts, query, r_mean) -> str | None:

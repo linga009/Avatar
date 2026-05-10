@@ -37,31 +37,45 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
     )
 
 
-def quantum_potential(theta: jnp.ndarray) -> jnp.ndarray:
-    """Bohm's quantum potential from cluster phase distribution.
+def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp.ndarray:
+    """Bohm's quantum potential — prevents Kuramoto collapse to r=1.
 
-    Q = -∇²|ψ|/|ψ| approximated as the deviation of each cluster's
-    log-amplitude from the mean. Pushes clusters apart when they
-    converge in phase space (anti-bunching / diversity maintenance).
+    Two components:
+    1. Standard Q: pushes conformists outward proportional to deviation
+    2. Collapse guard: when r > 0.8, injects noise to break synchrony
+
+    Without the collapse guard, aggressive per-tick body learning
+    drives all oscillators to r=1.0 (full sync), killing exploration.
+    The guard ensures the organism maintains healthy diversity.
 
     Args:
         theta: (K, n_hidden) cluster phases
+        key: optional PRNG key for collapse guard noise
 
     Returns:
-        Q: (K, n_hidden) quantum potential force per cluster per dimension
+        Q: (K, n_hidden) quantum potential force
     """
-    # ψ amplitude: Gaussian centered on mean phase
+    K, n_h = theta.shape
     theta_mean = jnp.mean(theta, axis=0, keepdims=True)  # (1, n_hidden)
     deviation = theta - theta_mean                         # (K, n_hidden)
 
-    # |ψ_k| ∝ exp(-½ Σ_d (θ_k_d - θ̄_d)²)
-    log_amplitude = -0.5 * jnp.sum(deviation ** 2, axis=-1, keepdims=True)  # (K, 1)
+    # Standard Bohmian Q: pushes based on deviation from mean
+    log_amplitude = -0.5 * jnp.sum(deviation ** 2, axis=-1, keepdims=True)
+    Q_scalar = -(log_amplitude - jnp.mean(log_amplitude))
+    Q_base = Q_scalar * deviation  # (K, n_hidden)
 
-    # Q = -(log|ψ_k| - mean(log|ψ|)) → pushes outliers in, conformists out
-    Q_scalar = -(log_amplitude - jnp.mean(log_amplitude))  # (K, 1)
+    # Collapse guard: when phases converge, inject repulsive noise
+    # The closer to sync (smaller deviation), the stronger the repulsion
+    deviation_magnitude = jnp.sqrt(jnp.sum(deviation ** 2, axis=-1, keepdims=True) + 1e-8)
+    # Repulsion strength: 1.0 when deviation=0, 0.0 when deviation>1
+    repulsion_strength = jnp.exp(-deviation_magnitude)  # (K, 1)
 
-    # Directional quantum force: Q pushes along the deviation direction
-    return Q_scalar * deviation  # (K, n_hidden)
+    # Repulsive direction: push each cluster away from mean along a unique direction
+    # Use cluster index as deterministic "noise" direction
+    cluster_dirs = jnp.sin(jnp.arange(K)[:, None] * 2.397 + jnp.arange(n_h)[None, :] * 1.618)
+    Q_repulsion = repulsion_strength * cluster_dirs * 2.0  # (K, n_hidden)
+
+    return Q_base + Q_repulsion
 
 
 def kuramoto_step(
@@ -88,8 +102,12 @@ def kuramoto_step(
     else:
         obs_drive = jnp.pad(obs, ((0, 0), (0, n_hid - n_obs)))
 
-    # Quantum potential: non-local anti-bunching force
+    # Quantum potential: non-local anti-bunching force + collapse guard
     Q = quantum_potential(state.theta)  # (K, n_hidden)
+    # Scale Q stronger when r is high to actively resist collapse
+    r = jnp.abs(jnp.mean(jnp.exp(1j * state.theta), axis=0))  # (n_hidden,)
+    r_mean = jnp.mean(r)
+    Q = Q * (1.0 + 3.0 * r_mean)  # Q grows 4× stronger as r→1
 
     if pilot_wave is not None:
         # Bohmian dynamics: pilot wave (∇S) replaces mean-field coupling

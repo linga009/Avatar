@@ -101,8 +101,8 @@ class PredictiveProcessor:
 
         loss, grads = eqx.filter_value_and_grad(prediction_loss)(model)
 
-        # Scale gradients down — we want gentle adaptation, not catastrophic change
-        grads = jax.tree_util.tree_map(lambda g: g * 0.01, grads)
+        # Very gentle adaptation — prevent Kuramoto collapse from aggressive learning
+        grads = jax.tree_util.tree_map(lambda g: g * 0.001, grads)
 
         updates, self._opt_state = self.opt.update(
             eqx.filter(grads, eqx.is_array),
