@@ -18,7 +18,7 @@ import os
 log = logging.getLogger(__name__)
 
 ADAPTER_PATH = "data/pfc_adapter"
-BASE_MODEL = "google/gemma-3-1b-pt"
+BASE_MODEL = "Qwen/Qwen3-0.6B"
 
 
 def _format_training_data(
@@ -255,7 +255,7 @@ Discoveries: {len(findings)}.
 Recent memories: {'; '.join(recent[-5:])}
 Speak in first person. You ARE this organism."""
 
-    modelfile = f'FROM gemma3:1b\nSYSTEM """{system_prompt}"""\nPARAMETER temperature 0.7\n'
+    modelfile = f'FROM qwen3:0.6b\nSYSTEM """{system_prompt}"""\nPARAMETER temperature 0.7\n'
 
     os.makedirs("data", exist_ok=True)
     with open("data/Modelfile", "w") as f:

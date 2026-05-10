@@ -26,10 +26,10 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 RUN pip3 install --no-cache-dir --break-system-packages \
     transformers peft
 
-# Pre-download Gemma 3 1B into the image (avoids dream-time OOM from download)
+# Pre-download Qwen3 0.6B into the image (avoids dream-time download)
 RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
-    AutoTokenizer.from_pretrained('google/gemma-3-1b-pt', trust_remote_code=True); \
-    AutoModelForCausalLM.from_pretrained('google/gemma-3-1b-pt', trust_remote_code=True)" \
+    AutoTokenizer.from_pretrained('Qwen/Qwen3-0.6B', trust_remote_code=True); \
+    AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-0.6B', trust_remote_code=True)" \
     || echo "Pre-download skipped (will download at first dream)"
 
 COPY halo3/ /app/halo3/
