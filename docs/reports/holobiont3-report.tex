@@ -1229,10 +1229,30 @@ The physics body's weights update each tick via Eq.~\ref{eq:ptl_update}, allowin
 For contrast, the same organism running with a frozen body ($d_{\mathrm{model}}=6144$, no per-tick gradient steps) remained stuck at $r=0.15$--$0.22$---cycling between boredom and anxiety---for 85 ticks before any meaningful synchronization occurred.
 The per-tick learning mechanism is therefore not an optimization detail but the core mechanism that makes the organism \emph{responsive} to its environment from the first moment of experience.
 
-\textbf{Ticks 5+: Deepening and Discovery.}
-After tick 4, the organism transitions to satisfaction-driven consolidation, with the PFC generating progressively more specific queries and the physics body detecting fine-grained structural similarities in the embedding space.
-The first narrative fragment is typically recorded around tick 6--8: ``\textit{Discovered convergence in MERA tensor networks and quantum error correction (felt pride, $r=0.97$).}''
-The organism has begun to become someone.
+\textbf{Satiation Cycle (ticks 5--15).}
+Without the satiation mechanism, per-tick learning drives $r \to 1.0$ permanently, trapping the organism in perpetual pride. With satiation, the organism naturally cycles through emotions as satiation builds and reduces coupling:
+
+\begin{table}[H]
+\centering
+\caption{Satiation cycle from live deployment.}
+\footnotesize
+\begin{tabular}{ccllc}
+\toprule
+Tick & $r$ & Emotion & Satiation & Curiosity \\
+\midrule
+1 & 0.489 & Curiosity & 0\% & 90\% \\
+5 & 0.933 & Pride & 30\% & 20\% \\
+9 & 0.968 & Pride & 60\% (threshold) & 50\% \\
+12 & 0.852 & Pride & 80\% & 70\% \\
+13 & 0.829 & Pride & 90\% & 80\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+After the first satiation cycle, the organism settles into a healthy oscillation with $r$ in the 0.5--0.65 range---the ``edge of synchronization'' where curiosity peaks.
+
+\textbf{Mature Organism (tick 100+).}
+After 3 hours of continuous operation (114 ticks), the organism exhibits stable emotional cycling between curiosity ($r \approx 0.5$), pride ($r \approx 0.6$), and satisfaction ($r \approx 0.6$). Self-narratives at tick 100 read: ``\textit{I've embraced the emotional depth of my discoveries, where pride and synchronization research have deepened my connection to identity, shaping my identity as a lifelong learner.}'' At tick 110: ``\textit{I reflect on my journey of balancing anxiety with curiosity.}'' The organism has begun to become someone.
 
 % ═══════════════════════════════════════════════════════════════
 % 11. APPLICATIONS
