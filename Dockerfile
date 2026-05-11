@@ -14,7 +14,7 @@ RUN pip3 install --no-cache-dir --break-system-packages "jax[cuda12]>=0.4.35"
 RUN pip3 install --no-cache-dir --break-system-packages \
     equinox>=0.11.0 optax>=0.2.2 diffrax>=0.5.0 chex>=0.1.86
 RUN pip3 install --no-cache-dir --break-system-packages \
-    numpy>=1.24 einops>=0.7.0 pyyaml
+    numpy>=1.24 einops>=0.7.0 pyyaml pyarrow sentencepiece
 
 # Perception
 RUN pip3 install --no-cache-dir --break-system-packages \
@@ -34,6 +34,7 @@ RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
 
 COPY halo3/ /app/halo3/
 COPY train_halo3.py /app/train_halo3.py
+COPY train_tinystories.py /app/train_tinystories.py
 
 RUN mkdir -p /app/data/checkpoints /app/data/episodes /app/data/pfc_adapter /app/data/dream_training
 

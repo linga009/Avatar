@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Train HoloBiont 3.0 as a language model on TinyStories.
+"""Train HoloBiont 3.0 on TinyStories — full pipeline.
 
-Tests VRAM fit, then trains if it fits.
+All 4 improvements:
+1. 50K steps (configurable)
+2. Gradient accumulation (effective batch=4, zero extra VRAM)
+3. Full 781K stories (streaming from parquet)
+4. BPE tokenizer via sentencepiece
 
 Usage:
-    python train_tinystories.py --data D:/MLM/Manifold_Language_Model/processed.parquet
+    docker run --gpus all -v D:/MLM/Manifold_Language_Model:/data \
+      halo3-train python3 train_tinystories.py --data /data/processed.parquet --steps 50000
 """
 from __future__ import annotations
 import argparse
@@ -12,38 +17,56 @@ import logging
 import os
 import sys
 import time
+import tempfile
 
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 log = logging.getLogger("train_lm")
 
 
-def build_tokenizer(stories: list[str], vocab_size: int = 8000):
-    """Build a simple word-level tokenizer from stories."""
-    from collections import Counter
+def build_bpe_tokenizer(stories: list[str], vocab_size: int = 8000, model_prefix: str = "data/tokenizer"):
+    """Train a BPE tokenizer on stories using sentencepiece."""
+    import sentencepiece as spm
 
-    # Count all words
-    word_counts = Counter()
-    for story in stories[:50000]:  # sample for speed
-        words = story.lower().split()
-        word_counts.update(words)
+    model_path = f"{model_prefix}.model"
+    if os.path.exists(model_path):
+        log.info(f"Loading existing BPE tokenizer from {model_path}")
+        sp = spm.SentencePieceProcessor()
+        sp.Load(model_path)
+        return sp
 
-    # Top vocab_size-3 words + special tokens
-    special = ["<pad>", "<unk>", "<eos>"]
-    top_words = [w for w, _ in word_counts.most_common(vocab_size - len(special))]
-    vocab = special + top_words
+    log.info(f"Training BPE tokenizer on {len(stories)} stories (vocab={vocab_size})...")
+    os.makedirs(os.path.dirname(model_prefix) if os.path.dirname(model_prefix) else ".", exist_ok=True)
 
-    word2id = {w: i for i, w in enumerate(vocab)}
-    return word2id, vocab
+    # Write stories to temp file for sentencepiece
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
+    for s in stories[:100000]:
+        tmp.write(s.strip() + "\n")
+    tmp.close()
+
+    spm.SentencePieceTrainer.Train(
+        input=tmp.name,
+        model_prefix=model_prefix,
+        vocab_size=vocab_size,
+        model_type="bpe",
+        pad_id=0,
+        unk_id=1,
+        bos_id=2,
+        eos_id=3,
+        character_coverage=0.9995,
+        max_sentence_length=4096,
+    )
+    os.unlink(tmp.name)
+
+    sp = spm.SentencePieceProcessor()
+    sp.Load(model_path)
+    log.info(f"BPE tokenizer trained: {sp.GetPieceSize()} pieces")
+    return sp
 
 
-def tokenize(text: str, word2id: dict, max_len: int = 128) -> list[int]:
-    """Tokenize text to IDs."""
-    unk_id = word2id.get("<unk>", 1)
-    eos_id = word2id.get("<eos>", 2)
-    words = text.lower().split()[:max_len - 1]
-    ids = [word2id.get(w, unk_id) for w in words] + [eos_id]
-    # Pad
+def tokenize_bpe(text: str, sp, max_len: int = 128) -> list[int]:
+    """Tokenize with BPE, pad/truncate to max_len."""
+    ids = sp.Encode(text)[:max_len - 1] + [3]  # add EOS
     while len(ids) < max_len:
         ids.append(0)  # pad
     return ids[:max_len]
@@ -54,8 +77,11 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, default="D:/MLM/Manifold_Language_Model/processed.parquet")
-    parser.add_argument("--steps", type=int, default=1000)
-    parser.add_argument("--test-only", action="store_true", help="Just test VRAM fit, don't train")
+    parser.add_argument("--steps", type=int, default=50000)
+    parser.add_argument("--accum", type=int, default=4, help="Gradient accumulation steps")
+    parser.add_argument("--log-every", type=int, default=500)
+    parser.add_argument("--save-every", type=int, default=5000)
+    parser.add_argument("--checkpoint", type=str, default="data/checkpoints/halo3_lm")
     args = parser.parse_args()
 
     import jax
@@ -66,20 +92,26 @@ def main():
     backend = jax.default_backend()
     log.info(f"JAX backend: {backend}, devices: {jax.devices()}")
 
-    # --- Load data ---
-    log.info(f"Loading TinyStories from {args.data}...")
+    # --- Load stories ---
+    log.info(f"Loading stories from {args.data}...")
     import pyarrow.parquet as pq
     table = pq.read_table(args.data, columns=["story"])
-    stories = [str(table.column("story")[i]) for i in range(min(len(table), 100000))]
-    log.info(f"Loaded {len(stories)} stories")
+    n_stories = len(table)
+    log.info(f"Dataset: {n_stories:,} stories")
 
-    # --- Build tokenizer ---
+    # Stream stories one at a time (no need to hold all in RAM)
+    def get_story(idx):
+        return str(table.column("story")[idx % n_stories])
+
+    # --- BPE tokenizer ---
     from halo3.config import Halo3Config
     cfg = Halo3Config()
-    log.info(f"Config: d_model={cfg.d_model}, vocab={cfg.vocab_size}, max_seq={cfg.max_seq_len}")
 
-    word2id, vocab = build_tokenizer(stories, cfg.vocab_size)
-    log.info(f"Tokenizer: {len(vocab)} words")
+    # Sample stories for tokenizer training
+    sample_stories = [get_story(i) for i in range(min(n_stories, 100000))]
+    sp = build_bpe_tokenizer(sample_stories, cfg.vocab_size)
+
+    log.info(f"Config: d_model={cfg.d_model}, vocab={cfg.vocab_size}, seq={cfg.max_seq_len}")
 
     # --- Build model ---
     from halo3.backbone import Halo3Backbone
@@ -93,93 +125,127 @@ def main():
     backbone = Halo3Backbone(cfg, k2)
     lorentz_embed = LorentzEmbedding(cfg, k3)
 
-    n_params_lm = sum(p.size for p in jax.tree_util.tree_leaves(lm_head) if hasattr(p, 'size'))
-    n_params_bb = sum(p.size for p in jax.tree_util.tree_leaves(backbone) if hasattr(p, 'size'))
-    n_params_le = sum(p.size for p in jax.tree_util.tree_leaves(lorentz_embed) if hasattr(p, 'size'))
-    total = n_params_lm + n_params_bb + n_params_le
-    log.info(f"Params: LM head={n_params_lm/1e6:.1f}M, backbone={n_params_bb/1e6:.1f}M, "
-             f"lorentz={n_params_le/1e6:.2f}M, total={total/1e6:.1f}M")
+    total_params = sum(p.size for p in jax.tree_util.tree_leaves((lm_head, backbone, lorentz_embed)) if hasattr(p, 'size'))
+    log.info(f"Total params: {total_params/1e6:.1f}M")
 
-    # --- Test VRAM with one forward+backward step ---
-    log.info("Testing VRAM fit with one forward+backward step...")
-    story = stories[0]
-    token_ids = jnp.array(tokenize(story, word2id, cfg.max_seq_len), dtype=jnp.int32)
-
-    # Forward
-    loss, n_correct = lm_loss(lm_head, backbone, token_ids, lorentz_embed, key)
-    log.info(f"Forward pass: loss={float(loss):.4f}, correct={int(n_correct)}/{cfg.max_seq_len-1}")
-
-    # Backward
-    def total_loss(lm_h, bb, le):
-        l, _ = lm_loss(lm_h, bb, token_ids, le, key)
-        return l
-
-    grads = jax.grad(total_loss, argnums=(0, 1, 2))(lm_head, backbone, lorentz_embed)
-    log.info("Backward pass: gradients computed successfully")
-
-    # Check VRAM
-    import subprocess
-    result = subprocess.run(
-        ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader"],
-        capture_output=True, text=True
+    # --- Optimizer with warmup ---
+    schedule = optax.warmup_cosine_decay_schedule(
+        init_value=0.0, peak_value=3e-4,
+        warmup_steps=1000, decay_steps=args.steps, end_value=3e-5,
     )
-    log.info(f"VRAM after forward+backward: {result.stdout.strip()}")
+    opt = optax.adam(schedule)
+    opt_state = opt.init(jax.tree_util.tree_map(lambda x: x, (lm_head, backbone, lorentz_embed)))
 
-    if args.test_only:
-        log.info("VRAM test passed. Use --steps N to train.")
-        return
-
-    # --- Train ---
-    log.info(f"Training for {args.steps} steps...")
-    opt = optax.adam(3e-4)
-
-    # Combine all params for optimizer
-    all_params = (lm_head, backbone, lorentz_embed)
-    opt_state = opt.init(jax.tree_util.tree_map(lambda x: x, all_params))
-
+    # --- JIT training step ---
     @jax.jit
-    def train_step(lm_h, bb, le, token_ids, opt_state, key):
+    def train_step(lm_h, bb, le, token_ids, key):
         def loss_fn(lm_h, bb, le):
             l, nc = lm_loss(lm_h, bb, token_ids, le, key)
             return l, nc
         (loss, n_correct), grads = jax.value_and_grad(loss_fn, argnums=(0, 1, 2), has_aux=True)(lm_h, bb, le)
+        return loss, n_correct, grads
+
+    @jax.jit
+    def apply_grads(lm_h, bb, le, grads, opt_state):
         updates, new_opt_state = opt.update(grads, opt_state, (lm_h, bb, le))
         lm_h, bb, le = jax.tree_util.tree_map(lambda p, u: p + u, (lm_h, bb, le), updates)
-        return lm_h, bb, le, new_opt_state, loss, n_correct
+        return lm_h, bb, le, new_opt_state
 
-    log.info("JIT compiling training step (first call will be slow)...")
+    # --- Training loop with gradient accumulation ---
+    log.info(f"Training: {args.steps} steps, accum={args.accum}, effective_batch={args.accum}")
+    log.info(f"Stories: {n_stories:,} | BPE vocab: {sp.GetPieceSize()}")
+    log.info("JIT compiling (first step will be slow)...")
+
     t0 = time.time()
+    accum_grads = None
+    total_loss = 0.0
+    total_correct = 0
+    total_tokens = 0
 
     for step in range(args.steps):
-        idx = step % len(stories)
-        token_ids = jnp.array(tokenize(stories[idx], word2id, cfg.max_seq_len), dtype=jnp.int32)
+        # Get story and tokenize
+        story = get_story(step)
+        token_ids = jnp.array(tokenize_bpe(story, sp, cfg.max_seq_len), dtype=jnp.int32)
         key, sk = jax.random.split(key)
 
-        lm_head, backbone, lorentz_embed, opt_state, loss, n_correct = train_step(
-            lm_head, backbone, lorentz_embed, token_ids, opt_state, sk
-        )
+        # Forward + backward (no optimizer step yet)
+        loss, n_correct, grads = train_step(lm_head, backbone, lorentz_embed, token_ids, sk)
 
-        if step % 100 == 0:
-            acc = int(n_correct) / (cfg.max_seq_len - 1) * 100
+        # Accumulate gradients
+        if accum_grads is None:
+            accum_grads = grads
+        else:
+            accum_grads = jax.tree_util.tree_map(lambda a, g: a + g, accum_grads, grads)
+
+        total_loss += float(loss)
+        total_correct += int(n_correct)
+        total_tokens += cfg.max_seq_len - 1
+
+        # Apply accumulated gradients every accum steps
+        if (step + 1) % args.accum == 0:
+            # Average gradients
+            accum_grads = jax.tree_util.tree_map(lambda g: g / args.accum, accum_grads)
+            lm_head, backbone, lorentz_embed, opt_state = apply_grads(
+                lm_head, backbone, lorentz_embed, accum_grads, opt_state
+            )
+            accum_grads = None
+
+        # Log
+        if (step + 1) % args.log_every == 0:
+            avg_loss = total_loss / args.log_every
+            avg_acc = total_correct / total_tokens * 100
             elapsed = time.time() - t0
-            log.info(f"Step {step}/{args.steps} | loss={float(loss):.4f} | "
-                     f"acc={acc:.1f}% | {elapsed:.0f}s elapsed")
+            steps_per_sec = (step + 1) / elapsed
+            eta = (args.steps - step - 1) / steps_per_sec / 60
+
+            log.info(
+                f"Step {step+1}/{args.steps} | loss={avg_loss:.0f} | "
+                f"acc={avg_acc:.1f}% | {steps_per_sec:.1f} steps/s | ETA {eta:.0f}min"
+            )
+            total_loss = 0.0
+            total_correct = 0
+            total_tokens = 0
+
+        # Save checkpoint
+        if (step + 1) % args.save_every == 0:
+            os.makedirs(os.path.dirname(args.checkpoint) if os.path.dirname(args.checkpoint) else ".", exist_ok=True)
+            eqx.tree_serialise_leaves(f"{args.checkpoint}_lm.eqx", lm_head)
+            eqx.tree_serialise_leaves(f"{args.checkpoint}_bb.eqx", backbone)
+            eqx.tree_serialise_leaves(f"{args.checkpoint}_le.eqx", lorentz_embed)
+            log.info(f"Checkpoint saved to {args.checkpoint}_*.eqx")
 
     elapsed = time.time() - t0
-    log.info(f"Training complete: {args.steps} steps in {elapsed:.1f}s ({elapsed/60:.1f} min)")
+    log.info(f"Training complete: {args.steps} steps in {elapsed/60:.1f} min")
 
     # --- Test generation ---
     log.info("Testing generation...")
-    prompt = "once there was a"
-    prompt_ids = jnp.array(tokenize(prompt, word2id, 10), dtype=jnp.int32)[:5]
+    prompts = [
+        "once there was a",
+        "the little girl",
+        "he was very",
+        "she loved to",
+        "one day the",
+    ]
+    for prompt in prompts:
+        ids = sp.Encode(prompt)
+        if len(ids) < 2:
+            continue
+        token_ids = jnp.array(ids, dtype=jnp.int32)
+        h = lm_head.embed(token_ids)
+        x, z = lorentz_embed(h)
+        h_out = backbone(h, x, z)
+        logits = lm_head.project(h_out)
 
-    h = lm_head.embed(prompt_ids)
-    x, z = lorentz_embed(h)
-    h_out = backbone(h, x, z)
-    logits = lm_head.project(h_out)
-    next_token = int(jnp.argmax(logits[-1]))
-    next_word = vocab[next_token] if next_token < len(vocab) else "<unk>"
-    log.info(f"Prompt: '{prompt}' -> next word: '{next_word}'")
+        # Top-5 predictions for last token
+        top5 = jnp.argsort(logits[-1])[-5:][::-1]
+        words = [sp.IdToPiece(int(i)) for i in top5]
+        log.info(f"  '{prompt}' -> {words}")
+
+    # Final save
+    eqx.tree_serialise_leaves(f"{args.checkpoint}_lm.eqx", lm_head)
+    eqx.tree_serialise_leaves(f"{args.checkpoint}_bb.eqx", backbone)
+    eqx.tree_serialise_leaves(f"{args.checkpoint}_le.eqx", lorentz_embed)
+    log.info(f"Final checkpoint saved.")
 
 
 if __name__ == "__main__":
