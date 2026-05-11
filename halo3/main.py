@@ -208,19 +208,8 @@ def main() -> None:
         # 8. DREAM (when the body needs it)
         if psyche_output["needs_dream"]:
             log.info("  ☽ Entering dream state...")
-
-            # Phase 1: Dream replay — the physics body learns
-            log.info("  ☽ Phase 1: Body dreaming (replay + recombine + imagine)...")
-            try:
-                from halo3.training.dream_replay import dream_replay_physics
-                episodes_for_dream = memory.get_high_confidence(threshold=0.0)
-                model, dream_info = dream_replay_physics(model, episodes_for_dream)
-                log.info(f"  ☽ Body dream: {dream_info}")
-            except Exception as e:
-                log.warning(f"  ☽ Body dream failed: {e}")
-
-            # Phase 2: PFC fine-tuning — the mind learns
-            log.info("  ☽ Phase 2: Mind dreaming (PFC LoRA fine-tune)...")
+            # Body already learns every tick via predictive processing.
+            # Dream = PFC personalization only (no GPU-heavy replay).
             organism.dream(memory=memory)
             log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
             log.info(f"  ☽ Prediction accuracy: {predictor.recent_prediction_accuracy:.4f}")

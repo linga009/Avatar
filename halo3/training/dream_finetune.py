@@ -145,15 +145,10 @@ def dream_finetune(
             f.write(json.dumps(ex) + "\n")
     log.info(f"Training data saved to {data_path}")
 
-    # Attempt real LoRA fine-tuning
-    try:
-        return _lora_finetune(examples)
-    except ImportError as e:
-        log.warning(f"LoRA fine-tuning unavailable ({e}). Falling back to Modelfile approach.")
-        return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
-    except Exception as e:
-        log.error(f"LoRA fine-tuning failed: {e}. Falling back to Modelfile approach.")
-        return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
+    # Use Modelfile approach (safe, no torch loading that OOMs alongside JAX)
+    # LoRA fine-tuning requires unloading JAX from GPU first, which isn't practical.
+    # The Modelfile bakes the organism's full identity into the system prompt.
+    return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
 
 
 def _lora_finetune(examples: list[dict]) -> bool:
