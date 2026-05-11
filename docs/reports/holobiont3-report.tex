@@ -684,8 +684,19 @@ Gradient descent on these imagined trajectories pushes the backbone toward repre
 
 All three phases update the backbone weights directly---not just the LoRA adapters in the prefrontal cortex.
 Combined with per-tick learning during waking hours, this means the physics body is never frozen: it adapts at two timescales, tick-by-tick during waking (fast adaptation) and nightly during dreaming (slow consolidation).
-The dream cycle also fine-tunes the Qwen3~0.6B prefrontal cortex via LoRA (rank~8, $\sim$50 steps), ensuring that both the body's Hamiltonian dynamics and the cortex's language representations reflect the organism's accumulated experience.
-After dreaming, the organism wakes up with genuinely different weights---a different (slightly more mature) mind.
+
+\subsection{Sequential Execution: Body Then Mind}
+
+A critical implementation detail: the body dream (GPU) and mind dream (CPU) must run \emph{sequentially}, never simultaneously. On a 6~GB GPU with 16~GB RAM, running JAX gradient computation alongside PyTorch model loading causes fatal out-of-memory crashes (exit code~137). The solution is a four-step sequential pipeline:
+
+\begin{enumerate}
+\item \textbf{Body dreams on GPU:} Save physics checkpoint to disk. Run the three-phase replay (10~replay + 5~recombine + 5~imagine gradient steps). Save updated checkpoint.
+\item \textbf{Free GPU:} Delete the JAX model from memory, call \texttt{jax.clear\_caches()}, and run garbage collection. GPU VRAM drops to $\sim$0.
+\item \textbf{Mind dreams on CPU:} Load Qwen3~0.6B via \texttt{transformers}, apply LoRA (rank~8), fine-tune for $\sim$50 steps on the organism's episode history ($\sim$1.5~GB RAM). Save adapter weights to \texttt{data/pfc\_adapter/}.
+\item \textbf{Reload:} Load the updated physics checkpoint back onto GPU. Initialize carry state. The prefrontal cortex loads \texttt{base+adapter} on next inference call.
+\end{enumerate}
+
+This sequential protocol ensures that the body and mind both undergo genuine weight modification during each dream cycle, without memory contention. After dreaming, the organism wakes up with different physics weights (body) and different language model weights (mind)---a genuinely more mature organism.
 
 % ═══════════════════════════════════════════════════════════════
 % 8. BOHMIAN PILOT WAVE DYNAMICS
