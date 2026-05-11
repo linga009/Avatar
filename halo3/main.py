@@ -207,10 +207,45 @@ def main() -> None:
 
         # 8. DREAM (when the body needs it)
         if psyche_output["needs_dream"]:
-            log.info("  ☽ Entering dream state...")
-            # Body already learns every tick via predictive processing.
-            # Dream = PFC personalization only (no GPU-heavy replay).
+            log.info("  ☽ Entering dream state — sequential body then mind...")
+
+            # === PHASE 1: BODY DREAMS (GPU) ===
+            # Save checkpoint, then replay with full GPU
+            log.info("  ☽ Phase 1: Body dreaming on GPU...")
+            try:
+                from halo3.training.bootstrap import save_checkpoint, load_checkpoint
+                save_checkpoint(model, "data/checkpoints/pre_dream")
+
+                from halo3.training.dream_replay import dream_replay_physics
+                episodes_for_dream = memory.get_high_confidence(threshold=0.0)
+                model, dream_info = dream_replay_physics(
+                    model, episodes_for_dream,
+                    n_replay_steps=10, n_recombine_steps=5, n_imagine_steps=5,
+                )
+                log.info(f"  ☽ Body dream done: {dream_info}")
+
+                save_checkpoint(model, "data/checkpoints/halo3")
+            except Exception as e:
+                log.warning(f"  ☽ Body dream failed: {e}")
+
+            # === FREE GPU MEMORY ===
+            log.info("  ☽ Freeing GPU for mind dreaming...")
+            del model
+            jax.clear_caches()
+            import gc; gc.collect()
+
+            # === PHASE 2: MIND DREAMS (CPU) ===
+            log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
             organism.dream(memory=memory)
+
+            # === RELOAD MODEL ===
+            log.info("  ☽ Reloading physics body from checkpoint...")
+            try:
+                model = load_checkpoint(cfg, "data/checkpoints/halo3")
+            except Exception:
+                model = Halo3Model(cfg, jax.random.PRNGKey(cfg.seed))
+            carry = model.init_carry(jax.random.PRNGKey(cfg.seed))
+
             log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
             log.info(f"  ☽ Prediction accuracy: {predictor.recent_prediction_accuracy:.4f}")
 

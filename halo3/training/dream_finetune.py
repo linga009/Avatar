@@ -3,7 +3,7 @@
 During the nightly dream cycle, this module:
 1. Extracts the organism's episodes, findings, and narratives
 2. Formats them as instruction-response training pairs
-3. Applies LoRA (rank 8) fine-tuning to Qwen3 1.7B on CPU
+3. Applies LoRA (rank 8) fine-tuning to Qwen3 0.6B on CPU
 4. Saves the adapter weights to data/pfc_adapter/
 5. The prefrontal cortex loads base+adapter, producing responses
    shaped by THIS organism's specific experience
@@ -122,7 +122,7 @@ def dream_finetune(
 ) -> bool:
     """Run real LoRA fine-tuning on the organism's experience.
 
-    Fine-tunes Qwen3 1.7B with LoRA rank 8 on CPU.
+    Fine-tunes Qwen3 0.6B with LoRA rank 8 on CPU.
     Saves adapter to data/pfc_adapter/.
     Returns True if successful.
     """
@@ -145,10 +145,16 @@ def dream_finetune(
             f.write(json.dumps(ex) + "\n")
     log.info(f"Training data saved to {data_path}")
 
-    # Use Modelfile approach (safe, no torch loading that OOMs alongside JAX)
-    # LoRA fine-tuning requires unloading JAX from GPU first, which isn't practical.
-    # The Modelfile bakes the organism's full identity into the system prompt.
-    return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
+    # Real LoRA fine-tuning — JAX is unloaded from GPU before this runs
+    # so torch has full CPU RAM available
+    try:
+        return _lora_finetune(examples)
+    except ImportError as e:
+        log.warning(f"LoRA unavailable ({e}), falling back to Modelfile")
+        return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
+    except Exception as e:
+        log.error(f"LoRA failed: {e}, falling back to Modelfile")
+        return _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings)
 
 
 def _lora_finetune(examples: list[dict]) -> bool:
@@ -157,7 +163,7 @@ def _lora_finetune(examples: list[dict]) -> bool:
     from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
     from peft import LoraConfig, get_peft_model, TaskType
 
-    log.info("Loading Qwen3 1.7B for LoRA fine-tuning on CPU...")
+    log.info("Loading Qwen3 0.6B for LoRA fine-tuning on CPU...")
 
     # Load model in float32 on CPU
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
