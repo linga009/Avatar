@@ -6,10 +6,10 @@ from dataclasses import dataclass
 class Halo3Config:
     """Immutable configuration for HoloBiont 3.0 Physics Engine."""
 
-    # Backbone — sized for per-tick learning (forward + backward in 6 GB)
-    d_model: int = 3072
-    d_boundary: int = 96
-    n_heads: int = 24
+    # Backbone — sized for per-tick learning + LM head in 6 GB
+    d_model: int = 2048
+    d_boundary: int = 64
+    n_heads: int = 16
     d_head: int = 128
     n_layers: int = 48
     d_state: int = 128
@@ -47,6 +47,10 @@ class Halo3Config:
     seed: int = 42
     galore_rank: int = 64
     lisa_active_layers: int = 2
+
+    # Language model
+    vocab_size: int = 8000
+    max_seq_len: int = 128
 
     # Bridges
     n_tokens: int = 32
