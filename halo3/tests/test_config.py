@@ -5,6 +5,9 @@ from halo3.config import Halo3Config
 def test_default_instantiation():
     cfg = Halo3Config()
     assert cfg.d_model == 2048
+    assert cfg.n_layers == 60
+    assert cfg.d_state == 256
+    assert cfg.vocab_size == 16000
     assert cfg.n_layers == 48
     assert cfg.n_clusters == 32
     assert cfg.mera_bond_dim == 64

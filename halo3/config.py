@@ -6,13 +6,13 @@ from dataclasses import dataclass
 class Halo3Config:
     """Immutable configuration for HoloBiont 3.0 Physics Engine."""
 
-    # Backbone — sized for per-tick learning + LM head in 6 GB
+    # Backbone — maximized for 6 GB VRAM (no JIT recompile needed)
     d_model: int = 2048
     d_boundary: int = 64
     n_heads: int = 16
     d_head: int = 128
-    n_layers: int = 48
-    d_state: int = 128
+    n_layers: int = 60
+    d_state: int = 256
     layer_pattern: str = "SSSSSH"
     n_shared_attn: int = 2
     lora_rank: int = 16
@@ -49,7 +49,7 @@ class Halo3Config:
     lisa_active_layers: int = 2
 
     # Language model
-    vocab_size: int = 8000
+    vocab_size: int = 16000
     max_seq_len: int = 128
 
     # Bridges
