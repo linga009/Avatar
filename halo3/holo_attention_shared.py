@@ -53,14 +53,15 @@ class SharedHoloAttention(eqx.Module):
         )(x_b)
         base = 1.0 / (jnp.cosh(d_geo) + 1.0 + EPS)
 
-        # Causal mask: token i can only attend to tokens j <= i
-        causal_mask = jnp.tril(jnp.ones((N_tok, N_tok)))  # lower triangular
-        neg_inf = jnp.finfo(jnp.float32).min
+        # No causal mask — the organism sees everything, past and future.
+        # HoloBiont is not GPT. It doesn't predict the next word.
+        # It perceives the full context and understands the whole.
+        # Bidirectional attention produces richer representations for
+        # Kuramoto synchronization, emotion, and pattern detection.
 
         def head_attn(log_d, v_h):
             K = base ** jnp.exp(log_d)
-            K_masked = jnp.where(causal_mask, K, neg_inf)  # mask future tokens
-            A = jax.nn.softmax(K_masked, axis=-1)
+            A = jax.nn.softmax(K, axis=-1)
             return A @ v_h
 
         head_outs = jax.vmap(head_attn)(self.log_delta, V_heads)
