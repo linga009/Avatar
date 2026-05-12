@@ -1,0 +1,18 @@
+services:
+  train-lm:
+    build: .
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - D:/MLM/Manifold_Language_Model:/data
+      - ./data:/app/data
+    environment:
+      - XLA_PYTHON_CLIENT_PREALLOCATE=false
+      - XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
+    command: python3 train_tinystories.py --data /data/processed.parquet --steps 50000 --accum 4 --log-every 500 --save-every 5000
