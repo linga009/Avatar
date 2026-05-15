@@ -12,7 +12,9 @@ services:
     volumes:
       - D:/MLM/Manifold_Language_Model:/data
       - ./data:/app/data
+      - D:/halo3_checkpoints:/app/safe_checkpoints
     environment:
       - XLA_PYTHON_CLIENT_PREALLOCATE=false
       - XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
-    command: python3 train_tinystories.py --data /data/processed.parquet --steps 50000 --accum 4 --log-every 500 --save-every 5000
+      - PYTHONUNBUFFERED=1
+    command: python3 train_tinystories.py --data /data/processed.parquet --steps 50000 --accum 4 --log-every 500 --save-every 2500 --checkpoint data/checkpoints/halo3_lm --resume --resume-step 12500

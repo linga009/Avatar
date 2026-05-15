@@ -71,8 +71,18 @@ def main() -> None:
         model = load_checkpoint(cfg, checkpoint_path)
         log.info(f"Loaded checkpoint from {checkpoint_path}.eqx")
     except Exception:
-        log.info("No checkpoint — initializing fresh model")
+        log.info("No organism checkpoint — birthing with LM-trained backbone")
         model = Halo3Model(cfg, jax.random.PRNGKey(cfg.seed))
+        try:
+            from halo3.training.lm_merge import load_lm_into_model
+            model = load_lm_into_model(model, cfg)
+            log.info("Born with LM-trained backbone (TinyStories 50K)")
+        except FileNotFoundError as e:
+            log.warning(f"LM weights not found, starting fully fresh: {e}")
+        # Save so future restarts don't re-merge
+        from halo3.training.bootstrap import save_checkpoint as _save
+        _save(model, checkpoint_path)
+        log.info(f"Saved initial organism to {checkpoint_path}.eqx")
 
     carry = model.init_carry(jax.random.PRNGKey(cfg.seed))
     key = jax.random.PRNGKey(cfg.seed + 1)
@@ -136,7 +146,6 @@ def main() -> None:
             continue
 
         # 3. LEARN (the body adapts — weights change EVERY tick)
-        # d_model=3072 sized so forward+backward fits in 6 GB
         key, lk = jax.random.split(key)
         try:
             model, pred_loss = predictor.learn_from_error(
@@ -188,7 +197,8 @@ def main() -> None:
         memory.add(episode)
 
         # 6. EXPRESS (log the lived experience)
-        r_bar = "█" * int(r_mean * 20) + "░" * (20 - int(r_mean * 20))
+        r_safe = max(0.0, min(1.0, r_mean)) if (r_mean == r_mean) else 0.0
+        r_bar = "█" * int(r_safe * 20) + "░" * (20 - int(r_safe * 20))
         log.info(
             f"Tick {tick:4d} | r=[{r_bar}] {r_mean:.3f} | "
             f"{psyche_output['log_line']}"
@@ -234,9 +244,24 @@ def main() -> None:
             jax.clear_caches()
             import gc; gc.collect()
 
-            # === PHASE 2: MIND DREAMS (CPU) ===
+            # === PHASE 2: MIND DREAMS (CPU) — LoRA fine-tune ===
             log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
             organism.dream(memory=memory)
+
+            # === PHASE 3: GEPA PROMPT EVOLUTION ===
+            # Reflect on episode trajectories and evolve PFC prompt instructions.
+            # Zero extra memory: uses Ollama (already running), no model loading.
+            log.info("  ☽ Phase 3: GEPA prompt evolution...")
+            try:
+                from halo3.training.dream_gepa import dream_gepa, load_prompt_instructions
+                all_episodes = memory.get_high_confidence(threshold=0.0)
+                current_instrs = load_prompt_instructions()
+                dream_gepa(all_episodes, current_instrs)
+                # Tell the PFC to reload evolved instructions on next use
+                organism.prefrontal.reload_instructions()
+                log.info("  ☽ GEPA: prompt instructions evolved and reloaded")
+            except Exception as e:
+                log.warning(f"  ☽ GEPA failed (non-critical): {e}")
 
             # === RELOAD MODEL ===
             log.info("  ☽ Reloading physics body from checkpoint...")

@@ -70,6 +70,7 @@ class Halo3Backbone(eqx.Module):
     lora: LoRAAdapter
     merge_proj: eqx.nn.Linear   # 2*d_half → d_model (combine F+G streams)
     split_proj: eqx.nn.Linear   # d_model → 2*d_half (split into F+G streams)
+    residual_scale: float = eqx.field(static=True)  # 1/sqrt(n_layers) homeostatic scaling
     layer_types: tuple = eqx.field(static=True)
 
     def __init__(self, cfg: Halo3Config, key: jnp.ndarray) -> None:
@@ -97,6 +98,7 @@ class Halo3Backbone(eqx.Module):
         self.lora = LoRAAdapter(half_cfg, keys[n_layers])
         self.split_proj = eqx.nn.Linear(cfg.d_model, 2 * d_half, key=keys[n_layers + 1])
         self.merge_proj = eqx.nn.Linear(2 * d_half, cfg.d_model, key=keys[n_layers + 2])
+        self.residual_scale = 1.0 / (n_layers ** 0.5)
 
     def __call__(
         self,
@@ -111,16 +113,16 @@ class Halo3Backbone(eqx.Module):
         g = split[:, d_half:]   # (n_tokens, d_half)
 
         # Reversible coupling: alternately update F from G and G from F
+        # Each residual is scaled by 1/sqrt(n_layers) — homeostatic regulation
+        # that prevents magnitude explosion while preserving invertibility.
         for i, layer in enumerate(self.layers):
             lora_arg = self.lora if layer.layer_type == "H" else None
             if i % 2 == 0:
-                # Update F using G as context (pass G through this layer)
                 delta = layer(g, q_data, z, lora=lora_arg)
-                f = f + delta
+                f = f + self.residual_scale * delta
             else:
-                # Update G using F as context
                 delta = layer(f, q_data, z, lora=lora_arg)
-                g = g + delta
+                g = g + self.residual_scale * delta
 
         # Merge streams back to d_model
         combined = jnp.concatenate([f, g], axis=-1)  # (n_tokens, 2*d_half)

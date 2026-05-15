@@ -58,6 +58,22 @@ class PrefrontalCortex:
         self._adapter_loaded: bool = False
         self._model = None
         self._tokenizer = None
+        self._instructions: dict | None = None  # GEPA-evolved prompt instructions
+
+    def _get_instructions(self) -> dict:
+        """Lazy-load GEPA-evolved instructions; fall back to defaults."""
+        if self._instructions is None:
+            try:
+                from halo3.training.dream_gepa import load_prompt_instructions
+                self._instructions = load_prompt_instructions()
+            except Exception:
+                from halo3.training.dream_gepa import DEFAULT_INSTRUCTIONS
+                self._instructions = dict(DEFAULT_INSTRUCTIONS)
+        return self._instructions
+
+    def reload_instructions(self) -> None:
+        """Called after GEPA dream to pick up freshly evolved instructions."""
+        self._instructions = None
 
     def _try_load_adapter(self) -> bool:
         """Try to load the LoRA adapter trained during dreaming."""
@@ -148,32 +164,57 @@ class PrefrontalCortex:
         if not self.is_available:
             return None
 
-        context = "; ".join(texts[:3]) if texts else "no recent findings"
-        strength_str = ", ".join(strengths[:3]) if strengths else "general research"
+        # Sanitize current_query — if it's corrupted with state words, fall back to strengths
+        _bad = ["pride", "curiosity", "boredom", "anxiety", "satisfaction",
+                "synchronization", "think think", "page performance", "magic performance",
+                "leonard kim", "real housewives", "optimize page"]
+        topic = current_query
+        if any(w in current_query.lower() for w in _bad):
+            topic = ", ".join(strengths[:2]) if strengths else "artificial intelligence research"
 
-        prompt = f"""/no_think You are a research organism. Based on your state, output ONLY a web search query — no formatting, no labels, no markdown, just the raw search string.
+        # Only use clean, substantive text snippets (>30 chars, no state words)
+        snippets = []
+        for t in texts[:3]:
+            t = t.strip()
+            if len(t) > 30 and not any(w in t.lower() for w in _bad):
+                snippets.append(t[:80])
+            if len(snippets) >= 2:
+                break
+        context = snippets[0] if snippets else ""
 
-State: feeling {emotion}, synchronization {r_mean:.2f}
-Recent topic: {current_query}
-Findings: {context}
-Interests: {strength_str}
+        # Use GEPA-evolved instruction if available, else default
+        instr = self._get_instructions().get(
+            "query_instruction",
+            "Output ONLY a web search query of 5-8 words. No labels, no explanation.",
+        )
+        if context:
+            prompt = f"/no_think {instr}\n\nTopic: {topic}\nRelated: {context}\n\nSearch query:"
+        else:
+            prompt = f"/no_think {instr}\n\nTopic: {topic}\n\nSearch query:"
 
-Search query:"""
-
-        result = self._generate(prompt, max_tokens=30)
+        result = self._generate(prompt, max_tokens=20)
         if result:
-            query = result.strip()
-            # Aggressive cleanup: strip ALL formatting and meta-text
+            query = result.strip().split("\n")[0]
+            # Strip all meta/state noise from anywhere in the query
             for junk in ["**Query:**", "Query:", "**", "```", "/no_think", "/think",
-                          "Search query:", "search query:", "Here is", "Here's",
-                          "/seeking", "/search", "feelings of", "feeling"]:
-                query = query.replace(junk, "")
-            # Remove emotion/state words that leaked from prompt
-            for state_word in ["pride", "anxiety", "boredom", "satisfaction",
-                               "curiosity", "synchronization", "r=", "0."]:
-                if query.lower().startswith(state_word):
-                    query = query[len(state_word):]
-            query = query.strip().split("\n")[0].strip('"\'*:/ ')
+                         "Search query:", "search query:", "Here is", "Here's",
+                         "synchronization", "pride", "anxiety", "boredom",
+                         "curiosity", "satisfaction", "feeling", "organism",
+                         "r=", "0.6", "0.5", "0.4", "0.3"]:
+                query = query.replace(junk, "").replace(junk.lower(), "")
+            query = query.strip('"\'*:/ ').strip()
+            # Strip URLs entirely — LoRA adapter sometimes outputs Google search URLs
+            if query.startswith("http") or "google.com" in query or "search?q=" in query:
+                # Extract the q= param if present
+                if "q=" in query:
+                    try:
+                        import urllib.parse
+                        qs = query.split("q=", 1)[1].split("&")[0]
+                        query = urllib.parse.unquote_plus(qs)[:80]
+                    except Exception:
+                        return None
+                else:
+                    return None
             if len(query) < 5 or query.startswith("/") or query.startswith("*"):
                 return None
             return query[:80]
@@ -203,11 +244,17 @@ Interpretation:"""
         strength_str = ", ".join(strengths[:3]) if strengths else "none"
         recent_mem = "; ".join(narrative[-3:]) if narrative else "none"
 
-        prompt = f"""Reflect in first person, 2-3 sentences.
-Age: {age} ticks | Emotions: {emotion_summary}
-Strengths: {strength_str} | Discoveries: {n_findings}
-Memories: {recent_mem}
-Reflection:"""
+        # Use GEPA-evolved reflection instruction if available
+        instr = self._get_instructions().get(
+            "reflection_instruction",
+            "Reflect in first person, 2-3 sentences.",
+        )
+        prompt = (
+            f"{instr}\n"
+            f"Age: {age} ticks | Emotions: {emotion_summary}\n"
+            f"Strengths: {strength_str} | Discoveries: {n_findings}\n"
+            f"Memories: {recent_mem}\nReflection:"
+        )
 
         result = self._generate(prompt, max_tokens=120)
         return result[:300] if result else None

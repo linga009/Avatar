@@ -82,6 +82,8 @@ def main():
     parser.add_argument("--log-every", type=int, default=500)
     parser.add_argument("--save-every", type=int, default=5000)
     parser.add_argument("--checkpoint", type=str, default="data/checkpoints/halo3_lm")
+    parser.add_argument("--resume", action="store_true", help="Resume from checkpoint")
+    parser.add_argument("--resume-step", type=int, default=0, help="Step to resume from (auto-detected if 0)")
     args = parser.parse_args()
 
     import jax
@@ -125,15 +127,47 @@ def main():
     backbone = Halo3Backbone(cfg, k2)
     lorentz_embed = LorentzEmbedding(cfg, k3)
 
+    # Resume from checkpoint if requested
+    start_step = 0
+    if args.resume:
+        ckpt_lm = f"{args.checkpoint}_lm.eqx"
+        ckpt_bb = f"{args.checkpoint}_bb.eqx"
+        ckpt_le = f"{args.checkpoint}_le.eqx"
+        if os.path.exists(ckpt_lm) and os.path.exists(ckpt_bb) and os.path.exists(ckpt_le):
+            log.info(f"Resuming from checkpoint {args.checkpoint}_*.eqx")
+            lm_head = eqx.tree_deserialise_leaves(ckpt_lm, lm_head)
+            backbone = eqx.tree_deserialise_leaves(ckpt_bb, backbone)
+            lorentz_embed = eqx.tree_deserialise_leaves(ckpt_le, lorentz_embed)
+            start_step = args.resume_step if args.resume_step > 0 else args.save_every * (
+                int(os.path.getmtime(ckpt_lm) > 0)  # detect last save
+            )
+            # Auto-detect step from file mod time vs training start
+            if start_step == 0:
+                start_step = args.save_every  # conservative: assume at least 1 checkpoint
+            log.info(f"Resuming from step {start_step}")
+        else:
+            log.warning("No checkpoint found, starting from scratch")
+
     total_params = sum(p.size for p in jax.tree_util.tree_leaves((lm_head, backbone, lorentz_embed)) if hasattr(p, 'size'))
     log.info(f"Total params: {total_params/1e6:.1f}M")
 
-    # --- Optimizer with warmup ---
-    schedule = optax.warmup_cosine_decay_schedule(
-        init_value=0.0, peak_value=3e-4,
-        warmup_steps=1000, decay_steps=args.steps, end_value=3e-5,
+    # --- Optimizer with warmup + gradient clipping ---
+    if start_step > 0:
+        # Skip warmup when resuming — model is already warmed up
+        remaining = args.steps - start_step
+        schedule = optax.warmup_cosine_decay_schedule(
+            init_value=3e-4, peak_value=3e-4,
+            warmup_steps=0, decay_steps=remaining, end_value=3e-5,
+        )
+    else:
+        schedule = optax.warmup_cosine_decay_schedule(
+            init_value=0.0, peak_value=3e-4,
+            warmup_steps=1000, decay_steps=args.steps, end_value=3e-5,
+        )
+    opt = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adam(schedule),
     )
-    opt = optax.adam(schedule)
     opt_state = opt.init(jax.tree_util.tree_map(lambda x: x, (lm_head, backbone, lorentz_embed)))
 
     # --- JIT training step ---
@@ -162,7 +196,7 @@ def main():
     total_correct = 0
     total_tokens = 0
 
-    for step in range(args.steps):
+    for step in range(start_step, args.steps):
         # Get story and tokenize
         story = get_story(step)
         token_ids = jnp.array(tokenize_bpe(story, sp, cfg.max_seq_len), dtype=jnp.int32)
@@ -171,13 +205,19 @@ def main():
         # Forward + backward (no optimizer step yet)
         loss, n_correct, grads = train_step(lm_head, backbone, lorentz_embed, token_ids, sk)
 
+        # NaN guard — skip bad batches
+        loss_val = float(loss)
+        if not (loss_val == loss_val):  # NaN check
+            log.warning(f"Step {step+1}: NaN loss, skipping batch")
+            continue
+
         # Accumulate gradients
         if accum_grads is None:
             accum_grads = grads
         else:
             accum_grads = jax.tree_util.tree_map(lambda a, g: a + g, accum_grads, grads)
 
-        total_loss += float(loss)
+        total_loss += loss_val
         total_correct += int(n_correct)
         total_tokens += cfg.max_seq_len - 1
 
@@ -206,13 +246,24 @@ def main():
             total_correct = 0
             total_tokens = 0
 
-        # Save checkpoint
+        # Save checkpoint — serialize one component at a time to limit
+        # the GPU→CPU memory spike that was causing Docker OOM.
         if (step + 1) % args.save_every == 0:
+            import gc; gc.collect()
             os.makedirs(os.path.dirname(args.checkpoint) if os.path.dirname(args.checkpoint) else ".", exist_ok=True)
-            eqx.tree_serialise_leaves(f"{args.checkpoint}_lm.eqx", lm_head)
-            eqx.tree_serialise_leaves(f"{args.checkpoint}_bb.eqx", backbone)
-            eqx.tree_serialise_leaves(f"{args.checkpoint}_le.eqx", lorentz_embed)
+            eqx.tree_serialise_leaves(f"{args.checkpoint}_le.eqx", lorentz_embed)  # 0.5 MB
+            eqx.tree_serialise_leaves(f"{args.checkpoint}_lm.eqx", lm_head)       # 63 MB
+            eqx.tree_serialise_leaves(f"{args.checkpoint}_bb.eqx", backbone)       # 404 MB
             log.info(f"Checkpoint saved to {args.checkpoint}_*.eqx")
+            # Backup to safe directory
+            safe_dir = "safe_checkpoints"
+            if os.path.isdir(safe_dir):
+                import shutil
+                for suffix in ("_lm.eqx", "_bb.eqx", "_le.eqx"):
+                    src = f"{args.checkpoint}{suffix}"
+                    dst = os.path.join(safe_dir, f"halo3_lm_step{step+1}{suffix}")
+                    shutil.copy2(src, dst)
+                log.info(f"Backup saved to {safe_dir}/halo3_lm_step{step+1}_*.eqx")
 
     elapsed = time.time() - t0
     log.info(f"Training complete: {args.steps} steps in {elapsed/60:.1f} min")
@@ -246,6 +297,12 @@ def main():
     eqx.tree_serialise_leaves(f"{args.checkpoint}_bb.eqx", backbone)
     eqx.tree_serialise_leaves(f"{args.checkpoint}_le.eqx", lorentz_embed)
     log.info(f"Final checkpoint saved.")
+    safe_dir = "safe_checkpoints"
+    if os.path.isdir(safe_dir):
+        import shutil
+        for suffix in ("_lm.eqx", "_bb.eqx", "_le.eqx"):
+            shutil.copy2(f"{args.checkpoint}{suffix}", os.path.join(safe_dir, f"halo3_lm_final{suffix}"))
+        log.info(f"Final backup saved to {safe_dir}/")
 
 
 if __name__ == "__main__":

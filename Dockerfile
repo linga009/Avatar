@@ -18,7 +18,7 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 
 # Perception
 RUN pip3 install --no-cache-dir --break-system-packages \
-    sentence-transformers duckduckgo-search
+    sentence-transformers ddgs
 
 # Prefrontal cortex: LoRA fine-tuning during dreaming
 RUN pip3 install --no-cache-dir --break-system-packages \

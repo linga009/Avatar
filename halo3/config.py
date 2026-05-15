@@ -49,7 +49,7 @@ class Halo3Config:
     lisa_active_layers: int = 2
 
     # Language model
-    vocab_size: int = 16000
+    vocab_size: int = 8000
     max_seq_len: int = 128
 
     # Bridges

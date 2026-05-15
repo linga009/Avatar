@@ -20,3 +20,16 @@ htmlcov/
 *.pdf
 .claude/
 .worktrees/
+
+# Runtime data — never commit large binaries or ephemeral state
+data/checkpoints/
+data/episodes/
+data/dream_training/
+data/pfc_adapter/
+data/self_model.json
+data/pfc_prompts.json
+data/tokenizer.model
+data/tokenizer.vocab
+*.eqx
+*.db
+*.parquet
