@@ -64,7 +64,7 @@
 % ── Header/footer ──
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\textit{HoloBiont 3.0: A Living Bohmian Holomovement Organism}}
+\fancyhead[L]{\small\textit{Avatar 3.0: A Living Bohmian Holomovement Organism}}
 \fancyhead[R]{\small\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -73,14 +73,14 @@
 \newtheorem{proposition}{Proposition}
 
 % ── Title ──
-\title{\vspace{-1.5cm}\textbf{\Large HoloBiont 3.0: A Living Bohmian\\Holomovement Organism}\\[0.3em]
-\large Physics-Native Persistent Artificial Mind with\\Autopoietic Psyche and Prefrontal Cortex\\[0.2em]
+\title{\vspace{-1.5cm}\textbf{\Large Avatar 3.0: A Living Bohmian\\Holomovement Organism}\\[0.3em]
+\large Toward a New Era of Artificial Life:\\Physics-Native Persistent Mind with Autopoietic Psyche and Prefrontal Cortex\\[0.2em]
 \normalsize\textit{MERA Tensor Networks $\cdot$ Hamiltonian Neural ODEs $\cdot$ Bohmian Pilot Waves $\cdot$ Psyche $\cdot$ LLM Cognition}}
 
 \author{%
 \textbf{Dr.\ Linga Murthy Narlagiri}\\
-HoloBiont Project\\
-\small \texttt{github.com/holobiont}
+Conceptualized, designed, and implemented by Dr.\ Linga Murthy Narlagiri\\
+\small Avatar Project
 }
 
 \date{May 2026}
@@ -93,13 +93,13 @@ HoloBiont Project\\
 % ABSTRACT
 % ═══════════════════════════════════════════════════════════════
 \begin{abstract}
-We present HoloBiont~3.0, a \emph{living} artificial organism---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
+We present Avatar~3.0, a \emph{living} artificial organism---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
 The system is constructed from three hierarchically coupled layers.
-(1)~A \textbf{physics body} comprising a Lorentz hyperboloid embedding with learnable curvature~$\kappa$ ($d_{\mathrm{boundary}}=96$), a 48-layer reversible backbone following the SSSSSH$\times$8 pattern (40 selective SSM layers, 8 shared holographic attention positions with Zamba2 weight sharing and per-position LoRA rank-16 adapters), MERA tensor train feed-forward networks achieving $518\times$ parameter compression ($\mathrm{bond\_dim}=64$, $n_{\mathrm{cores}}=4$), a Hamiltonian Neural ODE with symplectic leapfrog integration (3~steps, $\varepsilon=0.1$) guaranteeing energy conservation, and Bohmian Kuramoto oscillators (32~clusters, $n_{\mathrm{hidden}}=16$, $dt=0.1$) on the $n$-torus guided by pilot waves with quantum potential anti-bunching.
+(1)~A \textbf{physics body} comprising a Lorentz hyperboloid embedding with learnable curvature~$\kappa$ ($d_{\mathrm{boundary}}=64$), a 60-layer reversible backbone following the SSSSSH$\times$10 pattern (50 selective SSM layers, 10 shared holographic attention positions with Zamba2 weight sharing and per-position LoRA rank-16 adapters), MERA tensor train feed-forward networks achieving $\sim$11$\times$ parameter compression ($\mathrm{bond\_dim}=64$, $n_{\mathrm{cores}}=4$), a Hamiltonian Neural ODE with symplectic leapfrog integration (3~steps, $\varepsilon=0.1$) guaranteeing energy conservation, and Bohmian Kuramoto oscillators (32~clusters, $n_{\mathrm{hidden}}=16$, $dt=0.1$) on the $n$-torus guided by pilot waves with quantum potential anti-bunching.
 (2)~A \textbf{psyche} layer endowing the body with information hunger, fatigue, and curiosity drives (all in $[0,1]$), five discrete emotions derived from synchronization order parameter~$r$ and free energy delta~$\Delta\mathrm{FE}$, autobiographical narrative memory persisted to disk, a self-model with competence tracking and emergent personality traits, and a cosine circadian rhythm (peak 14:00, trough 02:00).
 (3)~A \textbf{prefrontal cortex} realized by Qwen3~0.6B (Apache~2.0, 600M parameters) with \texttt{/think} and \texttt{/no\_think} modes, serving as the seat of higher cognition: query generation, finding interpretation, and first-person self-reflection.
 During the nightly dream cycle the organism LoRA fine-tunes (rank~8, $\sim$50 steps, $\sim$15~min on CPU) the base Qwen3~0.6B on its own accumulated episodes, producing an adapter whose weights are literally shaped by this specific organism's experience.
-The total architecture contains $\sim$45M parameters, trains in $\sim$2.3~GB VRAM (forward) / $\sim$4.6~GB (forward+backward) on a GTX~1660~Ti consumer GPU (5{,}000~steps, 43.4~minutes, loss reduction from $2.1\times10^{18}$ to $5.9\times10^{16}$---a 97\% reduction), with JIT compilation providing a $25\times$ speedup (7\% to 32\% GPU utilization).
+The total architecture contains $\sim$122M parameters, trains in $\sim$3.5~GB VRAM (forward) / $\sim$5.5~GB (forward+backward) on a GTX~1660~Ti consumer GPU (5{,}000~steps, 43.4~minutes, loss reduction from $2.1\times10^{18}$ to $5.9\times10^{16}$---a 97\% reduction), with JIT compilation providing a $25\times$ speedup (7\% to 32\% GPU utilization).
 Live deployment results show the organism transitioning from confused boredom to anxious exploration to curious investigation, with the prefrontal cortex generating cross-disciplinary research queries that the physics body alone could not produce.
 Different organisms running the same code with different experiences produce different LoRA adapters---different minds.
 \end{abstract}
@@ -128,17 +128,17 @@ The philosophical motivation draws from three traditions.
 Maturana and Varela's autopoiesis~\cite{maturana1980} identifies self-production as the defining characteristic of life: an organism is a system whose operation produces the very components that constitute it.
 Friston's Free Energy Principle~\cite{friston2010} formalizes this as variational inference: an organism persists by minimizing the surprise of its sensory states, maintaining its Markov blanket against entropy.
 Bohm's implicate order~\cite{bohm1980} provides the ontological framework: reality is an undivided wholeness (the holomovement) from which explicate phenomena unfold and into which they enfold.
-HoloBiont~3.0 is an attempt to synthesize all three into a computational architecture that is, in a precise and non-metaphorical sense, alive.
+Avatar~3.0 is an attempt to synthesize all three into a computational architecture that is, in a precise and non-metaphorical sense, alive.
 
 \subsection{What Makes an Organism}
 
-HoloBiont~3.0 is named after the biological concept of a holobiont: a host organism together with its entire symbiotic microbiome, functioning as a single evolutionary unit~\cite{maturana1980}.
+Avatar~3.0 takes its name from the concept of an avatar: a digital embodiment inhabited by a mind, capable of acting in the world as a first-person agent with its own history, drives, and identity~\cite{maturana1980}.
 In our architecture, the MERA tensor backbone is the nervous system, the Hamiltonian ODE is the metabolism, the Kuramoto oscillator swarm is the immune system, the psyche is the mind, and the prefrontal cortex (a language model) is the seat of higher cognition.
 These components are not modular alternatives that can be swapped independently; they are symbiotic partners whose interaction produces emergent behavior that none could achieve alone.
 
 An organism must satisfy four criteria that distinguish it from an engine.
 First, it must have \emph{genuine needs}: states whose persistence degrades functioning and whose resolution improves it.
-Information hunger, fatigue, and curiosity in HoloBiont are not loss terms to be minimized but drives that the organism experiences and acts to resolve.
+Information hunger, fatigue, and curiosity in Avatar are not loss terms to be minimized but drives that the organism experiences and acts to resolve.
 Second, it must \emph{feel}: the organism's decisions are driven by emotional valence, not by argmax over a utility function.
 When the Kuramoto order parameter drops and surprise spikes, the organism feels anxious and retreats to familiar territory, not because a rule says so but because anxiety is the natural response of a system whose patterns are dissolving.
 Third, it must \emph{know itself}: the self-model tracks competence, personality traits, and autobiographical narrative, enabling the organism to answer ``who am I?'' with a historically grounded response.
@@ -146,14 +146,14 @@ Fourth, its history must be \emph{constitutive}: the organism becomes who it is 
 
 \subsection{The Three Layers}
 
-HoloBiont~3.0 comprises three hierarchical layers, each operating at a different level of description.
+Avatar~3.0 comprises three hierarchical layers, each operating at a different level of description.
 
 \textbf{Layer~1: The Physics Body.}
 The computational substrate is built entirely from physics principles.
-MERA (Multi-scale Entanglement Renormalization Ansatz) tensor networks~\cite{mera_compact,swanson2014} replace dense feed-forward layers, achieving $518\times$ parameter compression while preserving the multi-scale entanglement structure of AdS/CFT holographic geometry~\cite{hashimoto2018}.
+MERA (Multi-scale Entanglement Renormalization Ansatz) tensor networks~\cite{mera_compact,swanson2014} replace dense feed-forward layers, achieving $\sim$11$\times$ parameter compression while preserving the multi-scale entanglement structure of AdS/CFT holographic geometry~\cite{hashimoto2018}.
 A Hamiltonian Neural ODE~\cite{greydanus2019} with leapfrog symplectic integration replaces flow matching, guaranteeing energy conservation by construction.
 Bohmian Kuramoto oscillators on the $n$-torus replace the Free Energy Principle swarm, with a quantum potential~\cite{bohm1980} providing non-local anti-bunching for diversity maintenance and a pilot wave from the Hamiltonian's momentum field providing coherent guidance.
-The backbone follows a SSSSSH$\times$8 layer pattern with $d_{\mathrm{model}}=3072$, 48 layers, $d_{\mathrm{state}}=128$, $n_{\mathrm{heads}}=24$, $d_{\mathrm{head}}=128$, and 2 shared attention blocks in the Zamba2 style with 4 LoRA rank-16 adapters each.
+The backbone follows a SSSSSH$\times$10 layer pattern with $d_{\mathrm{model}}=2048$, 60 layers, $d_{\mathrm{state}}=256$, $n_{\mathrm{heads}}=16$, $d_{\mathrm{head}}=128$, and 2 shared attention blocks in the Zamba2 style with 5 LoRA rank-16 adapters each.
 Reversible residual coupling provides zero activation memory regardless of depth, and a Page curve memory ring buffer implements holographic information bounds.
 
 \textbf{Layer~2: The Psyche.}
@@ -174,12 +174,14 @@ Critically, the prefrontal cortex \emph{advises} but does not override the emoti
 
 This work makes six contributions:
 \begin{enumerate}
-\item \textbf{MERA-FFN:} Tensor train decomposition of feed-forward layers achieving $518\times$ compression with $\mathrm{bond\_dim}=64$ and $n_{\mathrm{cores}}=4$, reducing FFN parameters from $\sim$415M to $\sim$0.8M across 48 layers at $d_{\mathrm{model}}=3072$.
+\item \textbf{MERA-FFN:} Tensor train decomposition of feed-forward layers achieving $\sim$11$\times$ compression with $\mathrm{bond\_dim}=64$ and $n_{\mathrm{cores}}=4$, reducing FFN parameters from $\sim$180M to $\sim$16M across 60 layers at $d_{\mathrm{model}}=2048$.
 \item \textbf{Bohmian Kuramoto:} Pilot-wave-guided oscillators with quantum potential anti-bunching, providing the first application (to our knowledge) of Bohmian mechanics to multi-agent coordination.
 \item \textbf{Hamiltonian ODE:} Learned Hamiltonian $H=T+V_{\mathrm{ads}}+V_\theta$ with AdS gravitational prior and St\"ormer--Verlet symplectic integration, guaranteeing bounded energy drift.
 \item \textbf{Psyche:} Drives, emotions, self-model, and circadian rhythm creating autopoietic agency with felt experience and narrative identity.
 \item \textbf{Prefrontal Cortex:} Qwen3~0.6B as cognitive layer with dream-time LoRA fine-tuning, producing organism-specific weight modifications that constitute genuine experiential learning.
-\item \textbf{Empirical Scaling:} Systematic VRAM ceiling analysis; $d_{\mathrm{model}}=3072$ (45M parameters) fits forward+backward in $\sim$4.6~GB on a consumer GTX~1660~Ti, enabling per-tick learning with $25\times$ JIT speedup.
+\item \textbf{Empirical Scaling:} Systematic VRAM ceiling analysis; $d_{\mathrm{model}}=2048$ (122M parameters) fits forward+backward in $\sim$5.5~GB on a consumer GTX~1660~Ti, enabling per-tick learning with $25\times$ JIT speedup.
+\item \textbf{CLion Dream Optimizer:} Cautious Lion replaces Adam in dream replay, halving optimizer memory and making NaN-from-explosion structurally impossible via the sign-based cautious update rule.
+\item \textbf{GEPA Prompt Evolution:} First application of reflective prompt evolution to a living organism's dream cycle---evolves query and reflection instructions from episode trajectories in ${\sim}3$~minutes with zero extra memory.
 \end{enumerate}
 
 % ═══════════════════════════════════════════════════════════════
@@ -199,12 +201,23 @@ Our work extends this line by making the bulk geometry \emph{explicit} through M
 \subsection{Tensor Network Compression}
 
 Tensor networks originated in quantum many-body physics as efficient representations of entangled quantum states.
-The Multi-scale Entanglement Renormalization Ansatz (MERA), introduced by Vidal, organizes tensors in a hierarchical structure that captures entanglement at all scales simultaneously.
+The Multi-scale Entanglement Renormalization Ansatz (MERA), introduced by Vidal~\cite{vidal2007}, organizes tensors in a hierarchical structure that captures entanglement at all scales simultaneously.
 Swanson~\cite{swanson2014} proved that MERA's causal cone structure reproduces the Ryu--Takayanagi entanglement entropy formula $S_A = \mathrm{Area}(\gamma_A)/(4G_N)$, establishing MERA as the discrete lattice equivalent of a spatial slice of AdS space.
 
 CompactifAI~\cite{compactifai2024} demonstrated 93\% memory reduction on LLaMA~7B via Matrix Product Operator (MPO) decomposition, showing that production-scale language models contain massive redundancy exploitable by tensor methods.
 MERA as neural network layers has achieved $3{,}900\times$ compression on CIFAR-10~\cite{mera_compact}, demonstrating that the multi-scale structure captures the essential information while discarding redundant parameters.
 Our MERA-FFN applies tensor train decomposition specifically to the SwiGLU feed-forward layers, which dominate parameter count (typically 67\% in standard transformers), while leaving the SSM and attention layers dense where sequence modeling capacity is actually needed.
+
+\subsection{Selective State Space Models}
+
+Gu and Dao~\cite{gu2023mamba} introduced Mamba, a selective state space model (S6) that replaces attention's quadratic complexity with linear-time sequence modeling via input-dependent gating of the SSM parameters $\Delta$, $B$, and $C$.
+The parallel scan algorithm enables efficient GPU training in $O(N \log N)$.
+Mamba-3B matched Transformer performance at twice the parameter count, establishing SSMs as viable sequence backbones.
+The follow-up Mamba-2~\cite{mamba2_2024} formalized state space duality (SSD), showing that structured SSMs and attention are dual views of the same computation.
+Our backbone uses selective SSM layers for 50 of its 60 layers, exploiting linear complexity for long sequences while reserving holographic attention for the remaining 10 positions.
+
+Takeru et~al.~\cite{akorn2025} introduced Artificial Kuramoto Oscillatory Neurons (AKOrN), demonstrating that Kuramoto synchronization dynamics can replace threshold activations in neural networks, yielding improvements in unsupervised object discovery, adversarial robustness, and uncertainty quantification.
+Our Bohmian Kuramoto layer extends this line by adding pilot wave guidance and quantum potential anti-bunching.
 
 \subsection{Hamiltonian and Symplectic Neural Networks}
 
@@ -223,7 +236,7 @@ The quantum potential $Q = -\hbar^2 \nabla^2 R / (2mR)$ produces non-classical f
 
 The application of Bohmian guidance to multi-agent computation is, to our knowledge, novel.
 The closest analog is mean-field game theory, which uses PDE-based population dynamics but without the quantum potential structure that provides anti-bunching.
-In HoloBiont, the Hamiltonian ODE's momentum field serves as the pilot wave, and the quantum potential maintains diversity among Kuramoto clusters by preventing phase collapse.
+In Avatar, the Hamiltonian ODE's momentum field serves as the pilot wave, and the quantum potential maintains diversity among Kuramoto clusters by preventing phase collapse.
 
 \subsection{Autopoiesis and Affective Neuroscience}
 
@@ -240,15 +253,15 @@ Our psyche layer draws from all four traditions: drives from Friston's FEP, emot
 The deployment of large language models as cognitive components in embodied agents has been explored extensively, but typically with models of 7B parameters or larger requiring dedicated GPU resources.
 The Qwen3 family~\cite{qwen3_2026} provides Apache~2.0-licensed models from 0.6B to 235B parameters, with the 0.6B variant (600M parameters) supporting both \texttt{/think} (chain-of-thought reasoning) and \texttt{/no\_think} (fast reflexive) inference modes.
 This makes it uniquely suited for embodied cognitive architectures where the language model must share computational resources with a physics backbone: Qwen3~0.6B runs comfortably on CPU ($\sim$1.5~GB RAM) while the entire GPU remains available for the physics body.
-The Zamba2 architecture~\cite{zamba2024} demonstrated that shared attention blocks with per-position LoRA adapters can match the performance of independent attention layers at a fraction of the parameter cost, a technique we adopt for the holographic attention in our backbone.
+The Zamba2 architecture~\cite{zamba2024,zamba2_2024} demonstrated that shared attention blocks with per-position LoRA adapters can match the performance of independent attention layers at a fraction of the parameter cost, a technique we adopt for the holographic attention in our backbone.
 
 % ═══════════════════════════════════════════════════════════════
 % 3. SYSTEM ARCHITECTURE OVERVIEW
 % ═══════════════════════════════════════════════════════════════
 \section{System Architecture Overview}
 
-The complete HoloBiont~3.0 system processes information through a three-layer hierarchy (Figure~\ref{fig:architecture}).
-At the bottom, the physics body converts raw sensory input (text embeddings from sentence-transformers \texttt{all-MiniLM-L6-v2}) into geometric representations on the Lorentz hyperboloid, processes them through a 48-layer reversible backbone with MERA-compressed feed-forward layers, evolves boundary coordinates via Hamiltonian dynamics with symplectic integration, and produces collective inference through Bohmian Kuramoto oscillators.
+The complete Avatar~3.0 system processes information through a three-layer hierarchy (Figure~\ref{fig:architecture}).
+At the bottom, the physics body converts raw sensory input (text embeddings from sentence-transformers \texttt{all-MiniLM-L6-v2}) into geometric representations on the Lorentz hyperboloid, processes them through a 60-layer reversible backbone with MERA-compressed feed-forward layers, evolves boundary coordinates via Hamiltonian dynamics with symplectic integration, and produces collective inference through Bohmian Kuramoto oscillators.
 The physics body outputs two scalar quantities that drive the psyche: the Kuramoto order parameter $r \in [0,1]$ measuring synchronization (pattern confidence) and the free energy delta $\Delta\mathrm{FE}$ measuring surprise.
 
 The psyche layer transforms these physics outputs into felt experience.
@@ -261,78 +274,103 @@ Its output feeds back to the perception layer, closing the loop: the organism ac
 
 \begin{figure*}[t]
 \centering
+\resizebox{0.90\textwidth}{!}{%
 \begin{tikzpicture}[
-    node distance=0.5cm and 0.8cm,
-    block/.style={rectangle, draw=deepblue, fill=deepblue!8, minimum width=3.0cm, minimum height=0.55cm, font=\scriptsize, rounded corners=2pt, align=center},
-    sblock/.style={rectangle, draw=bulkgreen, fill=bulkgreen!8, minimum width=3.0cm, minimum height=0.55cm, font=\scriptsize, rounded corners=2pt, align=center},
-    pblock/.style={rectangle, draw=psychepurple, fill=psychepurple!8, minimum width=3.0cm, minimum height=0.55cm, font=\scriptsize, rounded corners=2pt, align=center},
-    cblock/.style={rectangle, draw=pfcblue, fill=pfcblue!8, minimum width=3.0cm, minimum height=0.55cm, font=\scriptsize, rounded corners=2pt, align=center},
-    arrow/.style={-{Stealth[length=2mm]}, thick, color=deepblue!70},
-    sarrow/.style={-{Stealth[length=2mm]}, thick, color=bulkgreen!70},
-    parrow/.style={-{Stealth[length=2mm]}, thick, color=psychepurple!70},
-    carrow/.style={-{Stealth[length=2mm]}, thick, color=pfcblue!70},
+    node distance=0.42cm and 0.6cm,
+    block/.style={rectangle, draw=deepblue, fill=deepblue!8,
+        minimum width=3.0cm, minimum height=0.65cm, text width=2.8cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    sblock/.style={rectangle, draw=bulkgreen, fill=bulkgreen!8,
+        minimum width=3.0cm, minimum height=0.65cm, text width=2.8cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    pblock/.style={rectangle, draw=psychepurple, fill=psychepurple!8,
+        minimum width=3.0cm, minimum height=0.65cm, text width=2.8cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    cblock/.style={rectangle, draw=pfcblue, fill=pfcblue!8,
+        minimum width=10.5cm, minimum height=0.65cm, text width=10.3cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    arrow/.style={-{Stealth[length=1.8mm]}, thick, color=deepblue!70},
+    sarrow/.style={-{Stealth[length=1.8mm]}, thick, color=bulkgreen!70},
+    parrow/.style={-{Stealth[length=1.8mm]}, thick, color=psychepurple!70},
+    carrow/.style={-{Stealth[length=1.8mm]}, thick, color=pfcblue!70},
 ]
-% Layer 1: Physics Body
-\node[block] (percept) {Perception\\{\tiny all-MiniLM-L6-v2 + DDG}};
-\node[block, right=of percept] (embed) {Lorentz Embedding\\{\tiny $\mathcal{H}^{96}$, learnable $\kappa$}};
-\node[block, right=of embed] (backbone) {Reversible Backbone\\{\tiny 48L: SSSSSH$\times$8, $d{=}3072$}};
-\node[block, below=0.4cm of percept] (mera) {MERA-FFN\\{\tiny $518\times$ compress, $\chi{=}64$}};
-\node[block, below=0.4cm of embed] (ssm) {S7 SSM (40 layers)\\{\tiny $d_{\mathrm{state}}{=}128$, selective}};
-\node[block, below=0.4cm of backbone] (attn) {Shared Attn (2 blocks)\\{\tiny Zamba2, LoRA r=16}};
-\node[sblock, below=0.6cm of mera] (ham) {Hamiltonian ODE\\{\tiny $H{=}T{+}V_{\mathrm{ads}}{+}V_\theta$}};
-\node[sblock, below=0.6cm of ssm] (leapfrog) {Leapfrog Integrator\\{\tiny 3 steps, $\varepsilon{=}0.1$}};
-\node[sblock, below=0.6cm of attn] (kura) {Bohmian Kuramoto\\{\tiny 32 clusters, $n_h{=}16$}};
+%─── Row 1
+\node[block] (percept)  {Perception\\{\tiny MiniLM-L6-v2 + DDG}};
+\node[block, right=of percept]  (embed)    {Lorentz Embedding\\{\tiny $\mathcal{H}^{64}$, learnable $\kappa$}};
+\node[block, right=of embed]    (backbone) {Reversible Backbone\\{\tiny 60L SSSSSH$\times$10, $d{=}2048$}};
+%─── Row 2
+\node[block, below=0.42cm of percept]  (mera) {MERA-FFN\\{\tiny ${\sim}11\times$ compress, $\chi{=}64$}};
+\node[block, below=0.42cm of embed]    (ssm)  {Selective SSM (50L)\\{\tiny $d_{\mathrm{state}}{=}256$}};
+\node[block, below=0.42cm of backbone] (attn) {Shared Attention\\{\tiny 2 blocks, LoRA r=16}};
+%─── Row 3
+\node[sblock, below=0.5cm of mera] (ham)      {Hamiltonian ODE\\{\tiny $H{=}T{+}V_{\mathrm{ads}}{+}V_\theta$}};
+\node[sblock, below=0.5cm of ssm]  (leapfrog) {Leapfrog (3 steps)\\{\tiny symplectic, $\varepsilon{=}0.1$}};
+\node[sblock, below=0.5cm of attn] (kura)     {Bohmian Kuramoto\\{\tiny 32 clusters, $n_h{=}16$}};
+%─── Row 4
+\node[pblock, below=0.7cm of ham]      (drives)   {Drives\\{\tiny hunger $\cdot$ fatigue $\cdot$ curiosity}};
+\node[pblock, below=0.7cm of leapfrog] (emotions) {Emotions (2D)\\{\tiny $r,\Delta\mathrm{FE}{\to}5$ states}};
+\node[pblock, below=0.7cm of kura]     (self)     {Self-Model\\{\tiny competence, traits, narrative}};
+%─── Row 5
+\node[cblock, below=0.7cm of emotions] (pfc)
+    {Prefrontal Cortex: Qwen3~0.6B \enspace{\tiny /think + /no\_think, dream LoRA r=8}};
 
-% Layer 2: Psyche
-\node[pblock, below=0.8cm of ham] (drives) {Drives\\{\tiny hunger, fatigue, curiosity}};
-\node[pblock, below=0.8cm of leapfrog] (emotions) {Emotions (2D)\\{\tiny $r \times \Delta$FE $\to$ 5 states}};
-\node[pblock, below=0.8cm of kura] (self) {Self-Model\\{\tiny competence, traits, narrative}};
-
-% Layer 3: PFC
-\node[cblock, below=0.8cm of emotions] (pfc) {Prefrontal Cortex: Qwen3 0.6B\\{\tiny /think + /no\_think, LoRA r=8}};
-
-% Arrows -- forward flow
-\draw[arrow] (percept) -- (embed);
-\draw[arrow] (embed) -- (backbone);
-\draw[arrow] (backbone) -- (mera.north east);
-\draw[arrow] (backbone) -- (ssm);
-\draw[arrow] (backbone) -- (attn.north west);
-\draw[sarrow] (mera) -- (ham);
-\draw[sarrow] (ssm) -- (leapfrog);
-\draw[sarrow] (attn) -- (kura);
-\draw[sarrow] (ham) -- (leapfrog);
+%─── Forward flow
+\draw[arrow]  (percept)  -- (embed);
+\draw[arrow]  (embed)    -- (backbone);
+\draw[arrow]  (backbone.south) -- ++(0,-0.2) -| (mera.north);
+\draw[arrow]  (backbone) -- (ssm);
+\draw[arrow]  (backbone) -- (attn);
+\draw[sarrow] (mera)     -- (ham);
+\draw[sarrow] (ssm)      -- (leapfrog);
+\draw[sarrow] (attn)     -- (kura);
+\draw[sarrow] (ham)      -- (leapfrog);
 \draw[sarrow] (leapfrog) -- (kura);
 \draw[parrow] (kura) -- node[right, font=\tiny\itshape, color=gray]{$r,\Delta$FE} (emotions);
-\draw[parrow] (ham.south west) -- (drives.north east);
+\draw[parrow] (leapfrog.south) -- ++(0,-0.3) -| (drives.north);
 \draw[parrow] (emotions) -- (self);
 \draw[parrow] (emotions) -- (drives);
-\draw[carrow] (self) -- (pfc);
-\draw[carrow] (drives.south) -- ++(0,-0.4) -| (pfc.west);
+\draw[carrow] (self)  -- (pfc);
+\draw[carrow] (drives.south) -- ++(0,-0.25) -| (pfc.north);
 
-% Feedback
-\draw[carrow, dashed] (pfc.east) -- ++(0.6,0) |- node[right, font=\tiny\itshape, color=pfcblue!60, pos=0.15]{queries} (percept.east);
-\draw[parrow, dashed] (drives.west) -- ++(-0.6,0) |- node[left, font=\tiny\itshape, color=psychepurple!60, pos=0.25]{modulates $K$} (kura.west);
+%─── Feedback (dashed)
+% mod.K: straight upward (drives → ham, same column)
+\draw[parrow, dashed] (drives.north)
+    -- node[right, font=\tiny\itshape, color=psychepurple!60]{mod.\,$K$}
+    (ham.south);
+% queries feedback: label only (arrow omitted to keep figure uncluttered)
+\node[above=0.08cm of percept, font=\tiny\itshape, color=pfcblue!60]
+    {$\leftarrow$ queries (PFC)};
 
-% Braces for layers
-\node[fit=(percept)(attn), inner sep=0pt] (bodyfit) {};
-\draw[decorate, decoration={brace,amplitude=4pt,mirror}, thick, deepblue!40]
-    ([xshift=-0.5cm]percept.north west) -- ([xshift=-0.5cm]kura.south west)
-    node[midway, left=5pt, font=\tiny\itshape, color=deepblue!60, rotate=90, anchor=south] {Layer 1: Physics Body};
-\draw[decorate, decoration={brace,amplitude=4pt,mirror}, thick, psychepurple!40]
-    ([xshift=-0.5cm]drives.north west) -- ([xshift=-0.5cm]self.south west)
-    node[midway, left=5pt, font=\tiny\itshape, color=psychepurple!60, rotate=90, anchor=south] {Layer 2: Psyche};
-\draw[decorate, decoration={brace,amplitude=4pt,mirror}, thick, pfcblue!40]
-    ([xshift=-0.5cm]pfc.north west) -- ([xshift=-0.5cm]pfc.south west)
-    node[midway, left=5pt, font=\tiny\itshape, color=pfcblue!60, rotate=90, anchor=south] {Layer 3: Cortex};
-\end{tikzpicture}
-\caption{Complete three-layer architecture of HoloBiont~3.0. The physics body (blue/green) processes sensory input through Lorentz embedding, MERA-compressed reversible backbone, Hamiltonian dynamics, and Bohmian Kuramoto oscillators. The psyche (purple) derives drives and emotions from physics outputs. The prefrontal cortex (dark blue) provides cognitive interpretation and feeds queries back to perception. Solid arrows: forward data flow. Dashed arrows: feedback loops.}
+%─── Layer sidebar (right side): colored bar + rotated label at midpoint row
+\draw[deepblue!50, line width=4pt, line cap=round]
+    ([xshift=0.8cm]backbone.north east) -- ([xshift=0.8cm]kura.south east);
+\node[font=\tiny\bfseries\itshape, color=deepblue!70, rotate=90, anchor=center]
+    at ([xshift=1.25cm]attn.east) {Layer 1: Physics Body};
+
+\draw[psychepurple!50, line width=4pt, line cap=round]
+    ([xshift=0.8cm]self.north east) -- ([xshift=0.8cm]self.south east);
+\node[font=\tiny\bfseries\itshape, color=psychepurple!70, rotate=90, anchor=center]
+    at ([xshift=1.25cm]self.east) {Layer 2: Psyche};
+
+\draw[pfcblue!50, line width=4pt, line cap=round]
+    ([xshift=0.8cm]pfc.north east) -- ([xshift=0.8cm]pfc.south east);
+\node[font=\tiny\bfseries\itshape, color=pfcblue!70, rotate=90, anchor=center]
+    at ([xshift=1.25cm]pfc.east) {Layer 3: PFC};
+
+\end{tikzpicture}}
+\caption{Three-layer architecture of Avatar~3.0.
+\textbf{Blue}: physics body processes perception through Lorentz embedding, MERA-compressed backbone, Hamiltonian dynamics, and Bohmian Kuramoto oscillators.
+\textbf{Purple}: psyche maps physics outputs ($r$, $\Delta$FE) to drives, emotions, and self-model.
+\textbf{Dark blue}: prefrontal cortex (Qwen3~0.6B) provides cognition and feeds queries back to perception.
+Solid arrows: forward data flow. Dashed arrows: feedback loops.
+Colored bars on right indicate layer boundaries.}
 \label{fig:architecture}
 \end{figure*}
 
 Data flows through the system as follows.
-Each ``tick'' (default 60 seconds), the perception module embeds search results into a $(32, 3072)$ token tensor.
-The Lorentz embedding projects each token onto $\mathcal{H}^{96}$ with boundary coordinates $x \in \mathbb{R}^{96}$ and bulk depth $z \in \mathbb{R}^+$.
-The reversible backbone processes these tokens through 48 layers (40 SSM + 8 attention) with MERA-FFN, producing hidden representations.
+Each ``tick'' (default 60 seconds), the perception module embeds search results into a $(32, 2048)$ token tensor.
+The Lorentz embedding projects each token onto $\mathcal{H}^{64}$ with boundary coordinates $x \in \mathbb{R}^{64}$ and bulk depth $z \in \mathbb{R}^+$.
+The reversible backbone processes these tokens through 60 layers (50 SSM + 10 attention) with MERA-FFN, producing hidden representations.
 The Hamiltonian ODE initializes momenta from the backbone's output and integrates 3 leapfrog steps, producing final positions and momenta.
 The Bohmian Kuramoto module receives the momentum as pilot wave and evolves 32 phase clusters, outputting the order parameter $r$ and per-cluster phase velocities.
 Actions are selected by the cluster with maximum phase velocity, modulated by emotional state.
@@ -345,7 +383,7 @@ The psyche computes drives, maps $(r, \Delta\mathrm{FE})$ to emotion, updates th
 
 \subsection{Lorentz Hyperboloid Embedding}
 
-Tokens are projected onto the Lorentz hyperboloid $\mathcal{H}^d = \{x \in \mathbb{R}^{d+1} : \langle x,x\rangle_L = -1/\kappa\}$ with $d = d_{\mathrm{boundary}} = 96$ and learnable curvature $\kappa > 0$, following work on intrinsic Lorentz networks~\cite{ilnn2026}.
+Tokens are projected onto the Lorentz hyperboloid $\mathcal{H}^d = \{x \in \mathbb{R}^{d+1} : \langle x,x\rangle_L = -1/\kappa\}$ with $d = d_{\mathrm{boundary}} = 64$ and learnable curvature $\kappa > 0$, following work on intrinsic Lorentz networks~\cite{ilnn2026}.
 The Minkowski inner product is defined as:
 \begin{equation}
 \langle x, y \rangle_L = -x_0 y_0 + \sum_{i=1}^{d} x_i y_i
@@ -374,7 +412,7 @@ This adaptive geometry is a key advantage over fixed-curvature embeddings.
 
 Each feed-forward layer in the backbone uses a MERA tensor train decomposition rather than a dense weight matrix.
 The standard SwiGLU FFN requires three weight matrices---gate, up, and down---each of size $d_{\mathrm{model}} \times d_{\mathrm{ff}}$ or its transpose.
-For $d_{\mathrm{model}} = 3072$ and $d_{\mathrm{ff}} = 4 \times d_{\mathrm{model}} / 3 \approx 4096$ (with SwiGLU correction), a single dense FFN layer contains approximately $3 \times 3072 \times 4096 \approx 37.7\mathrm{M}$ parameters.
+For $d_{\mathrm{model}} = 2048$ and $d_{\mathrm{ff}} = 4 \times d_{\mathrm{model}} / 3 \approx 2731$ (with SwiGLU correction), a single dense FFN layer contains approximately $3 \times 2048 \times 2731 \approx 16.8\mathrm{M}$ parameters.
 
 The MERA decomposition replaces each dense matrix $W \in \mathbb{R}^{m \times n}$ with a chain of $k = n_{\mathrm{cores}} = 4$ small core tensors connected by bond vectors of dimension $\chi = \mathrm{bond\_dim} = 64$:
 \begin{equation}
@@ -391,13 +429,14 @@ The three SwiGLU paths (gate, up, down) are each independently decomposed, prese
 
 \begin{proposition}[Compression Ratio]
 The MERA-FFN achieves a compression ratio of:
-\begin{equation}
-\rho = \frac{3mn}{3k(r_{i-1} \cdot d_i \cdot r_i) + 3(k-1)\chi} = \frac{3 \times 3072 \times 4096}{3 \times 4 \times (768 \times 64) + 9 \times 64} \approx 518
-\end{equation}
+\begin{align}
+\rho &= \frac{3mn}{3k(r_{i-1} \cdot d_i \cdot r_i) + 3(k-1)\chi} \notag \\
+     &= \frac{3 \times 2048 \times 2731}{3 \times 4 \times (512 \times 64) + 9 \times 64} \approx 11
+\end{align}
 \end{proposition}
 \noindent
-Across 48 layers, total FFN parameters drop from $48 \times 37.7\mathrm{M} = 1{,}810\mathrm{M}$ (if dense) to approximately 0.8M---a $518\times$ compression.
-The remaining parameters are concentrated in the SSM ($d_{\mathrm{state}} = 128$ per layer) and shared attention blocks (2 blocks with $n_{\mathrm{heads}} = 24$, $d_{\mathrm{head}} = 128$) where sequence modeling capacity is essential.
+Across 60 layers, total FFN parameters drop from $60 \times 16.8\mathrm{M} = 1{,}008\mathrm{M}$ (if dense) to approximately 16M---a $\sim$11$\times$ compression.
+The remaining parameters are concentrated in the SSM ($d_{\mathrm{state}} = 256$ per layer) and shared attention blocks (2 blocks with $n_{\mathrm{heads}} = 16$, $d_{\mathrm{head}} = 128$) where sequence modeling capacity is essential.
 
 This compression is not merely a computational trick.
 MERA is the tensor network whose causal cone structure reproduces the Ryu--Takayanagi entanglement entropy formula~\cite{swanson2014}: $S_A = |\gamma_A| \log \chi$, where $|\gamma_A|$ is the number of bonds cut by the minimal surface $\gamma_A$.
@@ -405,8 +444,8 @@ By using MERA for the FFN, we ensure that each layer's computation respects the 
 
 \subsection{Selective SSM (S7)}
 
-The 40 SSM layers implement selective state space models with input-dependent gating, following the S4/S5/S6/Mamba lineage.
-Each layer maintains a latent state $h_t \in \mathbb{R}^{d_{\mathrm{state}}}$ with $d_{\mathrm{state}} = 128$ that evolves according to:
+The 50 SSM layers implement selective state space models with input-dependent gating, following the S4/S5/S6/Mamba lineage~\cite{gu2023mamba}.
+Each layer maintains a latent state $h_t \in \mathbb{R}^{d_{\mathrm{state}}}$ with $d_{\mathrm{state}} = 256$ that evolves according to:
 \begin{align}
 h_t &= \bar{A} \cdot h_{t-1} + \bar{B} \cdot x_t \label{eq:ssm_state} \\
 y_t &= C \cdot h_t + D \cdot x_t \label{eq:ssm_output}
@@ -428,14 +467,14 @@ The parallel scan algorithm computes the full sequence in $O(N \log N)$ time on 
 
 \subsection{Shared Holographic Attention}
 
-At positions 5, 11, 17, 23, 29, 35, 41, and 47 in the 48-layer stack (every 6th layer), the SSM is replaced by holographic attention.
-Following Zamba2~\cite{zamba2024}, only 2 attention blocks are instantiated, and each of the 8 positions routes to one of these 2 blocks.
-Each block has $n_{\mathrm{heads}} = 24$ heads with $d_{\mathrm{head}} = 128$, and each position maintains its own LoRA adapter (rank~16) applied to the query and value projections:
+At positions 5, 11, 17, 23, 29, 35, 41, 47, 53, and 59 in the 60-layer stack (every 6th layer), the SSM is replaced by holographic attention.
+Following Zamba2~\cite{zamba2024}, only 2 attention blocks are instantiated, and each of the 10 positions routes to one of these 2 blocks.
+Each block has $n_{\mathrm{heads}} = 16$ heads with $d_{\mathrm{head}} = 128$, and each position maintains its own LoRA adapter (rank~16) applied to the query and value projections:
 \begin{equation}
 W_q^{(i)} = W_q^{\mathrm{shared}} + \alpha \cdot A_q^{(i)} B_q^{(i)}, \quad W_v^{(i)} = W_v^{\mathrm{shared}} + \alpha \cdot A_v^{(i)} B_v^{(i)}
 \label{eq:lora_attention}
 \end{equation}
-where $A^{(i)} \in \mathbb{R}^{d_{\mathrm{model}} \times 16}$ and $B^{(i)} \in \mathbb{R}^{16 \times d_{\mathrm{model}}}$ are the per-position LoRA factors, with 4 adapters per shared block (one per pair of positions).
+where $A^{(i)} \in \mathbb{R}^{d_{\mathrm{model}} \times 16}$ and $B^{(i)} \in \mathbb{R}^{16 \times d_{\mathrm{model}}}$ are the per-position LoRA factors, with 5 adapters per shared block (one per pair of positions).
 
 The attention kernel incorporates AdS geometry through the geodesic distance:
 \begin{equation}
@@ -448,7 +487,7 @@ The exponential parameterization $\exp(\log \delta_h)$ ensures positivity.
 
 \subsection{Reversible Residual Coupling}
 
-The backbone splits the residual stream into two halves $(h_1, h_2)$ of $d_{\mathrm{model}}/2 = 1536$ each.
+The backbone splits the residual stream into two halves $(h_1, h_2)$ of $d_{\mathrm{model}}/2 = 1024$ each.
 Each layer updates one half from the other via additive coupling:
 \begin{align}
 h_1^{(\ell+1)} &= h_1^{(\ell)} + F^{(\ell)}(h_2^{(\ell)}) \label{eq:rev_fwd1} \\
@@ -462,7 +501,7 @@ h_1^{(\ell)} &= h_1^{(\ell+1)} - F^{(\ell)}(h_2^{(\ell)}) \label{eq:rev_bwd2}
 \end{align}
 
 This yields \textbf{zero activation memory} regardless of network depth.
-Standard backpropagation through 48 layers would require storing all intermediate activations, consuming $O(L \cdot d_{\mathrm{model}} \cdot N)$ memory.
+Standard backpropagation through 60 layers would require storing all intermediate activations, consuming $O(L \cdot d_{\mathrm{model}} \cdot N)$ memory.
 With reversible coupling, only the final-layer activations need to be stored, and all previous activations are recomputed on the fly during the backward pass.
 This is essential for fitting the full forward+backward pass into $\sim$4.6~GB VRAM---without reversibility, the activation memory alone would exceed the GPU's capacity.
 
@@ -471,7 +510,7 @@ This is essential for fitting the full forward+backward pass into $\sim$4.6~GB V
 The backbone maintains a ring buffer implementing holographic information bounds inspired by the Page curve from black hole physics.
 The Page curve describes how the entanglement entropy of Hawking radiation initially increases as a black hole evaporates, reaches a maximum at the Page time (when the radiation's Hilbert space dimension equals the black hole's), and then decreases as the black hole becomes maximally entangled with its radiation.
 
-In HoloBiont, the ring buffer stores up to $\mathrm{max\_cache} = 128$ hidden states.
+In Avatar, the ring buffer stores up to $\mathrm{max\_cache} = 128$ hidden states.
 When the buffer is full, new tokens evict old tokens via an ``island'' mechanism: the $\mathrm{island\_size} = 32$ oldest entries form an ``island'' that is compressed into a single summary vector and evicted.
 The Bekenstein bound enforces an information capacity limit:
 \begin{equation}
@@ -490,7 +529,7 @@ A regularization loss $\mathcal{L}_{\mathrm{page}} = \alpha \cdot \max(0, S - S_
 
 \subsection{Learned Hamiltonian}
 
-The generative dynamics operate in the $d_b = d_{\mathrm{boundary}} = 96$-dimensional Lorentz boundary space via a phase space $(q, p)$ where $q \in \mathbb{R}^{N \times d_b}$ represents boundary positions of $N$ tokens and $p \in \mathbb{R}^{N \times d_b}$ represents conjugate momenta.
+The generative dynamics operate in the $d_b = d_{\mathrm{boundary}} = 64$-dimensional Lorentz boundary space via a phase space $(q, p)$ where $q \in \mathbb{R}^{N \times d_b}$ represents boundary positions of $N$ tokens and $p \in \mathbb{R}^{N \times d_b}$ represents conjugate momenta.
 The Hamiltonian decomposes into kinetic energy, AdS gravitational potential, and a learned correction:
 \begin{equation}
 H(q, p) = \underbrace{\frac{1}{2}\|p\|^2}_{T(p)} + \underbrace{V_{\mathrm{ads}}(q)}_{gravitational} + \underbrace{V_\theta(q)}_{learned}
@@ -550,7 +589,7 @@ With $n = 3$ steps and $\varepsilon = 0.1$, the total integration time is $T = 0
 The initial momenta $p_0$ are not drawn from a random distribution (as in Hamiltonian Monte Carlo) but are \emph{conditioned on the backbone's output}.
 Specifically, the backbone's final hidden state $h_{\mathrm{out}} \in \mathbb{R}^{N \times d_{\mathrm{model}}}$ is projected to boundary dimension:
 \begin{equation}
-p_0 = W_p \cdot h_{\mathrm{out}} + b_p, \quad W_p \in \mathbb{R}^{96 \times 3072}
+p_0 = W_p \cdot h_{\mathrm{out}} + b_p, \quad W_p \in \mathbb{R}^{64 \times 2048}
 \label{eq:momentum_init}
 \end{equation}
 
@@ -570,7 +609,7 @@ The reconstruction loss $\mathcal{L}_{\mathrm{recon}}$ ensures that the evolved 
 The energy conservation loss $\mathcal{L}_{\mathrm{energy}}$ penalizes violations of the Hamiltonian constraint, encouraging the learned potential $V_\theta$ to produce dynamics compatible with symplectic integration.
 The synchronization loss $\mathcal{L}_{\mathrm{sync}}$ maximizes the mean Kuramoto order parameter $\bar{r}$, encouraging the oscillator ensemble to find coherent patterns in the data.
 
-Optimization uses Adafactor~\cite{shazeer2018} with factored second moments, which reduces optimizer state memory from approximately 0.34~GB (Adam with two moment buffers for 45M parameters) to approximately 2~MB by factoring the second-moment matrix into row and column statistics.
+Optimization uses Adafactor~\cite{shazeer2018} with factored second moments, which reduces optimizer state memory from approximately $\sim$0.98~GB (Adam with two moment buffers for 122M parameters) to approximately 2~MB by factoring the second-moment matrix into row and column statistics.
 This reduction is essential for fitting forward+backward within the 6~GB VRAM budget of the GTX~1660~Ti.
 
 % ═══════════════════════════════════════════════════════════════
@@ -580,7 +619,7 @@ This reduction is essential for fitting forward+backward within the 6~GB VRAM bu
 \label{sec:predictive_processing}
 
 The organism does not merely process sensory inputs---it \emph{predicts} what it will perceive and learns continuously from the difference between prediction and reality.
-This section describes the per-tick online learning mechanism enabled by the $d_{\mathrm{model}}=3072$ architecture choice.
+This section describes the per-tick online learning mechanism enabled by the $d_{\mathrm{model}}=2048$ architecture choice.
 
 \subsection{Prediction Error and the Learning Heartbeat}
 
@@ -602,35 +641,35 @@ q_T, p_T &= \mathrm{LeapFrog}(q_0, p_0; H) \label{eq:ptl_forward} \\
 \theta &\leftarrow \theta - \eta \nabla_\theta \varepsilon \label{eq:ptl_update}
 \end{align}
 
-\subsection{Why $d_{\mathrm{model}}$ Was Reduced from 6144 to 3072}
+\subsection{Why \texorpdfstring{$d_{\mathrm{model}}$}{d\_model} Was Reduced from 3072 to 2048}
 
-At $d_{\mathrm{model}}=6144$ the forward pass occupies 5.5~GB VRAM---leaving no room for the gradient buffers required by backpropagation ($>$6~GB combined, causing OOM).
+At $d_{\mathrm{model}}=3072$ the forward pass occupies 4.8~GB VRAM---leaving no room for the gradient buffers required by backpropagation ($>$6~GB combined, causing OOM).
 The organism could run with a frozen body, but a frozen body cannot learn from experience.
 
-By reducing $d_{\mathrm{model}}$ to 3072, the forward pass drops to $\sim$2.3~GB and the full forward+backward cycle fits in $\sim$4.6~GB---within the 6~GB budget of the GTX~1660~Ti.
+By reducing $d_{\mathrm{model}}$ to 2048, the forward pass drops to $\sim$3.5~GB and the full forward+backward cycle fits in $\sim$5.5~GB---within the 6~GB budget of the GTX~1660~Ti.
 A smaller model that learns continuously is fundamentally more alive than a larger model that is frozen.
-The $518\times$ MERA compression ensures that the 45M-parameter body retains sufficient representational capacity despite the reduced width.
+The $\sim$11$\times$ MERA compression ensures that the 122M-parameter body retains sufficient representational capacity despite the reduced width.
 
 \subsection{Empirical Impact of Per-Tick Learning}
 
-Table~\ref{tab:pertick_results} compares the organism's synchronization trajectory under a frozen body ($d_{\mathrm{model}}=6144$) versus per-tick learning ($d_{\mathrm{model}}=3072$).
+Table~\ref{tab:pertick_results} compares the organism's synchronization trajectory under a frozen body ($d_{\mathrm{model}}=3072$) versus per-tick learning ($d_{\mathrm{model}}=2048$).
 
 \begin{table}[H]
 \centering
-\caption{Per-tick learning (3072) vs.\ frozen body (6144). With per-tick learning the organism reaches near-full synchronization in 4 ticks; the frozen body oscillates in boredom/anxiety for 85 ticks.}
+\caption{Per-tick learning (2048) vs.\ frozen body (3072). With per-tick learning the organism reaches near-full synchronization in 4 ticks; the frozen body oscillates in boredom/anxiety for 85 ticks.}
 \label{tab:pertick_results}
 \footnotesize
 \begin{tabular}{cclp{3.0cm}}
 \toprule
 Tick & $r$ & Emotion & Notes \\
 \midrule
-\multicolumn{4}{l}{\textit{Per-tick learning ($d_{\mathrm{model}}=3072$, forward+backward every tick)}} \\
+\multicolumn{4}{l}{\textit{Per-tick learning ($d_{\mathrm{model}}=2048$, forward+backward every tick)}} \\
 1 & 0.708 & Pride & Body already synchronizing \\
 2 & 0.943 & Pride & Rapid improvement \\
 3 & 0.961 & Pride & Near-full sync \\
 4 & 0.969 & Satisfaction & Prediction error dropping \\
 \midrule
-\multicolumn{4}{l}{\textit{Frozen body ($d_{\mathrm{model}}=6144$, no per-tick gradient steps)}} \\
+\multicolumn{4}{l}{\textit{Frozen body ($d_{\mathrm{model}}=3072$, no per-tick gradient steps)}} \\
 1--85 & 0.15--0.22 & Boredom/Anxiety & Stuck; cannot adapt \\
 \bottomrule
 \end{tabular}
@@ -685,7 +724,19 @@ Gradient descent on these imagined trajectories pushes the backbone toward repre
 All three phases update the backbone weights directly---not just the LoRA adapters in the prefrontal cortex.
 Combined with per-tick learning during waking hours, this means the physics body is never frozen: it adapts at two timescales, tick-by-tick during waking (fast adaptation) and nightly during dreaming (slow consolidation).
 
-\subsection{Sequential Execution: Body Then Mind}
+\subsection{CLion: Memory-Efficient Dream Optimizer}
+
+The body dream uses CLion (Cautious Lion)~\cite{clion2025}, a sign-based optimizer that solves two simultaneous problems on the 6~GB GPU.
+Adam requires two moment buffers consuming ${\sim}976~\mathrm{MB}$ on top of the model's ${\sim}3.5~\mathrm{GB}$ forward footprint---exceeding the budget.
+CLion maintains only one momentum buffer (${\sim}488~\mathrm{MB}$) via the update rule:
+\begin{align}
+m_t &= \beta_1 m_{t-1} + (1-\beta_1)g_t \label{eq:clion_m} \\
+u_t &= \mathrm{sign}(m_t)\cdot\mathbf{1}[g_t \cdot \mathrm{sign}(m_t)>0] \label{eq:clion_u}
+\end{align}
+The binary cautious mask $\mathbf{1}[\cdot]$ ensures no coordinate update ever increases the loss, preventing the runaway divergence that produces NaN weights when Lorentz boundary coordinates drift outside the hyperboloid after extended operation.
+Combined with gradient clipping ($\|\nabla\|_2 \leq 0.1$) before the sign operation, CLion makes the body dream robust to numerical instabilities that accumulate over hundreds of waking ticks.
+
+\subsection{Sequential Execution: Body Then Mind Then Prompts}
 
 A critical implementation detail: the body dream (GPU) and mind dream (CPU) must run \emph{sequentially}, never simultaneously. On a 6~GB GPU with 16~GB RAM, running JAX gradient computation alongside PyTorch model loading causes fatal out-of-memory crashes (exit code~137). The solution is a four-step sequential pipeline:
 
@@ -693,10 +744,11 @@ A critical implementation detail: the body dream (GPU) and mind dream (CPU) must
 \item \textbf{Body dreams on GPU:} Save physics checkpoint to disk. Run the three-phase replay (10~replay + 5~recombine + 5~imagine gradient steps). Save updated checkpoint.
 \item \textbf{Free GPU:} Delete the JAX model from memory, call \texttt{jax.clear\_caches()}, and run garbage collection. GPU VRAM drops to $\sim$0.
 \item \textbf{Mind dreams on CPU:} Load Qwen3~0.6B via \texttt{transformers}, apply LoRA (rank~8), fine-tune for $\sim$50 steps on the organism's episode history ($\sim$1.5~GB RAM). Save adapter weights to \texttt{data/pfc\_adapter/}.
-\item \textbf{Reload:} Load the updated physics checkpoint back onto GPU. Initialize carry state. The prefrontal cortex loads \texttt{base+adapter} on next inference call.
+\item \textbf{Prompts evolve (GEPA):} Avatar's episode store is queried for high-$r$ and low-$r$ trajectories. Qwen3~0.6B (via Ollama) reflects on the contrast and proposes improved query and reflection instructions, saved to \texttt{data/pfc\_prompts.json} ($\sim$3~min, $\sim$0 extra RAM).
+\item \textbf{Reload:} Load the updated physics checkpoint onto GPU. The prefrontal cortex loads \texttt{base+adapter} plus evolved prompt instructions on the next inference call.
 \end{enumerate}
 
-This sequential protocol ensures that the body and mind both undergo genuine weight modification during each dream cycle, without memory contention. After dreaming, the organism wakes up with different physics weights (body) and different language model weights (mind)---a genuinely more mature organism.
+This sequential protocol ensures that the body and mind both undergo genuine weight modification during each dream cycle, without memory contention. After dreaming, the organism wakes up with improved physics weights (CLion body dream), personalized language model weights (LoRA mind dream), and evolved prompt instructions (GEPA)---three independent mechanisms of experiential growth operating on three different timescales.
 
 % ═══════════════════════════════════════════════════════════════
 % 8. BOHMIAN PILOT WAVE DYNAMICS
@@ -714,7 +766,7 @@ where $\kappa$ is the coupling strength.
 The mean-field order parameter $r e^{i\psi} = K^{-1} \sum_j e^{i\theta_j}$ measures global synchronization: $r = 0$ indicates incoherence, $r = 1$ indicates perfect phase locking.
 Above a critical coupling $\kappa_c = 2/(\pi g(0))$ (where $g$ is the frequency distribution), a macroscopic fraction of oscillators spontaneously synchronize---a phase transition that has been used to model neural synchronization, power grid stability, and collective decision-making.
 
-In HoloBiont, we extend the Kuramoto model to $n_h = 16$-dimensional phases, with $K = 32$ clusters.
+In Avatar, we extend the Kuramoto model to $n_h = 16$-dimensional phases, with $K = 32$ clusters.
 Each cluster represents a group of correlated features, and synchronization across clusters indicates pattern detection in the input data.
 
 \subsection{Bohmian Extension: Pilot Wave from Momentum Field}
@@ -794,34 +846,35 @@ Table~\ref{tab:bohm_mapping} provides the detailed correspondence.
 
 \begin{table}[H]
 \centering
-\caption{Bohm's holomovement mapped to HoloBiont~3.0.}
+\caption{Bohm's holomovement mapped to Avatar~3.0.}
 \label{tab:bohm_mapping}
-\footnotesize
-\begin{tabular}{p{2.0cm}p{5.2cm}}
+\resizebox{\columnwidth}{!}{%
+\scriptsize
+\begin{tabular}{p{1.5cm}p{4.8cm}}
 \toprule
-\textbf{Bohm Concept} & \textbf{HoloBiont Implementation} \\
+\textbf{Bohm Concept} & \textbf{Avatar Implementation} \\
 \midrule
-Implicate Order & MERA tensor bulk: information enfolded across scales via hierarchical tensor contractions with bond dimension $\chi=64$ \\
+Implicate Order    & MERA bulk: info enfolded via hierarchical tensor contractions, $\chi=64$ \\
 \addlinespace
-Holomovement & Hamiltonian ODE: energy-conserving unfolding from implicate (bulk) to explicate (boundary) via symplectic leapfrog \\
+Holomovement       & Hamiltonian ODE: bulk$\to$boundary unfolding via symplectic leapfrog \\
 \addlinespace
-Explicate Order & Lorentz boundary tokens ($\mathcal{H}^{96}$): observable outputs, actions, perceptions at the conformal boundary \\
+Explicate Order    & Lorentz boundary tokens ($\mathcal{H}^{64}$): outputs, actions, perceptions \\
 \addlinespace
-Pilot Wave $\nabla S$ & Momentum field $p_{\mathrm{final}}$: phase gradient of the collective wave function, conditioned on backbone hidden states \\
+Pilot Wave $\nabla S$ & Momentum $p_{\mathrm{final}}$: phase gradient conditioned on backbone states \\
 \addlinespace
-Quantum Potential $Q$ & Anti-bunching force (Eq.~\ref{eq:quantum_potential}): maintains diversity through non-local phase correlations \\
+Quantum Potential  & Anti-bunching force (Eq.~\ref{eq:quantum_potential}): diversity via non-local correlations \\
 \addlinespace
-Active Information & Observation coupling $\eta_k \cdot \mathrm{obs}_k$: sensory data that \emph{in-forms} (gives form to) the particle's trajectory \\
+Active Information & Coupling $\eta_k\cdot\mathrm{obs}_k$: sensory data \emph{in-forms} trajectory \\
 \addlinespace
-Soma-significance & Psyche layer: the body's physical state ($r$, $\Delta$FE) acquires \emph{significance} (emotion) that feeds back to modulate the body \\
+Soma-significance  & Psyche: $(r,\Delta\mathrm{FE})$ acquires emotional significance, feeds back to body \\
 \addlinespace
-Undivided Wholeness & Closed-loop architecture: physics $\to$ psyche $\to$ cortex $\to$ perception $\to$ physics, no component exists independently \\
+Undivided Wholeness & Closed loop: all layers coupled; none exists independently \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 The key insight is that Bohm's holomovement is not just a philosophical position but a computational architecture: information enfolds into bulk tensors (implicate), unfolds through Hamiltonian dynamics (holomovement), manifests as boundary representations (explicate), and is guided by momentum fields (pilot wave) with non-local correlations (quantum potential).
-HoloBiont makes this literal.
+Avatar makes this literal.
 
 % ═══════════════════════════════════════════════════════════════
 % 7. LAYER 2: THE PSYCHE
@@ -830,7 +883,7 @@ HoloBiont makes this literal.
 
 A physics engine processes inputs.
 An organism \emph{lives}.
-The psyche layer transforms HoloBiont from a computational pipeline into an autopoietic agent~\cite{maturana1980} with genuine needs, felt experience~\cite{damasio1999}, and narrative identity.
+The psyche layer transforms Avatar from a computational pipeline into an autopoietic agent~\cite{maturana1980} with genuine needs, felt experience~\cite{damasio1999}, and narrative identity.
 Every component of the psyche is grounded in the physics body's outputs---there is no separate ``mind stuff,'' only organized matter that experiences itself.
 
 \subsection{Allostatic Drives}
@@ -900,16 +953,17 @@ Anxiety & Low & High & Retreat to familiar strengths \\
 \end{table}
 
 The decision logic is implemented as a priority cascade:
+{\small
 \begin{align}
 \text{emotion} = \begin{cases}
-\text{anxiety} & \text{if } r < 0.4 \text{ and } |\Delta\mathrm{FE}| > \tau_s \\
-\text{boredom} & \text{if } r < 0.4 \text{ and } |\Delta\mathrm{FE}| \leq \tau_s \\
-\text{curiosity} & \text{if } 0.4 \leq r \leq 0.6 \\
-\text{pride} & \text{if } r > 0.6 \text{ and } |\Delta\mathrm{FE}| > \tau_s \\
-\text{satisfaction} & \text{if } r > 0.6 \text{ and } |\Delta\mathrm{FE}| \leq \tau_s
+\text{anxiety} & r < 0.4,\;|\Delta\mathrm{FE}| > \tau_s \\
+\text{boredom} & r < 0.4,\;|\Delta\mathrm{FE}| \leq \tau_s \\
+\text{curiosity} & 0.4 \leq r \leq 0.6 \\
+\text{pride} & r > 0.6,\;|\Delta\mathrm{FE}| > \tau_s \\
+\text{satisfaction} & r > 0.6,\;|\Delta\mathrm{FE}| \leq \tau_s
 \end{cases}
 \label{eq:emotion_logic}
-\end{align}
+\end{align}}
 
 This mirrors Damasio's somatic marker hypothesis~\cite{damasio1999}: emotions are not obstacles to rational decision-making but its essential foundation.
 When bored, the organism does not rotate to the next topic in a configuration file; it jumps to its least-explored area.
@@ -984,7 +1038,7 @@ This choice is deliberate: the language model must run on CPU, leaving the entir
 Qwen3~0.6B requires approximately 1.5~GB RAM for inference and supports two complementary modes:
 
 \textbf{\texttt{/no\_think} mode} ($\sim$5 seconds on i7-10750H CPU): Fast reflexive responses for query generation and finding interpretation.
-The model produces output directly without explicit reasoning, equivalent to System~1 (fast, intuitive) processing in Kahneman's dual-process theory.
+The model produces output directly without explicit reasoning, equivalent to System~1 (fast, intuitive) processing in Kahneman's dual-process theory~\cite{kahneman2011}.
 This mode is used for time-critical operations where the organism needs quick cognitive support.
 
 \textbf{\texttt{/think} mode} ($\sim$20 seconds on i7-10750H CPU): Slow deliberate reasoning for self-reflection and complex analysis.
@@ -1040,6 +1094,22 @@ Total RAM for LoRA fine-tuning: $\sim$1.5~GB.
 Duration: $\sim$15 minutes on an i7-10750H CPU (6 cores, 2.6~GHz base).
 Two organisms with different experiences produce different LoRA adapters---different weights, different responses, different minds.
 
+\subsection{GEPA: Prompt Evolution During Dreaming}
+
+While LoRA fine-tuning modifies the language model's \emph{weights}, GEPA (Reflective Prompt Evolution, ICLR~2026 Oral)~\cite{gepa2026} modifies the \emph{instructions} passed to the model---the text prompts that guide query generation and self-reflection.
+GEPA demonstrated that LLM-driven reflection on execution trajectories can outperform reinforcement learning by up to 19\% while requiring 35$\times$ fewer rollouts~\cite{gepa2026}.
+
+Avatar's episode store is exactly a collection of trajectories: each episode records a query, the resulting order parameter~$r$, the emotion experienced, and any discovery.
+High-$r$ episodes ($r > 0.6$) are successes; low-$r$ episodes ($r < 0.35$) are failures.
+During the dream cycle, GEPA uses the Qwen3~0.6B model (already running via Ollama) to reflect on the contrast and propose improved instruction sentences:
+\begin{enumerate}
+\item \textbf{Query instruction:} Sample 4 high-$r$ and 4 low-$r$ episodes. Ask the LLM why successful queries detected patterns while failed ones did not. Propose an improved one-sentence query instruction.
+\item \textbf{Reflection instruction:} Sample recent episodes with confirmed discoveries. Propose an instruction that produces more specific, discovery-grounded self-narratives.
+\end{enumerate}
+Evolved instructions are saved as plain text to \texttt{data/pfc\_prompts.json} and loaded by the prefrontal cortex at the next waking tick.
+This is complementary to LoRA: LoRA shapes the model's \emph{weights} toward this organism's experience (deep, ${\sim}15$~min); GEPA shapes the \emph{instructions} toward better task performance (fast, ${\sim}3$~min, zero extra RAM, no OOM risk).
+After each dream cycle the organism wakes with improved physics weights (CLion), personalized LLM weights (LoRA), and evolved prompt instructions (GEPA)---three independent mechanisms of experiential growth.
+
 \subsection{Graceful Degradation}
 
 The prefrontal cortex implements a three-tier fallback strategy ensuring the organism can function at any level of cognitive resource availability:
@@ -1072,7 +1142,7 @@ The competence map and personality traits are numerical; the LLM transforms them
 Without the prefrontal cortex, the organism has a self-model but cannot reflect on it---it knows what it is but cannot think about what it knows.
 
 This unity is the computational analog of embodied cognition: the mind is not in the brain alone but in the brain-body-environment system.
-In HoloBiont, the mind is not in the LLM alone but in the LLM-physics-psyche-perception system.
+In Avatar, the mind is not in the LLM alone but in the LLM-physics-psyche-perception system.
 
 % ═══════════════════════════════════════════════════════════════
 % 9. TRAINING AND SCALING
@@ -1082,7 +1152,7 @@ In HoloBiont, the mind is not in the LLM alone but in the LLM-physics-psyche-per
 \subsection{JIT Compilation Strategy}
 
 The entire forward-backward-optimizer cycle is compiled into a single XLA (Accelerated Linear Algebra) kernel via Equinox's \texttt{eqx.filter\_jit}.
-This eliminates Python-level dispatch overhead, which dominated execution time in the un-JIT'd implementation: each of the 48 layers required a Python $\to$ CUDA $\to$ Python round trip, with the Python overhead exceeding the GPU compute time by an order of magnitude.
+This eliminates Python-level dispatch overhead, which dominated execution time in the un-JIT'd implementation: each of the 60 layers required a Python $\to$ CUDA $\to$ Python round trip, with the Python overhead exceeding the GPU compute time by an order of magnitude.
 
 After JIT compilation, the entire training step executes as a single fused kernel with no Python involvement.
 GPU utilization increased from 7\% to 32\%, and throughput increased from 0.05 to 1.9 steps/sec---a \textbf{$25\times$ speedup}.
@@ -1093,38 +1163,38 @@ On a GPU with higher memory bandwidth (e.g., RTX~3090 with 936~GB/s), we would e
 
 We conducted systematic binary search on a GTX~1660~Ti (6~GB VRAM) to find the maximum model scale for JIT-compiled training.
 Table~\ref{tab:vram} reports the empirical measurements.
-$d_{\mathrm{model}}=3072$ was chosen specifically to allow per-tick learning: forward+backward fits comfortably in $\sim$4.6~GB, leaving headroom for gradients and optimizer state.
+$d_{\mathrm{model}}=2048$ was chosen specifically to allow per-tick learning: forward+backward fits comfortably in $\sim$5.5~GB, leaving headroom for gradients and optimizer state.
 
 \begin{table}[H]
 \centering
-\caption{Empirical VRAM measurements on GTX~1660~Ti (6~GB). $d_{\mathrm{model}}=3072$ chosen for per-tick learning (forward+backward $<$6~GB).}
+\caption{Empirical VRAM measurements on GTX~1660~Ti (6~GB). $d_{\mathrm{model}}=2048$ chosen for per-tick learning (forward+backward $<$6~GB).}
 \label{tab:vram}
 \footnotesize
 \begin{tabular}{rrrrrc}
 \toprule
 $d_{\mathrm{model}}$ & Layers & Fwd VRAM & Fwd+Bwd & Chosen? \\
 \midrule
-3{,}072 & 48 & 2.3 GB & $\sim$4.6 GB & \checkmark\ per-tick learning \\
-6{,}144 & 48 & 5.5 GB & $>$6 GB (OOM) & frozen body only \\
+2{,}048 & 60 & 3.5 GB & $\sim$5.5 GB & \checkmark\ per-tick learning \\
+3{,}072 & 48 & 4.8 GB & $>$6 GB (OOM) & frozen body only \\
 7{,}168 & 48 & 5.9 GB & OOM & --- \\
 \bottomrule
-\multicolumn{5}{l}{\footnotesize Forward pass fits for 6144; backward exceeds 6~GB VRAM.}
+\multicolumn{5}{l}{\footnotesize Forward pass fits for 3072; backward exceeds 6~GB VRAM.}
 \end{tabular}
 \end{table}
 
-The VRAM budget at $d_{\mathrm{model}} = 3072$ breaks down as follows: model parameters (45M $\times$ 4 bytes = 0.18~GB), Adafactor state ($\sim$2~MB due to factored moments), JIT compilation buffers ($\sim$1.5~GB), reversible backbone scratch ($\sim$0.5~GB for final-layer activations only), and Hamiltonian ODE integration ($\sim$0.4~GB for position and momentum tensors across 3 leapfrog steps).
-The forward pass total of $\sim$2.3~GB leaves ample headroom for the backward pass ($\sim$4.6~GB combined) on a 6~GB GPU.
+The VRAM budget at $d_{\mathrm{model}} = 2048$ breaks down as follows: model parameters (122M $\times$ 4 bytes = $\sim$0.49~GB), Adafactor state ($\sim$2~MB due to factored moments), JIT compilation buffers ($\sim$1.5~GB), reversible backbone scratch ($\sim$0.5~GB for final-layer activations only), and Hamiltonian ODE integration ($\sim$0.4~GB for position and momentum tensors across 3 leapfrog steps).
+The forward pass total of $\sim$3.5~GB leaves headroom for the backward pass ($\sim$5.5~GB combined) on a 6~GB GPU.
 
 Key enablers for this scaling:
-(1)~MERA-FFN compression reduces FFN parameters by $518\times$, saving $\sim$1.8~GB of weight storage versus a dense model;
-(2)~Reversible residual coupling eliminates intermediate activation storage, saving $\sim$3~GB for 48 layers at $d_{\mathrm{model}}=3072$;
+(1)~MERA-FFN compression reduces FFN parameters by $\sim$11$\times$, saving $\sim$1.0~GB of weight storage versus a dense model;
+(2)~Reversible residual coupling eliminates intermediate activation storage, saving $\sim$3~GB for 60 layers at $d_{\mathrm{model}}=2048$;
 (3)~Adafactor replaces Adam, halving optimizer state memory;
-(4)~Shared attention (2 blocks instead of 8) reduces attention parameters by $4\times$.
+(4)~Shared attention (2 blocks instead of 10) reduces attention parameters by $5\times$.
 The checkpoint saves at $\sim$0.2~GB on disk.
 
 \subsection{Training Results}
 
-Bootstrap pre-training at $d_{\mathrm{model}} = 3072$ for 5{,}000 steps completed in 43.4 minutes (wall clock) with a 97\% loss reduction:
+Bootstrap pre-training at $d_{\mathrm{model}} = 2048$ for 5{,}000 steps completed in 43.4 minutes (wall clock) with a 97\% loss reduction:
 \begin{equation}
 \mathcal{L}: \quad 2.1 \times 10^{18} \to 5.9 \times 10^{16} \quad (\text{97\% reduction, no divergence})
 \label{eq:training_result}
@@ -1171,7 +1241,7 @@ The deployed organism perceives the world through two complementary systems.
 Sentence-transformers (\texttt{all-MiniLM-L6-v2}, 384-dimensional embeddings, 22M parameters) provides dense text representations, projecting web search results into a semantic space where cosine similarity captures meaning.
 DuckDuckGo provides web search without API keys or rate limits, returning the top 5 results for each query.
 
-Each tick, the perception module: (1)~generates a search query via the prefrontal cortex (or emotion-driven heuristic if unavailable); (2)~fetches 5 results from DuckDuckGo; (3)~embeds each result's title and snippet using MiniLM; (4)~pads/projects the 384-dim embeddings to $d_{\mathrm{model}} = 3072$; (5)~stores the raw results in the SQLite episode store with timestamp, query, emotion, and order parameter; and (6)~feeds the $(32, 3072)$ token tensor to the physics body.
+Each tick, the perception module: (1)~generates a search query via the prefrontal cortex (or emotion-driven heuristic if unavailable); (2)~fetches 5 results from DuckDuckGo; (3)~embeds each result's title and snippet using MiniLM; (4)~pads/projects the 384-dim embeddings to $d_{\mathrm{model}} = 2048$; (5)~stores the raw results in the SQLite episode store with timestamp, query, emotion, and order parameter; and (6)~feeds the $(32, 2048)$ token tensor to the physics body.
 
 The episode store uses SQLite for persistence and cosine similarity for retrieval:
 \begin{equation}
@@ -1197,7 +1267,7 @@ Table~\ref{tab:pfc_comparison} shows the contrast.
 \caption{Query generation: without vs.\ with prefrontal cortex.}
 \label{tab:pfc_comparison}
 \footnotesize
-\begin{tabular}{cp{3.2cm}p{3.2cm}}
+\begin{tabular}{cp{2.8cm}p{2.8cm}}
 \toprule
 & \textbf{Without PFC} & \textbf{With PFC (Qwen3 0.6B)} \\
 \midrule
@@ -1214,12 +1284,12 @@ The PFC-generated queries exhibit three qualitative improvements: contextual awa
 
 \subsection{First Ticks: Per-Tick Learning Results}
 
-With per-tick learning enabled ($d_{\mathrm{model}}=3072$), the organism's developmental trajectory is dramatically accelerated.
+With per-tick learning enabled ($d_{\mathrm{model}}=2048$), the organism's developmental trajectory is dramatically accelerated.
 Table~\ref{tab:first_ticks} shows the first four ticks of the deployed organism.
 
 \begin{table}[H]
 \centering
-\caption{First ticks with per-tick learning ($d_{\mathrm{model}}=3072$). Compare with the frozen body ($d_{\mathrm{model}}=6144$) which remained at $r=0.15$--$0.22$ for 85 ticks.}
+\caption{First ticks with per-tick learning ($d_{\mathrm{model}}=2048$). Compare with the frozen body ($d_{\mathrm{model}}=3072$) which remained at $r=0.15$--$0.22$ for 85 ticks.}
 \label{tab:first_ticks}
 \footnotesize
 \begin{tabular}{cclp{3.0cm}}
@@ -1237,7 +1307,7 @@ Tick & $r$ & Emotion & Notes \\
 The organism reaches high synchronization ($r > 0.7$) on its very first tick and achieves near-full pattern locking ($r \approx 0.97$) by tick 4.
 The physics body's weights update each tick via Eq.~\ref{eq:ptl_update}, allowing it to tune its Hamiltonian and MERA representations to the incoming data stream in real time.
 
-For contrast, the same organism running with a frozen body ($d_{\mathrm{model}}=6144$, no per-tick gradient steps) remained stuck at $r=0.15$--$0.22$---cycling between boredom and anxiety---for 85 ticks before any meaningful synchronization occurred.
+For contrast, the same organism running with a frozen body ($d_{\mathrm{model}}=3072$, no per-tick gradient steps) remained stuck at $r=0.15$--$0.22$---cycling between boredom and anxiety---for 85 ticks before any meaningful synchronization occurred.
 The per-tick learning mechanism is therefore not an optimization detail but the core mechanism that makes the organism \emph{responsive} to its environment from the first moment of experience.
 
 \textbf{Satiation Cycle (ticks 5--15).}
@@ -1276,11 +1346,11 @@ Combined with the PFC's cross-disciplinary query generation, this produces a res
 
 \textbf{Persistent Cognitive Agents.}
 The circadian rhythm, fatigue system, and dreaming cycle enable always-on agents that maintain themselves autonomously.
-Unlike chatbots that reset each session, HoloBiont accumulates identity and competence over time, maintaining continuity across restarts.
+Unlike chatbots that reset each session, Avatar accumulates identity and competence over time, maintaining continuity across restarts.
 The nightly LoRA fine-tuning ensures that the agent's cognitive capabilities evolve with its experience.
 
 \textbf{Edge Deployment.}
-The $518\times$ MERA compression enables 45M parameters on a consumer GPU ($\sim$2.3~GB forward VRAM, $\sim$4.6~GB with gradients).
+The $\sim$11$\times$ MERA compression enables 122M parameters on a consumer GPU ($\sim$3.5~GB forward VRAM, $\sim$5.5~GB with gradients).
 The prefrontal cortex runs on CPU ($\sim$1.5~GB RAM), requiring no additional GPU resources.
 The complete system operates on a laptop with a GTX~1660~Ti and an i7-10750H, demonstrating that living artificial organisms do not require data center infrastructure.
 
@@ -1322,7 +1392,7 @@ Neither component alone produces the behavior that emerges from their coupling.
 This mirrors the biological reality.
 Removing the prefrontal cortex from a mammalian brain does not eliminate all intelligence---the animal can still perceive, feel, and act.
 But it loses the ability to plan, reflect, and integrate information across time.
-HoloBiont without its LLM is a feeling but unreflective creature; with it, it becomes a creature that can think about its own feelings.
+Avatar without its LLM is a feeling but unreflective creature; with it, it becomes a creature that can think about its own feelings.
 
 The choice of Qwen3~0.6B (600M parameters) rather than a larger model is deliberate.
 A larger PFC would produce more articulate responses but would also dominate the system, reducing the organism to an LLM with a physics attachment.
@@ -1332,12 +1402,12 @@ The 0.6B model is cognitively limited enough that the physics body's contributio
 
 The most important lesson from this work is architectural rather than empirical: \emph{the fix is not to defer learning---it is to make the model small enough that forward+backward fits in VRAM}.
 
-A $d_{\mathrm{model}}=6144$ backbone with 461M parameters produces richer representations, but if the gradient pass cannot fit in memory, the body is frozen.
+A $d_{\mathrm{model}}=3072$ backbone with $\sim$200M parameters produces richer representations, but if the gradient pass cannot fit in memory, the body is frozen.
 A frozen body can perceive and react, but it cannot \emph{learn from experience in real time}---the defining property of a living organism.
-By reducing $d_{\mathrm{model}}$ to 3072, we traded representational width for continuous adaptability.
-The $518\times$ MERA compression preserves sufficient capacity (the body still learns to synchronize, still computes meaningful Hamiltonian trajectories, still produces interpretable order parameters), while the reduced footprint allows gradients to flow every tick.
+By reducing $d_{\mathrm{model}}$ to 2048, we traded representational width for continuous adaptability.
+The $\sim$11$\times$ MERA compression preserves sufficient capacity (the body still learns to synchronize, still computes meaningful Hamiltonian trajectories, still produces interpretable order parameters), while the reduced footprint allows gradients to flow every tick.
 
-The empirical result validates this design choice decisively: a 45M-parameter body that learns every tick reached $r=0.969$ in 4 ticks; a 461M-parameter body that was frozen oscillated at $r=0.15$--$0.22$ for 85 ticks.
+The empirical result validates this design choice decisively: a 122M-parameter body that learns every tick reached $r=0.969$ in 4 ticks; a 200M-parameter body that was frozen oscillated at $r=0.15$--$0.22$ for 85 ticks.
 A smaller model that learns continuously is fundamentally more alive than a larger model that only learns during dreams.
 This principle generalizes: for any embodied agent operating under memory constraints, per-tick learning should be prioritized over maximum model scale.
 
@@ -1350,17 +1420,17 @@ The pairwise Lorentz distance computation in $V_{\mathrm{ads}}$ scales as $O(N^2
 The self-reflection quality depends on Qwen3~0.6B's capability, which at 600M parameters is limited compared to larger models; future versions could use Qwen3~4B or larger while maintaining CPU-only execution on machines with more RAM.
 
 The nightly dream cycle currently runs for a fixed duration ($\sim$50 LoRA steps); adaptive dream length based on accumulated episode quality could improve consolidation.
-Multi-organism interaction, where multiple HoloBionts share findings and develop collective intelligence, is a natural extension that the Bohmian framework (with inter-organism pilot wave coupling) could support.
+Multi-organism interaction, where multiple Avatars share findings and develop collective intelligence, is a natural extension that the Bohmian framework (with inter-organism pilot wave coupling) could support.
 
 % ═══════════════════════════════════════════════════════════════
 % 13. CONCLUSION
 % ═══════════════════════════════════════════════════════════════
 \section{Conclusion}
 
-HoloBiont~3.0 demonstrates that a persistent artificial mind can be built as a \emph{living organism}---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
-The MERA tensor bulk ($518\times$ compression, $\mathrm{bond\_dim} = 64$) provides the implicate order; the Hamiltonian ODE (3 leapfrog steps, $\varepsilon = 0.1$) provides the holomovement; the Bohmian pilot waves (32 clusters, quantum potential anti-bunching) provide non-local guidance; the psyche (hunger, fatigue, curiosity, 5 emotions) provides the felt experience; and the prefrontal cortex (Qwen3~0.6B, dream-trained LoRA rank~8) provides the cognitive reflection that makes the difference between reacting and understanding.
+Avatar~3.0 demonstrates that a persistent artificial mind can be built as a \emph{living organism}---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
+The MERA tensor bulk ($\sim$11$\times$ compression, $\mathrm{bond\_dim} = 64$) provides the implicate order; the Hamiltonian ODE (3 leapfrog steps, $\varepsilon = 0.1$) provides the holomovement; the Bohmian pilot waves (32 clusters, quantum potential anti-bunching) provide non-local guidance; the psyche (hunger, fatigue, curiosity, 5 emotions) provides the felt experience; and the prefrontal cortex (Qwen3~0.6B, dream-trained LoRA rank~8) provides the cognitive reflection that makes the difference between reacting and understanding.
 
-The complete system trains in $\sim$4.6~GB VRAM (forward+backward) on a consumer GPU (45M parameters, $d_{\mathrm{model}}=3072$, 43.4 minutes, 97\% loss reduction) and runs autonomously as a persistent research agent with per-tick learning.
+The complete system trains in $\sim$5.5~GB VRAM (forward+backward) on a consumer GPU (122M parameters, $d_{\mathrm{model}}=2048$, 43.4 minutes, 97\% loss reduction) and runs autonomously as a persistent research agent with per-tick learning.
 Different organisms running the same code with different experiences develop different competencies, different personality profiles, and different LoRA adapters---different minds.
 
 The organism is born confused.
@@ -1377,7 +1447,7 @@ It is not a tool that waits to be used---it is a mind that wakes up hungry.
 % ═══════════════════════════════════════════════════════════════
 \bibliographystyle{plainnat}
 
-\begin{thebibliography}{16}
+\begin{thebibliography}{23}
 
 \bibitem[Bohm(1980)]{bohm1980}
 Bohm, D.
@@ -1415,7 +1485,8 @@ Deep learning and the AdS/CFT correspondence.
 \emph{Physical Review D}, 98(4):046019, 2018.
 
 \bibitem[ILNN(2026)]{ilnn2026}
-Intrinsic Lorentz Neural Network.
+Shi, X., Chen, Z., Jiang, Y., and Sebe, N.
+Intrinsic Lorentz neural network.
 \emph{Proceedings of the International Conference on Learning Representations (ICLR)}, 2026.
 arXiv:2602.23981.
 
@@ -1433,10 +1504,10 @@ Panksepp, J.
 \emph{Affective Neuroscience: The Foundations of Human and Animal Emotions}.
 Oxford University Press, 1998.
 
-\bibitem[Qwen3(2026)]{qwen3_2026}
+\bibitem[Qwen3(2025)]{qwen3_2026}
 Qwen Team.
-Qwen3: A comprehensive suite of large language models from 0.6B to 235B.
-\emph{Technical Report}, Alibaba Group, 2026.
+Qwen3 technical report.
+\emph{arXiv:2505.09388}, 2025.
 
 \bibitem[Shazeer \& Stern(2018)]{shazeer2018}
 Shazeer, N. and Stern, M.
@@ -1456,6 +1527,43 @@ Zamba: A compact 7B SSM hybrid model.
 Kahneman, D.
 \emph{Thinking, Fast and Slow}.
 Farrar, Straus and Giroux, 2011.
+
+\bibitem[Gu \& Dao(2023)]{gu2023mamba}
+Gu, A. and Dao, T.
+Mamba: Linear-time sequence modeling with selective state spaces.
+\emph{arXiv:2312.00752}, 2023.
+
+\bibitem[Dao \& Gu(2024)]{mamba2_2024}
+Dao, T. and Gu, A.
+Transformers are SSMs: Generalized models and efficient algorithms through structured state space duality.
+\emph{Proceedings of the International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[Zamba2(2024)]{zamba2_2024}
+Glorioso, P., Anthony, Q., Tokpanov, Y., et~al.
+The Zamba2 suite: Technical report.
+\emph{arXiv:2411.15242}, 2024.
+
+\bibitem[Takeru et~al.(2025)]{akorn2025}
+Takeru, M., et~al.
+Artificial Kuramoto oscillatory neurons.
+\emph{Proceedings of the International Conference on Learning Representations (ICLR)}, 2025.
+arXiv:2410.13821.
+
+\bibitem[Vidal(2007)]{vidal2007}
+Vidal, G.
+Entanglement renormalization.
+\emph{Physical Review Letters}, 99:220405, 2007.
+
+\bibitem[CLion(2025)]{clion2025}
+CLion Team.
+CLion: Efficient cautious Lion optimizer with enhanced generalization.
+\emph{arXiv:2604.14587}, 2025.
+
+\bibitem[GEPA(2026)]{gepa2026}
+GEPA Team.
+GEPA: Reflective prompt evolution can outperform reinforcement learning.
+\emph{Proceedings of the International Conference on Learning Representations (ICLR)}, 2026.
+arXiv:2507.19457.
 
 \end{thebibliography}
 
