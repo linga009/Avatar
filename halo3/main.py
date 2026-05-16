@@ -324,10 +324,12 @@ def main() -> None:
             if _pre_dream_carry is not None:
                 try:
                     alpha = 0.3  # 30% old carry, 70% fresh (dreamed body is new)
-                    carry = jax.tree_util.tree_map(
-                        lambda old, new: alpha * old + (1.0 - alpha) * new,
-                        _pre_dream_carry, fresh_carry,
-                    )
+                    def _blend(old, new):
+                        # Preserve integer types (page_mem counters, PRNG keys)
+                        if hasattr(new, 'dtype') and not jnp.issubdtype(new.dtype, jnp.floating):
+                            return new
+                        return alpha * old + (1.0 - alpha) * new
+                    carry = jax.tree_util.tree_map(_blend, _pre_dream_carry, fresh_carry)
                     log.info("  ☽ Warm-started carry from pre-dream state (alpha=0.3)")
                 except Exception:
                     carry = fresh_carry

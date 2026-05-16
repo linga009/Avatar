@@ -34,13 +34,13 @@ class PageCurveMemory(eqx.Module):
         )
 
     def __call__(self, x_i, state):
-        write_ptr = state.n_cached % self.max_cache
+        write_ptr = jnp.int32(state.n_cached % self.max_cache)
         new_cache = state.cache.at[write_ptr].set(x_i)
         is_full = state.n_cached >= self.max_cache
         s_gen = jnp.sum(new_cache ** 2, axis=-1) * self.d_head / 4.0
         evict_idx = jnp.argmin(s_gen)
         evicted = new_cache[evict_idx]
-        iptr = state.island_ptr % self.island_size
+        iptr = jnp.int32(state.island_ptr % self.island_size)
         new_island = jnp.where(is_full, state.island.at[iptr].set(evicted), state.island)
-        new_iptr = jnp.where(is_full, state.island_ptr + 1, state.island_ptr)
-        return PageMemState(cache=new_cache, n_cached=state.n_cached + 1, island=new_island, island_ptr=new_iptr)
+        new_iptr = jnp.where(is_full, jnp.int32(state.island_ptr + 1), state.island_ptr)
+        return PageMemState(cache=new_cache, n_cached=jnp.int32(state.n_cached + 1), island=new_island, island_ptr=new_iptr)
