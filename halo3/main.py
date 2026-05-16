@@ -239,6 +239,12 @@ def main() -> None:
         if tick % 10 == 0:
             log.info(f"  ◆ {organism.status()}")
             log.info(f"  ◆ Episodes: {memory.count()} | Findings: {len(memory.get_findings())}")
+            # Volatility surface snapshot
+            vol_summary = organism.volatility.summary()
+            if vol_summary:
+                top3 = sorted(vol_summary.items(), key=lambda x: x[1]["V"], reverse=True)[:3]
+                vol_str = " | ".join(f"{k}: σ={v['sigma']:.2f} V={v['V']:.4f}" for k, v in top3)
+                log.info(f"  ◆ BS Valuation: {vol_str}")
 
         # 8. DREAM (when the body needs it)
         if psyche_output["needs_dream"]:

@@ -20,6 +20,7 @@ from halo3.psyche.emotions import EmotionState
 from halo3.psyche.self_model import SelfModel
 from halo3.psyche.circadian import CircadianClock
 from halo3.psyche.prefrontal import PrefrontalCortex
+from halo3.psyche.volatility import VolatilitySurface
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class Organism:
         self.self_model = SelfModel.load()
         self.clock = CircadianClock()
         self.prefrontal = PrefrontalCortex()
+        self.volatility = VolatilitySurface(strike=0.6)
         self.seed_topics = seed_topics
         self.current_topic_idx = 0
         self.current_query: str = seed_topics[0] if seed_topics else "research"
@@ -80,20 +82,23 @@ class Organism:
             consecutive_failures=self._consecutive_zero_results,
         )
 
-        # 3. Determine finding
+        # 3. Update volatility surface (Black-Scholes query valuation)
+        topic_key = self._extract_topic(current_query)
+        self.volatility.observe(topic_key, r_mean, fe_delta)
+
+        # 4. Determine finding
         finding = None
         if r_mean > 0.6 and texts:
             pfc_finding = self.prefrontal.interpret_finding(texts, current_query, r_mean)
             finding = pfc_finding or f"{'; '.join(texts[:3])}"
 
-        # 4. Update self-model
-        topic_key = self._extract_topic(current_query)
+        # 5. Update self-model
         self.self_model.update(topic_key, r_mean, emotion, finding)
 
-        # 5. Record whether PFC's last query worked
+        # 6. Record whether PFC's last query worked
         self.prefrontal.record_query_result(had_results=not perception_failed)
 
-        # 6. Decide next query — with layered fallbacks
+        # 7. Decide next query — with layered fallbacks + volatility valuation
         next_query = self._decide_query(emotion, r_mean, current_query, texts)
 
         # Track
@@ -132,21 +137,21 @@ class Organism:
         1. Starvation emergency → random seed topic (bypass everything)
         2. Frustration → drastic topic change (bypass PFC)
         3. Post-dream exploration plan (if available)
-        4. PFC generation (with dedup + dead-query checks)
-        5. Emotion-based fallback
+        4. Satiation/boredom → Black-Scholes highest-value topic
+        5. PFC generation (with dedup + dead-query checks)
+        6. Emotion-based fallback with volatility guidance
         """
         # --- Layer 1: Starvation emergency ---
         if self.drives.is_information_starved:
-            new_topic = self._random_seed_topic()
-            log.warning(f"STARVATION OVERRIDE: forcing topic change to '{new_topic}'")
-            self._consecutive_zero_results = 0  # reset after override
+            new_topic = self._highest_value_topic()
+            log.warning(f"STARVATION OVERRIDE: BS value → '{new_topic}'")
+            self._consecutive_zero_results = 0
             return new_topic
 
         # --- Layer 2: Frustration override ---
         if emotion == "frustration":
-            # Don't ask the PFC — it might be part of the problem
-            new_topic = self._escape_dead_end(current_query)
-            log.info(f"FRUSTRATION: escaping dead-end, switching to '{new_topic}'")
+            new_topic = self._highest_value_topic(exclude=current_query)
+            log.info(f"FRUSTRATION: BS value → '{new_topic}'")
             return new_topic
 
         # --- Layer 3: Post-dream exploration plan ---
@@ -155,7 +160,20 @@ class Organism:
             log.info(f"Following exploration plan: '{planned}'")
             return planned
 
-        # --- Layer 4: PFC generation ---
+        # --- Layer 4: Satiation → option-valued topic switch ---
+        if self.drives.is_satiated or emotion == "boredom":
+            current_value = self.volatility.value_topic(self._extract_topic(current_query))
+            best = self._highest_value_topic(exclude=current_query)
+            best_value = self.volatility.value_topic(self._extract_topic(best))
+            if best_value > current_value * 1.2:  # switch only if 20% better
+                log.info(
+                    f"BS VALUATION: {self._extract_topic(current_query)} "
+                    f"V={current_value:.4f} → {self._extract_topic(best)} "
+                    f"V={best_value:.4f}"
+                )
+                return best
+
+        # --- Layer 5: PFC generation ---
         pfc_query = self.prefrontal.generate_query(
             current_query, emotion, r_mean, texts,
             self.self_model.strengths,
@@ -166,7 +184,7 @@ class Organism:
             log.debug(f"Prefrontal: generated query '{pfc_query}'")
             return pfc_query
 
-        # --- Layer 5: Emotion-based fallback ---
+        # --- Layer 6: Emotion-based fallback with volatility ---
         return self._emotion_query(emotion, r_mean, current_query, texts)
 
     def _emotion_query(
@@ -234,7 +252,41 @@ class Organism:
         self._exploit_streak = 0
         return self.seed_topics[self.current_topic_idx]
 
+    def _highest_value_topic(self, exclude: str = "") -> str:
+        """Select the topic with highest Black-Scholes option value.
+
+        Unknown topics get high default IV → high value (optimistic prior).
+        This naturally balances explore (high IV) vs exploit (high S).
+        """
+        candidates = []
+        for topic in self.seed_topics:
+            key = self._extract_topic(topic)
+            if key == self._extract_topic(exclude):
+                continue
+            candidates.append(topic)
+
+        # Also consider strengths/weaknesses as candidates
+        for w in self.self_model.weaknesses[:3]:
+            if w not in candidates and w != self._extract_topic(exclude):
+                candidates.append(w)
+
+        if not candidates:
+            candidates = self.seed_topics
+
+        # Rank by Black-Scholes value
+        ranked = self.volatility.rank_topics(
+            [self._extract_topic(c) for c in candidates]
+        )
+
+        # Map back to full topic string
+        key_to_full = {self._extract_topic(c): c for c in candidates}
+        if ranked:
+            best_key = ranked[0][0]
+            return key_to_full.get(best_key, candidates[0])
+        return candidates[0]
+
     def _random_seed_topic(self) -> str:
+        """Fallback: least-explored seed topic."""
         least_explored = None
         min_exp = float("inf")
         for topic in self.seed_topics:
@@ -279,6 +331,7 @@ class Organism:
 
         self.drives.dream_reset()
         self.clock.mark_dreamed()
+        self.volatility.reset_dream_clock()
 
         # Deep self-reflection
         reflection = self.prefrontal.self_reflect(

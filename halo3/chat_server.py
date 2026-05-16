@@ -53,6 +53,12 @@ def update_live_state(
     except Exception:
         recent_findings = []
 
+    # Volatility surface snapshot (safe to read from main thread)
+    try:
+        vol_snapshot = organism.volatility.summary()
+    except Exception:
+        vol_snapshot = {}
+
     _live_state = {
         "tick": tick,
         "r_mean": r_mean,
@@ -62,6 +68,7 @@ def update_live_state(
         "texts_received": len(texts),
         "texts_sample": texts[:2] if texts else [],
         "recent_findings": recent_findings,
+        "volatility_surface": vol_snapshot,
     }
 
 
