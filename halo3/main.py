@@ -11,6 +11,7 @@ import datetime
 import logging
 import os
 import signal
+import sys
 import time
 
 import jax
@@ -26,8 +27,16 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
+    # --- XLA persistent compilation cache ---
+    # First dream compiles XLA modules (~5 min each). Cache to disk so
+    # subsequent dreams and container restarts reuse compiled binaries.
+    xla_cache = os.path.join("data", "xla_cache")
+    os.makedirs(xla_cache, exist_ok=True)
+    jax.config.update("jax_compilation_cache_dir", os.path.abspath(xla_cache))
+    log.info(f"XLA compilation cache: {os.path.abspath(xla_cache)}")
+
     log.info("=" * 60)
-    log.info("  HoloBiont 3.0 — A Living Research Organism")
+    log.info("  Avatar 3.0 — A Living Research Organism")
     log.info("  Bohmian Holomovement Engine + Psyche")
     log.info("=" * 60)
 
@@ -120,6 +129,7 @@ def main() -> None:
     tick = 0
     current_query = seed_topics[0]
     prev_fe = None
+    _pre_dream_carry = None  # saved carry for warm-start after dreams
 
     while not shutdown:
         tick += 1
@@ -135,6 +145,8 @@ def main() -> None:
             log.warning(f"Perception failed: {e}")
             tokens = jnp.zeros((cfg.n_tokens, cfg.d_model))
             texts = []
+
+        perception_failed = len(texts) == 0
 
         # 2. PHYSICS (the body processes input)
         key, sk = jax.random.split(key)
@@ -204,8 +216,9 @@ def main() -> None:
             f"{psyche_output['log_line']}"
         )
         improving = "↑" if predictor.is_improving else "→"
+        fail_marker = " ⊘ NO INPUT" if perception_failed else ""
         log.info(
-            f"         | q=\"{current_query[:45]}\" | FE_Δ={fe_delta:+.2e} | ε={pred_error:.2e}{improving}"
+            f"         | q=\"{current_query[:45]}\" | FE_Δ={fe_delta:+.2e} | ε={pred_error:.2e}{improving}{fail_marker}"
         )
         if finding:
             log.info(f"         → DISCOVERY: {finding[:90]}")
@@ -219,30 +232,48 @@ def main() -> None:
         if psyche_output["needs_dream"]:
             log.info("  ☽ Entering dream state — sequential body then mind...")
 
-            # === PHASE 1: BODY DREAMS (GPU) ===
-            # Save checkpoint, then replay with full GPU
-            log.info("  ☽ Phase 1: Body dreaming on GPU...")
-            try:
-                from halo3.training.bootstrap import save_checkpoint, load_checkpoint
-                save_checkpoint(model, "data/checkpoints/pre_dream")
+            # === PHASE 1: BODY DREAMS (GPU — isolated subprocess) ===
+            # The subprocess gets the full GPU. When it exits, the OS
+            # reclaims ALL GPU memory, XLA caches, and CPU allocations.
+            log.info("  ☽ Phase 1: Body dreaming on GPU (subprocess)...")
+            from halo3.training.bootstrap import save_checkpoint as _save_ckpt
+            _save_ckpt(model, "data/checkpoints/pre_dream")
+            _save_ckpt(model, "data/checkpoints/halo3")  # safety copy
+            memory.flush()  # ensure episodes visible to subprocess
 
-                from halo3.training.dream_replay import dream_replay_physics
-                episodes_for_dream = memory.get_high_confidence(threshold=0.0)
-                model, dream_info = dream_replay_physics(
-                    model, episodes_for_dream,
-                    n_replay_steps=10, n_recombine_steps=5, n_imagine_steps=5,
-                )
-                log.info(f"  ☽ Body dream done: {dream_info}")
+            # Save carry and predictor state for warm-start after dream
+            _pre_dream_carry = carry
+            predictor.save_state("data/predictor_state.npz")
 
-                save_checkpoint(model, "data/checkpoints/halo3")
-            except Exception as e:
-                log.warning(f"  ☽ Body dream failed: {e}")
-
-            # === FREE GPU MEMORY ===
-            log.info("  ☽ Freeing GPU for mind dreaming...")
+            # Free GPU in parent BEFORE spawning subprocess
             del model
             jax.clear_caches()
             import gc; gc.collect()
+
+            try:
+                import subprocess as _sp
+                import json as _json
+                result = _sp.run(
+                    [sys.executable, "-m", "halo3.training.dream_worker",
+                     "--checkpoint", "data/checkpoints/pre_dream",
+                     "--output", "data/checkpoints/halo3",
+                     "--replay-steps", "10",
+                     "--recombine-steps", "5",
+                     "--imagine-steps", "5"],
+                    timeout=3600,  # 1 hour max
+                )
+                if result.returncode == 0:
+                    info_path = "data/checkpoints/halo3_dream_info.json"
+                    if os.path.exists(info_path):
+                        with open(info_path) as f:
+                            dream_info = _json.load(f)
+                        log.info(f"  ☽ Body dream done: {dream_info}")
+                else:
+                    log.warning(f"  ☽ Body dream subprocess exited with code {result.returncode}")
+            except Exception as e:
+                log.warning(f"  ☽ Body dream failed: {e}")
+
+            # GPU is fully free — subprocess released everything on exit
 
             # === PHASE 2: MIND DREAMS (CPU) — LoRA fine-tune ===
             log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
@@ -265,11 +296,36 @@ def main() -> None:
 
             # === RELOAD MODEL ===
             log.info("  ☽ Reloading physics body from checkpoint...")
+            from halo3.training.bootstrap import load_checkpoint as _load_ckpt
             try:
-                model = load_checkpoint(cfg, "data/checkpoints/halo3")
+                model = _load_ckpt(cfg, "data/checkpoints/halo3")
             except Exception:
-                model = Halo3Model(cfg, jax.random.PRNGKey(cfg.seed))
-            carry = model.init_carry(jax.random.PRNGKey(cfg.seed))
+                log.warning("  ☽ Checkpoint load failed — falling back to pre_dream")
+                try:
+                    model = _load_ckpt(cfg, "data/checkpoints/pre_dream")
+                except Exception:
+                    model = Halo3Model(cfg, jax.random.PRNGKey(cfg.seed))
+
+            # Warm-start carry: blend pre-dream carry with fresh init
+            # This preserves Kuramoto phase relationships learned before sleep
+            fresh_carry = model.init_carry(jax.random.PRNGKey(cfg.seed))
+            if _pre_dream_carry is not None:
+                try:
+                    alpha = 0.3  # 30% old carry, 70% fresh (dreamed body is new)
+                    carry = jax.tree_util.tree_map(
+                        lambda old, new: alpha * old + (1.0 - alpha) * new,
+                        _pre_dream_carry, fresh_carry,
+                    )
+                    log.info("  ☽ Warm-started carry from pre-dream state (alpha=0.3)")
+                except Exception:
+                    carry = fresh_carry
+                    log.info("  ☽ Carry warm-start failed, using fresh init")
+                _pre_dream_carry = None
+            else:
+                carry = fresh_carry
+
+            # Restore predictor optimizer state
+            predictor.restore_state("data/predictor_state.npz")
 
             log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
             log.info(f"  ☽ Prediction accuracy: {predictor.recent_prediction_accuracy:.4f}")

@@ -4,17 +4,23 @@ Every tick:
   1. PREDICT: Use current backbone + Hamiltonian to predict expected
      boundary coordinates for the current query
   2. PERCEIVE: Fetch actual web content, compute actual q_data
-  3. PREDICTION ERROR: ε = q_predicted - q_actual (vector in boundary space)
+  3. PREDICTION ERROR: e = q_predicted - q_actual (vector in boundary space)
   4. LEARN: Small gradient step on backbone MERA cores + Hamiltonian V_learned
      using prediction error as the loss signal
 
 This makes the physics body learn from every tick — not just during
 bootstrap training. The body reshapes itself based on experience.
+
+v3.1 additions:
+  - State persistence: save/restore optimizer state across dreams
+  - Adaptive learning rate: scales with prediction accuracy trend
 """
 from __future__ import annotations
 import logging
+import os
 import jax
 import jax.numpy as jnp
+import numpy as np
 import equinox as eqx
 import optax
 
@@ -29,6 +35,8 @@ class PredictiveProcessor:
     """
 
     def __init__(self, lr: float = 1e-5) -> None:
+        self._base_lr = lr
+        self._current_lr = lr
         self.opt = optax.adam(lr)
         self._opt_state = None
         self._prediction_history: list[float] = []
@@ -102,13 +110,15 @@ class PredictiveProcessor:
         loss, grads = eqx.filter_value_and_grad(prediction_loss)(model)
 
         # SELECTIVE LEARNING: only update Hamiltonian + MERA, NOT SSM/attention
-        # SSM/attention feed the Kuramoto; training them causes r→1.0 collapse
+        # SSM/attention feed the Kuramoto; training them causes r->1.0 collapse
         # Hamiltonian + MERA learn the data structure without disrupting sync
+        lr_scale = self._adaptive_lr_scale()
+
         def _zero_non_target(path, grad):
             p = str(path)
             # Only keep gradients for hamiltonian and mera_ffn
             if "hamiltonian" in p or "mera" in p or "ffns" in p:
-                return grad * 0.001  # gentle
+                return grad * 0.001 * lr_scale
             return jax.tree_util.tree_map(jnp.zeros_like, grad)  # freeze everything else
 
         grads = jax.tree_util.tree_map_with_path(_zero_non_target, grads)
@@ -122,6 +132,63 @@ class PredictiveProcessor:
 
         self._prediction_history.append(float(loss))
         return model, float(loss)
+
+    def _adaptive_lr_scale(self) -> float:
+        """Scale learning rate based on prediction accuracy trend.
+
+        - If improving: maintain or slightly increase (up to 2x)
+        - If stagnant: reduce to prevent drift (down to 0.3x)
+        - If worsening: reduce sharply (down to 0.1x)
+        """
+        if len(self._prediction_history) < 20:
+            return 1.0
+
+        old = sum(self._prediction_history[-20:-10]) / 10
+        new = sum(self._prediction_history[-10:]) / 10
+
+        if old < 1e-12:
+            return 1.0
+
+        ratio = new / old
+
+        if ratio < 0.9:
+            # Improving: slight boost
+            return min(2.0, 1.0 + (0.9 - ratio))
+        elif ratio > 1.1:
+            # Worsening: reduce to prevent drift
+            return max(0.1, 1.0 / ratio)
+        else:
+            # Stagnant: slight reduction
+            return 0.8
+
+    def save_state(self, path: str) -> None:
+        """Save prediction history to disk for persistence across dreams."""
+        try:
+            os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
+            np.savez(
+                path,
+                prediction_history=np.array(self._prediction_history[-200:]),
+            )
+            log.info(f"Predictor state saved ({len(self._prediction_history)} entries)")
+        except Exception as e:
+            log.warning(f"Failed to save predictor state: {e}")
+
+    def restore_state(self, path: str) -> None:
+        """Restore prediction history from disk after dreams.
+
+        Note: opt_state is NOT restored because the model weights changed
+        during dreaming. The optimizer will re-initialize on first use.
+        """
+        if not os.path.exists(path):
+            return
+        try:
+            data = np.load(path, allow_pickle=False)
+            self._prediction_history = list(data["prediction_history"])
+            # Force optimizer to re-initialize with dreamed model
+            self._opt_state = None
+            log.info(f"Predictor state restored ({len(self._prediction_history)} history entries)")
+        except Exception as e:
+            log.warning(f"Failed to restore predictor state: {e}")
 
     @property
     def recent_prediction_accuracy(self) -> float:

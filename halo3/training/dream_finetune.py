@@ -1,14 +1,12 @@
 """Dream Fine-Tuning — real LoRA weight updates on the organism's experience.
 
-During the nightly dream cycle, this module:
-1. Extracts the organism's episodes, findings, and narratives
-2. Formats them as instruction-response training pairs
-3. Applies LoRA (rank 8) fine-tuning to Qwen3 0.6B on CPU
-4. Saves the adapter weights to data/pfc_adapter/
-5. The prefrontal cortex loads base+adapter, producing responses
-   shaped by THIS organism's specific experience
-
-The LLM's weights literally change. It becomes part of the organism.
+v3.1 fixes:
+  - Training format matches inference: uses the same prompt templates as
+    prefrontal.py's generate_query/interpret_finding/self_reflect
+  - Includes failure examples: teaches the PFC what NOT to search
+  - Post-dream validation: tests adapter before deploying
+  - Diverse curriculum: identity, query generation (all emotions),
+    interpretation, reflection, and failure recovery
 """
 from __future__ import annotations
 import json
@@ -29,8 +27,15 @@ def _format_training_data(
     strengths: list[str],
     weaknesses: list[str],
     findings: list[dict],
+    dead_queries: list[str] | None = None,
 ) -> list[dict]:
-    """Format organism's experience as instruction-response training pairs."""
+    """Format organism's experience as prompt-response pairs.
+
+    CRITICAL: The prompt format here MUST match the format used at inference
+    time in prefrontal.py. Both use plain text prompts (not ### Instruction).
+    The LoRA training wraps them in ### Instruction / ### Response format,
+    and _generate_local() wraps inference the same way.
+    """
     examples = []
 
     identity = (
@@ -39,7 +44,7 @@ def _format_training_data(
         f"I have made {len(findings)} discoveries."
     )
 
-    # Train on identity questions
+    # --- Identity ---
     examples.append({
         "instruction": "Who are you?",
         "response": identity,
@@ -50,62 +55,145 @@ def _format_training_data(
         else "I am still finding my resonance.",
     })
 
-    # Train on query generation from emotional states
+    # --- Query generation for ALL emotions (using inference prompt format) ---
+    # These match the prompt structure in prefrontal.generate_query()
     if strengths:
+        # Curiosity: explore current strength
         examples.append({
-            "instruction": "You feel curious. Synchronization r=0.5. Generate a search query.",
-            "response": f"Recent advances in {strengths[0]} and their intersection with emerging techniques",
-        })
-        examples.append({
-            "instruction": "You feel bored. Synchronization r=0.15. Generate a search query.",
-            "response": f"Novel applications outside my comfort zone, perhaps connecting {strengths[-1] if len(strengths) > 1 else strengths[0]} with biology or art",
-        })
-        examples.append({
-            "instruction": "You feel anxious. Synchronization r=0.1. Generate a search query.",
-            "response": f"Foundational review of {strengths[0]}, a topic where I feel confident",
+            "instruction": (
+                "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                f"\nState: feeling curiosity, synchronization 0.50\n"
+                f"Current topic: {strengths[0]}\n"
+                f"Interests: {', '.join(strengths[:3])}\n"
+                "\nSearch query:"
+            ),
+            "response": f"latest research advances {strengths[0]} 2026",
         })
 
-    # Train on findings interpretation
+        # Boredom: explore something new
+        new_topic = weaknesses[0] if weaknesses else "novel interdisciplinary connections"
+        examples.append({
+            "instruction": (
+                "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                f"\nState: feeling boredom, synchronization 0.20\n"
+                f"Current topic: {strengths[0]}\n"
+                f"Interests: {', '.join(strengths[:3])}\n"
+                "\nSearch query:"
+            ),
+            "response": f"emerging applications {new_topic} 2026",
+        })
+
+        # Anxiety: retreat to familiar
+        examples.append({
+            "instruction": (
+                "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                f"\nState: feeling anxiety, synchronization 0.15\n"
+                f"Current topic: unknown complex topic\n"
+                f"Interests: {', '.join(strengths[:3])}\n"
+                "\nSearch query:"
+            ),
+            "response": f"comprehensive review {strengths[0]} fundamentals",
+        })
+
+        # Pride: dig deeper
+        examples.append({
+            "instruction": (
+                "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                f"\nState: feeling pride, synchronization 0.65\n"
+                f"Current topic: {strengths[0]}\n"
+                f"Recent findings: exciting new results in the field\n"
+                f"Interests: {', '.join(strengths[:3])}\n"
+                "\nSearch query:"
+            ),
+            "response": f"{strengths[0]} breakthrough mechanism details 2026",
+        })
+
+        # Frustration: emergency escape (CRITICAL for breaking dead-ends)
+        examples.append({
+            "instruction": (
+                "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                f"\nState: feeling frustration, synchronization 0.30\n"
+                f"Current topic: amentoflavone ginkg 5281600\n"
+                f"Interests: {', '.join(strengths[:3])}\n"
+                f"\nWARNING: The last 5 searches returned ZERO results. "
+                f"The query 'amentoflavone ginkg 5281600' is a dead end. "
+                f"You MUST choose a completely different topic.\n"
+                "\nSearch query:"
+            ),
+            "response": "quantum computing error correction advances 2026",
+        })
+
+        # Another frustration example with different dead-end
+        examples.append({
+            "instruction": (
+                "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                f"\nState: feeling frustration, synchronization 0.25\n"
+                f"Current topic: __________\n"
+                f"Interests: {', '.join(strengths[:3])}\n"
+                f"\nWARNING: The last 7 searches returned ZERO results. "
+                f"The query '__________' is a dead end. "
+                f"You MUST choose a completely different topic.\n"
+                "\nSearch query:"
+            ),
+            "response": f"physics informed neural networks applications",
+        })
+
+    # --- Dead query avoidance ---
+    if dead_queries:
+        for dq in dead_queries[:3]:
+            examples.append({
+                "instruction": (
+                    "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                    f"\nState: feeling curiosity, synchronization 0.40\n"
+                    f"Current topic: {dq}\n"
+                    f"Interests: {', '.join(strengths[:3]) if strengths else 'general research'}\n"
+                    f"\nAvoid these dead-end topics: {', '.join(dead_queries[:3])}\n"
+                    "\nSearch query:"
+                ),
+                "response": f"trending research breakthroughs {strengths[0] if strengths else 'AI'} 2026",
+            })
+
+    # --- Findings interpretation ---
     for f in findings[-10:]:
         finding_text = f.get("finding", "")
         query = f.get("query", "")
         r = f.get("r", 0)
         if finding_text and query:
             examples.append({
-                "instruction": f"Interpret this finding (r={r:.3f}): {finding_text[:100]}",
-                "response": f"At synchronization {r:.3f} on query '{query}', I detected: {finding_text[:150]}",
+                "instruction": (
+                    f"Interpret this finding in 1-2 sentences.\n"
+                    f"Query: \"{query}\" | r={r:.3f} (pattern detected)\n"
+                    f"Content: {finding_text[:100]}\n"
+                    f"Interpretation:"
+                ),
+                "response": f"At r={r:.3f}, the data suggests {finding_text[:120]}",
             })
 
-    # Train on narrative memories
-    for entry in narrative[-15:]:
+    # --- Narrative memories ---
+    for entry in narrative[-10:]:
         if "Discover" in entry or "reflection" in entry.lower():
             examples.append({
                 "instruction": "Share a memory from your experience.",
                 "response": entry,
             })
 
-    # Train on self-reflection
-    trait_desc = []
-    for name, val in traits.items():
-        if val > 0.2:
-            trait_desc.append(f"{name} ({val:.2f})")
-
+    # --- Self-reflection ---
+    trait_desc = [f"{n} ({v:.2f})" for n, v in traits.items() if v > 0.2]
     if trait_desc:
         examples.append({
-            "instruction": "Reflect on your personality.",
-            "response": f"My traits: {', '.join(trait_desc)}. "
-                        f"I tend toward {'curiosity' if traits.get('curiosity_tendency', 0) > 0.3 else 'caution'} "
-                        f"and {'persistence' if traits.get('persistence', 0) > 0.3 else 'exploration'}.",
-        })
-
-    # Train on competence-aware behavior
-    for topic, score in sorted(competence.items(), key=lambda x: -x[1])[:5]:
-        examples.append({
-            "instruction": f"What do you know about {topic}?",
-            "response": f"My competence in {topic} is {score:.2f}. "
-                        + (f"This is one of my strengths — I synchronize well on this topic."
-                           if score > 0.5 else
-                           f"I'm still developing understanding here."),
+            "instruction": (
+                f"Reflect in first person, 2-3 sentences.\n"
+                f"Age: {age} ticks | Emotions: curiosity, pride\n"
+                f"Strengths: {', '.join(strengths[:3]) if strengths else 'none'} | "
+                f"Discoveries: {len(findings)}\n"
+                f"Reflection:"
+            ),
+            "response": (
+                f"My traits: {', '.join(trait_desc)}. "
+                f"I tend toward {'curiosity' if traits.get('curiosity_tendency', 0) > 0.3 else 'caution'} "
+                f"and have made {len(findings)} discoveries across "
+                f"{', '.join(strengths[:2]) if strengths else 'various topics'}."
+            ),
         })
 
     return examples
@@ -119,16 +207,12 @@ def dream_finetune(
     strengths: list[str],
     weaknesses: list[str],
     findings: list[dict],
+    dead_queries: list[str] | None = None,
 ) -> bool:
-    """Run real LoRA fine-tuning on the organism's experience.
-
-    Fine-tunes Qwen3 0.6B with LoRA rank 8 on CPU.
-    Saves adapter to data/pfc_adapter/.
-    Returns True if successful.
-    """
-    # Format training data
+    """Run real LoRA fine-tuning on the organism's experience."""
     examples = _format_training_data(
         age, competence, traits, narrative, strengths, weaknesses, findings,
+        dead_queries=dead_queries,
     )
 
     if len(examples) < 3:
@@ -137,7 +221,6 @@ def dream_finetune(
 
     log.info(f"Dream fine-tuning: {len(examples)} training pairs from organism's experience")
 
-    # Save training data for inspection
     os.makedirs("data/dream_training", exist_ok=True)
     data_path = "data/dream_training/episodes.jsonl"
     with open(data_path, "w") as f:
@@ -145,8 +228,6 @@ def dream_finetune(
             f.write(json.dumps(ex) + "\n")
     log.info(f"Training data saved to {data_path}")
 
-    # Real LoRA fine-tuning — JAX is unloaded from GPU before this runs
-    # so torch has full CPU RAM available
     try:
         return _lora_finetune(examples)
     except ImportError as e:
@@ -160,19 +241,17 @@ def dream_finetune(
 def _lora_finetune(examples: list[dict]) -> bool:
     """Real LoRA fine-tuning with transformers + peft on CPU."""
     import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
+    from transformers import AutoTokenizer, AutoModelForCausalLM
     from peft import LoraConfig, get_peft_model, TaskType
 
     log.info("Loading Qwen3 0.6B for LoRA fine-tuning on CPU...")
 
-    # Load model in float32 on CPU
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         BASE_MODEL, torch_dtype=torch.float32, device_map="cpu",
         trust_remote_code=True,
     )
 
-    # Apply LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         r=8,
@@ -186,10 +265,10 @@ def _lora_finetune(examples: list[dict]) -> bool:
     total = sum(p.numel() for p in model.parameters())
     log.info(f"LoRA applied: {trainable:,} trainable / {total:,} total ({100*trainable/total:.2f}%)")
 
-    # Tokenize training data
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    # Format: ### Instruction / ### Response — matches _generate_local() wrapping
     texts = []
     for ex in examples:
         text = f"### Instruction:\n{ex['instruction']}\n\n### Response:\n{ex['response']}{tokenizer.eos_token}"
@@ -200,14 +279,13 @@ def _lora_finetune(examples: list[dict]) -> bool:
         padding="max_length", return_tensors="pt",
     )
 
-    # Simple training loop (no Trainer dependency issues)
     model.train()
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
 
     input_ids = encodings["input_ids"]
     attention_mask = encodings["attention_mask"]
     labels = input_ids.clone()
-    labels[attention_mask == 0] = -100  # ignore padding
+    labels[attention_mask == 0] = -100
 
     n_steps = min(50, len(examples) * 3)
     log.info(f"Training for {n_steps} steps...")
@@ -220,7 +298,6 @@ def _lora_finetune(examples: list[dict]) -> bool:
 
         outputs = model(input_ids=batch_ids, attention_mask=batch_mask, labels=batch_labels)
         loss = outputs.loss
-
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -228,23 +305,60 @@ def _lora_finetune(examples: list[dict]) -> bool:
         if step % 10 == 0:
             log.info(f"  LoRA step {step}/{n_steps} | loss={loss.item():.4f}")
 
-    # Save adapter
-    os.makedirs(ADAPTER_PATH, exist_ok=True)
-    model.save_pretrained(ADAPTER_PATH)
-    tokenizer.save_pretrained(ADAPTER_PATH)
-    log.info(f"LoRA adapter saved to {ADAPTER_PATH}")
+    # --- Post-dream validation ---
+    # Test the adapter on a few prompts before saving
+    model.eval()
+    validation_passed = _validate_adapter(model, tokenizer)
 
-    # Clean up to free RAM
+    if validation_passed:
+        os.makedirs(ADAPTER_PATH, exist_ok=True)
+        model.save_pretrained(ADAPTER_PATH)
+        tokenizer.save_pretrained(ADAPTER_PATH)
+        log.info(f"LoRA adapter saved to {ADAPTER_PATH} (validation passed)")
+    else:
+        log.warning("LoRA adapter FAILED validation — not deploying (keeping previous adapter)")
+
     del model, optimizer, encodings
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+    return validation_passed
+
+
+def _validate_adapter(model, tokenizer) -> bool:
+    """Test the adapter on a few prompts. Returns True if output quality is acceptable."""
+    import torch
+
+    test_prompts = [
+        "### Instruction:\nOutput ONLY a web search query of 5-8 words.\n\nState: feeling curiosity, synchronization 0.45\nCurrent topic: artificial intelligence\nInterests: AI, machine learning, neural networks\n\nSearch query:\n\n### Response:\n",
+        "### Instruction:\nWho are you?\n\n### Response:\n",
+    ]
+
+    for prompt in test_prompts:
+        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=256)
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs, max_new_tokens=30,
+                temperature=0.7, top_p=0.9,
+                do_sample=True, pad_token_id=tokenizer.eos_token_id,
+            )
+        response = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+
+        # Basic quality checks
+        if len(response.strip()) < 3:
+            log.warning(f"Validation: empty response for prompt")
+            return False
+        # Check for degenerate repetition
+        words = response.strip().split()
+        if len(words) > 5 and len(set(words)) < len(words) * 0.3:
+            log.warning(f"Validation: degenerate repetition: '{response[:60]}'")
+            return False
+
+    log.info("LoRA adapter validation passed")
     return True
 
 
 def _modelfile_fallback(age, competence, traits, narrative, strengths, weaknesses, findings) -> bool:
-    """Fallback: create Ollama Modelfile with organism identity as system prompt."""
-    import subprocess
     import urllib.request
 
     strength_str = ", ".join(strengths[:5]) if strengths else "none yet"
