@@ -36,6 +36,6 @@ COPY halo3/ /app/halo3/
 COPY train_halo3.py /app/train_halo3.py
 COPY train_tinystories.py /app/train_tinystories.py
 
-RUN mkdir -p /app/data/checkpoints /app/data/episodes /app/data/pfc_adapter /app/data/dream_training
+RUN mkdir -p /app/data/checkpoints /app/data/episodes /app/data/pfc_adapter /app/data/dream_training /app/data/xla_cache
 
 CMD ["python3", "-m", "halo3.main"]

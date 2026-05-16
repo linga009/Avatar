@@ -26,6 +26,7 @@ data/checkpoints/
 data/episodes/
 data/dream_training/
 data/pfc_adapter/
+data/xla_cache/
 data/self_model.json
 data/pfc_prompts.json
 data/tokenizer.model

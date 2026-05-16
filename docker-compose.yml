@@ -10,6 +10,8 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    ports:
+      - "8420:8420"
     volumes:
       - ./data:/app/data
     environment:

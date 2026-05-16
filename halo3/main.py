@@ -109,9 +109,14 @@ def main() -> None:
     organism = Organism(seed_topics)
     predictor = PredictiveProcessor(lr=1e-5)
 
+    # --- Chat server (talk to the whole organism) ---
+    from halo3.chat_server import start_chat_server, update_live_state
+    start_chat_server(port=8420)
+
     log.info(f"Organism awakening. {organism.self_model.identity_statement}")
     log.info(f"Watching: {seed_topics}")
     log.info(f"Predictive processing: ON — body learns every tick")
+    log.info(f"Chat: http://localhost:8420 — talk to the living organism")
     log.info("-" * 60)
 
     # --- Signals ---
@@ -185,6 +190,13 @@ def main() -> None:
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
+
+        # Update live state for chat server
+        update_live_state(
+            tick=tick, r_mean=r_mean, fe_delta=fe_delta,
+            pred_error=pred_error, current_query=current_query,
+            texts=texts, organism=organism, memory=memory, predictor=predictor,
+        )
 
         # 8. SATIATION — actively break Kuramoto sync when restless
         coupling_mod = psyche_output["coupling_mod"]
