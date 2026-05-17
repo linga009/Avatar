@@ -28,6 +28,7 @@ def _format_training_data(
     weaknesses: list[str],
     findings: list[dict],
     dead_queries: list[str] | None = None,
+    focus_topics: list[str] | None = None,
 ) -> list[dict]:
     """Format organism's experience as prompt-response pairs.
 
@@ -196,6 +197,33 @@ def _format_training_data(
             ),
         })
 
+    # Weight toward focus topics: 2x examples for what the organism focused on most.
+    # Like REM sleep — replay important experiences more than fleeting ones.
+    if focus_topics:
+        for topic in focus_topics[:4]:
+            examples.append({
+                "instruction": (
+                    "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                    f"\nState: feeling curiosity, synchronization 0.55\n"
+                    f"Current topic: {topic}\n"
+                    f"Interests: {topic}, {', '.join(strengths[:2]) if strengths else 'research'}\n"
+                    "\nSearch query:"
+                ),
+                "response": f"recent advances {topic} 2026",
+            })
+            examples.append({
+                "instruction": (
+                    "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                    f"\nState: feeling pride, synchronization 0.68\n"
+                    f"Current topic: {topic}\n"
+                    f"Recent findings: strong pattern detected\n"
+                    f"Interests: {topic}, {', '.join(strengths[:2]) if strengths else 'research'}\n"
+                    "\nSearch query:"
+                ),
+                "response": f"{topic} mechanism experimental evidence 2026",
+            })
+        log.info(f"Dream training weighted toward {len(focus_topics)} focus topics: {focus_topics[:3]}")
+
     return examples
 
 
@@ -208,11 +236,13 @@ def dream_finetune(
     weaknesses: list[str],
     findings: list[dict],
     dead_queries: list[str] | None = None,
+    focus_topics: list[str] | None = None,
 ) -> bool:
     """Run real LoRA fine-tuning on the organism's experience."""
     examples = _format_training_data(
         age, competence, traits, narrative, strengths, weaknesses, findings,
         dead_queries=dead_queries,
+        focus_topics=focus_topics,
     )
 
     if len(examples) < 3:

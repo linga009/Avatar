@@ -49,6 +49,10 @@ class TemporalBinder:
         self.emotional_momentum: str = ""  # dominant emotional direction
         self.narrative_thread: str = ""  # what the stream is "about"
 
+        # Focus accumulator: topic -> max sustained_attention seen this waking period
+        # Used at dream time to weight consolidation toward what mattered most.
+        self._focus_accumulator: dict[str, int] = {}
+
     def observe(
         self,
         r_mean: float,
@@ -92,6 +96,11 @@ class TemporalBinder:
         else:
             self.attention_just_shifted = self.sustained_attention >= 2
             self.sustained_attention = 0
+
+        # Accumulate focus across full waking period
+        if self.sustained_attention >= 2:
+            prev_best = self._focus_accumulator.get(snap.topic, 0)
+            self._focus_accumulator[snap.topic] = max(prev_best, self.sustained_attention)
 
         # --- Emotional momentum ---
         self.emotional_momentum = self._compute_emotional_momentum()
@@ -187,6 +196,23 @@ class TemporalBinder:
             "emotional_momentum": self.emotional_momentum,
             "narrative_thread": self.narrative_thread,
         }
+
+    def get_focus_topics(self) -> list[str]:
+        """Topics the organism sustained attention on during this waking period.
+
+        Returns topics sorted by sustained attention duration (longest first).
+        Called at dream time to weight dream consolidation toward what mattered.
+        """
+        if not self._focus_accumulator:
+            return []
+        sorted_topics = sorted(
+            self._focus_accumulator.items(), key=lambda x: x[1], reverse=True
+        )
+        return [topic for topic, _ in sorted_topics[:8]]
+
+    def reset_focus(self) -> None:
+        """Clear focus accumulator at dream boundary."""
+        self._focus_accumulator.clear()
 
     def describe(self) -> str:
         """First-person description of temporal experience."""

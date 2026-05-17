@@ -465,6 +465,9 @@ class Organism:
         try:
             from halo3.training.dream_finetune import dream_finetune
             findings = memory.get_findings() if memory else []
+            focus_topics = self.temporal.get_focus_topics()
+            if focus_topics:
+                log.info(f"Dream: consolidating focus topics: {focus_topics[:3]}")
             success = dream_finetune(
                 age=self.self_model.age,
                 competence=self.self_model.competence,
@@ -474,10 +477,12 @@ class Organism:
                 weaknesses=self.self_model.weaknesses,
                 findings=findings,
                 dead_queries=self.self_model.dead_queries,
+                focus_topics=focus_topics,
             )
             if success:
                 self.prefrontal.upgrade_to_organism_model()
                 log.info("Prefrontal cortex now carries this organism's identity")
+            self.temporal.reset_focus()
         except Exception as e:
             log.warning(f"Dream fine-tuning failed: {e}")
 
