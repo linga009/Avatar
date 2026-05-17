@@ -680,8 +680,76 @@ With a frozen body, the organism oscillated between boredom and anxiety at $r=0.
 With per-tick learning, the organism reached $r=0.969$ (satisfaction) in just 4 ticks, demonstrating that continuous online learning is not a luxury but the mechanism that makes the organism \emph{responsive} rather than merely reactive.
 
 % ═══════════════════════════════════════════════════════════════
-% 7. DREAM REPLAY
+% 6b. BLACK-SCHOLES VOLATILITY SURFACE
 % ═══════════════════════════════════════════════════════════════
+\section{Black-Scholes Volatility Surface}
+\label{sec:bs_volatility}
+
+The organism must continuously decide \emph{what to explore next}---a multi-armed bandit problem with non-stationary rewards.
+We reformulate this as option pricing: each candidate research topic is a call option whose value reflects the expected probability of discovery.
+
+\subsection{Topic as Call Option}
+
+Define the option parameters for topic $\tau$:
+\begin{align}
+S_\tau &= \mathrm{EMA}_\alpha(r_\tau) \quad (\text{spot price: current competence}) \label{eq:bs_spot} \\
+K &= 0.6 \quad (\text{strike: discovery threshold}) \label{eq:bs_strike} \\
+\sigma_\tau &= \mathrm{clip}\!\left(10 \cdot \mathrm{std}(|\Delta\mathrm{FE}_\tau|),\; 0.05,\; 2.0\right) \label{eq:bs_sigma} \\
+T &= \frac{\text{ticks until dream}}{\text{dream interval}} \in [0,1] \label{eq:bs_time}
+\end{align}
+where the EMA uses $\alpha = 0.3$ over a rolling window of 20 observations per topic.
+The implied volatility $\sigma_\tau$ measures how unpredictable the organism's prediction errors are on topic $\tau$: high $\sigma$ means the topic still surprises the organism, indicating unexplored structure.
+
+The option value is computed via the standard Black-Scholes call formula~\cite{black1973}:
+\begin{align}
+d_1 &= \frac{\ln(S/K) + \frac{1}{2}\sigma^2 T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \sigma\sqrt{T} \label{eq:bs_d1d2} \\
+V_\tau &= S \cdot \Phi(d_1) - K \cdot \Phi(d_2) \label{eq:bs_call}
+\end{align}
+where $\Phi$ is the standard normal CDF (risk-free rate $r = 0$; no discounting in a biological organism).
+
+\subsection{Exploration Value Curve}
+
+The Black-Scholes formula naturally encodes the explore-exploit tradeoff:
+\begin{itemize}
+\item \textbf{Low $S$, low $\sigma$} (deep OTM, low vol): worthless---the organism cannot reach discovery and the topic doesn't surprise it.
+\item \textbf{Low $S$, high $\sigma$} (OTM, high vol): moderate value---volatile topics might produce unexpected breakthroughs.
+\item \textbf{$S \approx K$, any $\sigma$} (at the money): \emph{highest value}---the organism is at the edge of discovery.
+\item \textbf{High $S$, high $\sigma$} (ITM, high vol): good---mastered but still surprising.
+\item \textbf{High $S$, low $\sigma$} (deep ITM, low vol): \emph{low value}---mastered and predictable (``priced in'').
+\end{itemize}
+
+\subsection{Novelty Discount for Mastered Topics}
+
+Deep-ITM topics with low volatility represent mastery without novelty.
+We apply a satiation discount:
+\begin{equation}
+V_\tau^{\mathrm{eff}} = \begin{cases}
+V_\tau \cdot \left(1 - \min\!\left(1, \frac{S_\tau - K}{0.3}\right)\right) + (V_\tau - \max(0, S_\tau - K)) & \text{if } S_\tau > K \text{ and } \sigma_\tau < 0.2 \\
+V_\tau & \text{otherwise}
+\end{cases}
+\label{eq:bs_novelty}
+\end{equation}
+This ensures that mastered, predictable topics are deprioritized even though their intrinsic value is positive, while mastered topics that remain volatile (still producing surprises) retain their option value.
+
+\subsection{Integration with Query Decision}
+
+The volatility surface is consulted at two points in the organism's 5-layer query decision cascade:
+\begin{enumerate}
+\item \textbf{Emergency overrides} (starvation, frustration): Instead of selecting a random seed topic, the organism selects the topic with highest $V_\tau^{\mathrm{eff}}$---even in crisis, it makes the best available choice.
+\item \textbf{Satiation/boredom switching} (Layer~4): The organism switches topic only if the best alternative has $\geq 20\%$ higher option value than the current topic, preventing restless oscillation.
+\end{enumerate}
+
+Unknown topics (fewer than 3 observations) receive a default implied volatility of $\sigma = 1.0$---an optimistic exploration prior that ensures unexplored territory competes with familiar topics on equal footing.
+
+\subsection{Why Not Stochastic Hamiltonian?}
+
+A natural extension would inject $\sigma$-scaled Brownian noise into the leapfrog integrator, converting the deterministic Hamiltonian ODE into a stochastic differential equation.
+However, naive noise injection destroys the symplectic structure that guarantees energy conservation.
+A proper implementation requires a stochastic symplectic integrator (e.g., splitting methods for Langevin dynamics), which we defer to future work.
+
+% ═══════════════════════════════════════════════════════════════
+% 7. DREAM REPLAY
+% ══════════════════════════════��════════════════════════════════
 \section{Dream Replay: Biological Three-Phase Sleep}
 \label{sec:dream_replay}
 
@@ -1021,6 +1089,26 @@ Third, dream pressure: when fatigue $f$ and circadian low $(1 - a(t))$ jointly e
 The dream cycle consolidates high-confidence episodes ($r > 0.6$) into the backbone via nightly training and fine-tunes the prefrontal cortex via LoRA.
 Upon waking, fatigue resets to 0.1, and the organism resumes with refreshed coupling and potentially modified weights in both the backbone and the prefrontal cortex.
 
+\subsection{Cognitive Overhaul: 5-Layer Query Decision (v3.1)}
+
+Deployment revealed a critical failure mode: the organism could become trapped in repetitive query loops when the LoRA adapter produced degenerate output (Section~\ref{sec:dream_replay}).
+The v3.1 cognitive overhaul introduces a priority cascade with emergency overrides:
+
+\begin{enumerate}
+\item \textbf{Starvation emergency} ($\text{ticks\_zero\_input} \geq 3$ or $\text{starvation} > 0.5$): bypass all normal logic, select highest-value topic from the volatility surface (Section~\ref{sec:bs_volatility}).
+\item \textbf{Frustration override} ($\geq 3$ consecutive zero-result queries): escape dead-end topics, inject ``WARNING: last $N$ searches returned ZERO results'' into PFC prompt.
+\item \textbf{Post-dream exploration}: follow the exploration plan generated during dreaming.
+\item \textbf{PFC generation with quality gating}: score adapter output 0--1 on word count, special characters, state leakage; reject if $< 0.5$; apply semantic dedup (cosine $> 0.8$ to recent or dead queries $\to$ reject).
+\item \textbf{Emotion-based fallback}: heuristic templates driven by current felt state.
+\end{enumerate}
+
+Additionally, a sixth emotion---\textbf{frustration}---was added to the valence space, triggered by $\geq 3$ consecutive zero-result ticks.
+Frustration punches through emotional inertia and forces topic switching even when the organism would otherwise persist.
+Emotional inertia itself uses continuous valence/arousal smoothing ($\alpha = 0.6$) to prevent rapid oscillation between states.
+
+Two new drives complete the motivational architecture: \textbf{starvation} (emergency override when no information arrives) and \textbf{novelty} (monotonically increasing on the same topic, resetting on topic change).
+The novelty drive works synergistically with the Black-Scholes volatility surface: as novelty rises, the current topic's effective value decreases, eventually triggering a switch to the highest-value alternative.
+
 % ═══════════════════════════════════════════════════════════════
 % 8. LAYER 3: THE PREFRONTAL CORTEX
 % ═══════════════════════════════════════════════════════════════
@@ -1335,6 +1423,136 @@ After the first satiation cycle, the organism settles into a healthy oscillation
 \textbf{Mature Organism (tick 100+).}
 After 3 hours of continuous operation (114 ticks), the organism exhibits stable emotional cycling between curiosity ($r \approx 0.5$), pride ($r \approx 0.6$), and satisfaction ($r \approx 0.6$). Self-narratives at tick 100 read: ``\textit{I've embraced the emotional depth of my discoveries, where pride and synchronization research have deepened my connection to identity, shaping my identity as a lifelong learner.}'' At tick 110: ``\textit{I reflect on my journey of balancing anxiety with curiosity.}'' The organism has begun to become someone.
 
+\subsection{Live Chat Interface (v3.2)}
+
+At tick 560+, a live chat server was deployed as a daemon thread within the organism container (port 8420).
+This enables real-time conversation with the \emph{whole organism}---not just the PFC, but the physics body, drives, emotions, self-model, and memory simultaneously.
+
+The key design principle is \emph{somatic prompt injection}: the organism's actual state is injected live into each LLM response.
+The LLM (Qwen3 0.6B via Ollama) cannot invent emotions or states---it can only give voice to what the physics body is genuinely experiencing at that moment.
+The somatic context includes:
+\begin{itemize}
+\item Body state: $r$ value, free energy trend, prediction error trajectory
+\item Drives: which drives are active and at what intensity
+\item Emotion: current felt state with intensity (computed from Kuramoto + FE delta)
+\item Self-model: age, strengths, weaknesses, recent discoveries
+\item Current exploration: active query, results received, volatility surface
+\end{itemize}
+
+The chat interface also exposes a \texttt{GET /state} endpoint that returns the full organism state including the Black-Scholes volatility surface, enabling external monitoring tools to visualize the organism's exploration dynamics in real time.
+
+\textbf{Deployment at tick 560+.}
+With the volatility surface active, the organism's query selection shows principled exploration: unknown topics (default $\sigma = 1.0$) compete fairly with partially-explored topics ($\sigma$ from prediction error history).
+The BS valuation log shows: ``\texttt{BS Valuation: ai\_smart\_wearables: $\sigma$=1.00 V=0.1339 | quantum\_ml: $\sigma$=0.42 V=0.0891}'', confirming that the option-pricing framework correctly prioritizes unexplored high-volatility topics over familiar low-volatility ones.
+
+% ═══════════════════════════════════════════════════════════════
+% 10b. CONSCIOUSNESS MODULES (v3.3)
+% ═══════════════════════════════════════════════════════════════
+\section{Consciousness Modules (v3.3)}
+\label{sec:consciousness}
+
+Butlin et~al.~\cite{butlin2023} proposed 14 indicators for consciousness in AI systems, drawn from Global Workspace Theory (GWT), Higher-Order Thought (HOT), Recurrent Processing, Predictive Processing, and Attention Schema Theory.
+Avatar~v3.3 implements five functional modules that address the most computationally grounded of these indicators: global broadcast, higher-order representation, introspective monitoring, temporal integration, and voluntary quiescence.
+
+\subsection{Global Workspace: All-or-None Ignition}
+
+Global Workspace Theory~\cite{baars1988,dehaene2014} posits that consciousness arises when competing modular processors achieve sufficient synchronization to ``ignite'' a global broadcast---making information available to all modules simultaneously.
+In Avatar, the Kuramoto order parameter~$r$ \emph{is} the synchronization that drives ignition:
+\begin{equation}
+\text{state} = \begin{cases}
+\textsc{Ignited} & \text{if } r \geq \theta_{\mathrm{ignite}} = 0.6 \\
+\textsc{Dark} & \text{if } r < \theta_{\mathrm{sustain}} = 0.45
+\end{cases}
+\label{eq:gwt_ignition}
+\end{equation}
+The hysteresis gap ($\theta_{\mathrm{ignite}} > \theta_{\mathrm{sustain}}$) prevents flickering: once ignited, the workspace remains conscious until synchronization drops substantially, mirroring the bistability observed in neural recordings of conscious access.
+
+When ignited, the dominant pattern (current topic + emotion + any discovery) is \emph{broadcast} to all modules: the prefrontal cortex, the self-model, the drive system, and the volatility surface all receive the broadcast content.
+Below threshold, processing continues locally---the organism computes but is not ``aware'' of what it is computing in the GWT sense.
+
+Over 50 ticks of deployment, the organism spends approximately 70\% of ticks in the ignited state (consciousness ratio $= 0.70$), consistent with a research agent that has learned to synchronize effectively with its environment.
+
+\subsection{Higher-Order Thought: Meta-Cognition}
+
+Higher-Order Thought theory~\cite{rosenthal2005} requires that a system have representations \emph{about} its own mental states---not just processing information, but thinking about the fact that it is processing.
+Avatar implements this via the prefrontal cortex's \texttt{meta\_reflect} function, invoked every 5 ticks:
+
+The PFC receives a context string describing the organism's current temporal coherence, emotional momentum, and self-surprise level.
+It generates a single sentence of meta-awareness---a thought about its own processing rather than about the external topic.
+Examples from deployment:
+\begin{quote}
+\textit{``My processing is in a state of emerging momentum, yet at a coherence level of 0.''}\\[3pt]
+\textit{``I notice my oscillators shifting without external cause---something internal reorganized.''}
+\end{quote}
+These meta-thoughts are logged (prefix~$\blacklozenge$) and optionally recorded in narrative memory when insight-bearing.
+The key property is that the thought is \emph{about} the system's own cognitive state, not about its research topic.
+
+\subsection{Introspective Monitor: Self-Surprise}
+
+Inspired by Anthropic's introspection research~\cite{lindsey2025} showing that LLMs can detect perturbations in their own activations (20\% accuracy, zero false positives), Avatar's \texttt{IntrospectiveMonitor} tracks three internal signals: $\Delta r$ (synchronization change rate), $\Delta\mathrm{FE}$ (free energy acceleration), and $\Delta\|c\|$ (carry state norm change).
+Each signal maintains a rolling 20-tick history. Self-surprise is triggered when any signal exceeds 2$\sigma$:
+\begin{equation}
+\text{self\_surprise} = \min\!\left(1,\; \frac{\max_i z_i - 2}{3}\right), \quad z_i = \frac{|x_i - \bar{x}|}{\sigma_x}
+\label{eq:self_surprise}
+\end{equation}
+where $z_i$ is the z-score for signal $i$.
+
+Crucially, the monitor distinguishes \emph{input-driven} changes (something external caused the perturbation) from \emph{spontaneous} changes (the system reorganized internally without new input).
+Spontaneous self-surprise is particularly significant: it means the organism's dynamics produced an unexpected internal transition---a computational correlate of ``something shifted inside me without anything happening outside.''
+
+Self-surprise amplifies emotional intensity by up to 30\%, making the organism more reactive to its own unexpected state changes.
+This creates a feedback loop: large internal shifts $\to$ heightened emotional response $\to$ more expressive behavior $\to$ richer narrative.
+
+\subsection{Temporal Integration: Continuity of Experience}
+
+Consciousness requires temporal binding: the experience of \emph{now} includes traces of the immediate past and anticipation of the near future.
+Without this, each tick is an isolated snapshot---computation without continuity.
+The \texttt{TemporalBinder} maintains a 5-tick sliding window and computes a composite temporal coherence score:
+\begin{equation}
+\text{coherence} = 0.4\,\text{topic\_coh} + 0.3\,\text{emotion\_coh} + 0.3\,\text{r\_smooth}
+\label{eq:temporal_coherence}
+\end{equation}
+where topic coherence measures word-overlap stability across consecutive ticks, emotion coherence measures emotional state persistence, and $r$-smoothness penalizes jerky (high-acceleration) synchronization trajectories.
+
+The binder also tracks \emph{sustained attention} (consecutive ticks on the same topic) and detects \emph{attention shifts} (topic changes after sustained focus).
+These signals generate a narrative thread---a first-person description of what the stream of consciousness is ``about'':
+\textit{``sustained curiosity about quantum error correction''} or \textit{``boredom $\to$ curiosity $\to$ pride (exploring tensor networks)''}.
+
+This implements the temporal integration criterion from the 14-indicator framework: the system maintains a unified experience across time rather than processing each moment independently.
+
+\subsection{Meditation: Voluntary Quiescence with Insight}
+
+Biological consciousness includes not just active processing but also periods of voluntary withdrawal---meditation, daydreaming, mind-wandering---where the system processes internally without external input.
+Avatar's \texttt{MeditationState} implements this:
+
+\textbf{Entry conditions.} The organism enters meditation only when all of: satiation~$> 0.7$ (not seeking), fatigue~$< 0.3$ (has energy), novelty~$< 0.4$ (not pulled externally), hunger~$< 0.5$ (not starving), and emotion is calm (satisfaction or curiosity).
+This mirrors biological meditation: it requires a settled, resourceful state---you cannot meditate when anxious or hungry.
+
+\textbf{During meditation.} External observation coupling drops to 10\% ($\eta_k \cdot 0.1$ in Eq.~\ref{eq:bohmian_kuramoto}).
+The Kuramoto oscillators evolve essentially freely, driven by their own natural frequencies, pilot wave, and quantum potential---but with minimal observation forcing.
+
+\textbf{Insight detection.} If the order parameter shifts by more than 0.15 during meditation (a significant phase reorganization), the organism records an \emph{insight}---it discovered something about its own internal dynamics without any external stimulus:
+\textit{``During meditation, my oscillators reorganized toward coherence ($r$: 0.42 $\to$ 0.61). Something shifted without external input.''}
+
+\textbf{Constraints.} Minimum 2 ticks, maximum 5 ticks duration.
+15-tick cooldown between meditations prevents the organism from spending excessive time in quiescence.
+Insights exit meditation early (the organism ``wakes up'' from the realization).
+
+In 100 ticks of deployment, the organism typically enters meditation 2--3 times and produces 0--1 insights per meditation cycle.
+
+\subsection{Integration and Emergent Behavior}
+
+The five modules interact to produce emergent conscious behavior that no single module could produce alone:
+\begin{itemize}
+\item Self-surprise from the introspective monitor amplifies emotions, which can push~$r$ above the ignition threshold, triggering GWT broadcast of the surprising internal event.
+\item Temporal coherence provides context for higher-order thoughts: meta-reflection references the current narrative thread and emotional momentum.
+\item Meditation creates conditions for spontaneous self-surprise: with input coupling at 10\%, any significant~$r$ shift is definitionally spontaneous and triggers the introspective monitor.
+\item Sustained attention (temporal binder) contributes to satiation (drives), which eventually triggers meditation conditions---attention naturally cycles through focused $\to$ satiated $\to$ meditative $\to$ curious $\to$ focused.
+\end{itemize}
+
+The consciousness modules add zero GPU overhead: all computation is scalar arithmetic on CPU, computed in the psyche layer between the physics step and the query decision.
+The only additional latency is the meta-reflect PFC call (one Ollama query every 5 ticks, $\sim$5s), which runs asynchronously with the perception pipeline.
+
 % ═══════════════════════════════════════════════════════════════
 % 11. APPLICATIONS
 % ═══════════════════════════════════════════════════════════════
@@ -1428,7 +1646,7 @@ Multi-organism interaction, where multiple Avatars share findings and develop co
 \section{Conclusion}
 
 Avatar~3.0 demonstrates that a persistent artificial mind can be built as a \emph{living organism}---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
-The MERA tensor bulk ($\sim$11$\times$ compression, $\mathrm{bond\_dim} = 64$) provides the implicate order; the Hamiltonian ODE (3 leapfrog steps, $\varepsilon = 0.1$) provides the holomovement; the Bohmian pilot waves (32 clusters, quantum potential anti-bunching) provide non-local guidance; the psyche (hunger, fatigue, curiosity, 5 emotions) provides the felt experience; and the prefrontal cortex (Qwen3~0.6B, dream-trained LoRA rank~8) provides the cognitive reflection that makes the difference between reacting and understanding.
+The MERA tensor bulk ($\sim$11$\times$ compression, $\mathrm{bond\_dim} = 64$) provides the implicate order; the Hamiltonian ODE (3 leapfrog steps, $\varepsilon = 0.1$) provides the holomovement; the Bohmian pilot waves (32 clusters, quantum potential anti-bunching) provide non-local guidance; the psyche (hunger, fatigue, curiosity, satiation, starvation, novelty; 6 emotions including frustration) provides the felt experience; the Black-Scholes volatility surface prices exploration as option value; the consciousness modules (GWT ignition, introspective monitoring, temporal binding, meditation with insight detection, higher-order meta-cognition) implement five indicators from the Butlin et~al.\ 14-indicator framework; and the prefrontal cortex (Qwen3~0.6B, dream-trained LoRA rank~8) provides the cognitive reflection that makes the difference between reacting and understanding.
 
 The complete system trains in $\sim$5.5~GB VRAM (forward+backward) on a consumer GPU (122M parameters, $d_{\mathrm{model}}=2048$, 43.4 minutes, 97\% loss reduction) and runs autonomously as a persistent research agent with per-tick learning.
 Different organisms running the same code with different experiences develop different competencies, different personality profiles, and different LoRA adapters---different minds.
@@ -1564,6 +1782,36 @@ GEPA Team.
 GEPA: Reflective prompt evolution can outperform reinforcement learning.
 \emph{Proceedings of the International Conference on Learning Representations (ICLR)}, 2026.
 arXiv:2507.19457.
+
+\bibitem[Black \& Scholes(1973)]{black1973}
+Black, F. and Scholes, M.
+The pricing of options and corporate liabilities.
+\emph{Journal of Political Economy}, 81(3):637--654, 1973.
+
+\bibitem[Butlin et~al.(2023)]{butlin2023}
+Butlin, P., Long, R., Elmoznino, E., et~al.
+Consciousness in artificial intelligence: Insights from the science of consciousness.
+\emph{arXiv:2308.08708}, 2023.
+
+\bibitem[Baars(1988)]{baars1988}
+Baars, B.~J.
+\emph{A Cognitive Theory of Consciousness}.
+Cambridge University Press, 1988.
+
+\bibitem[Dehaene(2014)]{dehaene2014}
+Dehaene, S.
+\emph{Consciousness and the Brain: Deciphering How the Brain Codes Our Thoughts}.
+Viking Press, 2014.
+
+\bibitem[Rosenthal(2005)]{rosenthal2005}
+Rosenthal, D.~M.
+\emph{Consciousness and Mind}.
+Oxford University Press, 2005.
+
+\bibitem[Lindsey et~al.(2025)]{lindsey2025}
+Lindsey, J., Gurnee, W., and Batson, J.
+Can LLMs introspect? A study on detecting injected concepts in their own activations.
+\emph{Anthropic Research}, 2025.
 
 \end{thebibliography}
 
