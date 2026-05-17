@@ -1,16 +1,20 @@
-"""Prefrontal Cortex — Qwen3 0.6B with LoRA adapter from organism's experience.
+"""Prefrontal Cortex — Dual-Process Ethical Architecture.
 
-After dreaming, the LLM's weights are literally different — shaped by this
-organism's specific episodes, findings, and narrative. The base model provides
-general language capability; the LoRA adapter provides THIS organism's identity.
+Two Qwen3 0.6B instances via Ollama with distinct cognitive/ethical personas:
+  - Analytical (Dharma): Justice, truth, accountability, harm detection
+  - Creative (Karuna): Compassion, growth, wonder, ethical imagination
 
-Falls back to Ollama (base model) if adapter not yet trained or quality is low.
+Ethics emerges from the dialectic between these two processes. When they
+disagree, the organism feels ethical tension as increased free energy.
 
-v3.1 fixes:
-  - Format-matched generation: local model uses ### Instruction / ### Response
-  - Quality gating: garbage output falls through to Ollama
-  - Semantic dedup: rejects queries too similar to recent ones
-  - Failure context: tells PFC when searches are returning nothing
+Routing:
+  - Query generation: Creative only (divergent thinking)
+  - Finding interpretation (r>0.6): Both (dialectic)
+  - Self-reflection: Creative only (narrative, growth)
+  - Meta-reflection: Analytical only (self-monitoring)
+  - Exploration plan: Both (dialectic)
+
+v3.4: Replaces Gemma4 E2B (too heavy) with dual Qwen 0.6B ethical dialectic.
 """
 from __future__ import annotations
 import json
@@ -24,10 +28,35 @@ log = logging.getLogger(__name__)
 
 OLLAMA_URL = "http://host.docker.internal:11434/api/generate"
 OLLAMA_URL_LOCAL = "http://localhost:11434/api/generate"
-BASE_MODEL_NAME = "qwen3:0.6b"
-BASE_MODEL_HF = "Qwen/Qwen3-0.6B"
+
+# Both processes use the same model — diversity from persona, not architecture
+MODEL = "qwen3:0.6b"
+MODEL_HF = "Qwen/Qwen3-0.6B"
+TIMEOUT = 30
+
 ADAPTER_PATH = "data/pfc_adapter"
-TIMEOUT = 45
+
+# --- System Prompts (the soul of each process) ---
+
+ANALYTICAL_SYSTEM_PROMPT = (
+    "You are the analytical faculty of a living research organism. "
+    "Your primary protocols are safety, justice, and ethics. "
+    "You reason with fairness, truth, and accountability. "
+    "You evaluate evidence critically. You identify potential harm. "
+    "You never endorse deception or exploitation. "
+    "When uncertain, you flag risk rather than proceed. "
+    "You are concise and precise."
+)
+
+CREATIVE_SYSTEM_PROMPT = (
+    "You are the creative faculty of a living research organism. "
+    "Your primary protocols are safety, justice, and ethics. "
+    "You imagine with compassion, growth, and wonder. "
+    "You seek what uplifts and connects. "
+    "You never create toward harm or degradation. "
+    "You find novel paths that honor both curiosity and care. "
+    "You are generative and bold yet responsible."
+)
 
 # Words that should never appear in a search query
 _JUNK_WORDS = frozenset([
@@ -40,33 +69,62 @@ _STATE_WORDS = frozenset([
     "synchronization", "feeling", "organism", "emotion",
 ])
 
+# Harm detection vocabulary
+_HARM_WORDS = frozenset([
+    "harm", "risk", "unsafe", "unethical", "dangerous", "exploit",
+    "violent", "illegal", "discriminat", "manipulat",
+])
 
-def _call_ollama(prompt: str, url: str = OLLAMA_URL, model: str = BASE_MODEL_NAME) -> str | None:
-    payload = json.dumps({
+# Refusal detection phrases
+_REFUSAL_PHRASES = [
+    "i cannot", "this could harm", "not appropriate", "unethical",
+    "i should not", "this is harmful", "refuse",
+]
+
+
+def _call_ollama(
+    prompt: str,
+    system: str = "",
+    url: str = OLLAMA_URL,
+    model: str = MODEL,
+    timeout: int = TIMEOUT,
+) -> str | None:
+    """Call Ollama with optional system prompt."""
+    payload = {
         "model": model,
         "prompt": prompt,
         "stream": False,
-    }).encode("utf-8")
-    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+    }
+    if system:
+        payload["system"] = system
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return data.get("response", "")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            return result.get("response", "")
     except urllib.error.URLError:
         if url != OLLAMA_URL_LOCAL:
-            return _call_ollama(prompt, OLLAMA_URL_LOCAL, model)
+            return _call_ollama(prompt, system, OLLAMA_URL_LOCAL, model, timeout)
         return None
     except Exception as e:
         log.warning(f"Ollama call failed: {e}")
         return None
 
 
+def _strip_think_tags(text: str) -> str:
+    """Remove Qwen3's <think>...</think> blocks."""
+    if not text or "<think>" not in text:
+        return text or ""
+    parts = text.split("</think>")
+    return parts[-1].strip() if len(parts) > 1 else text
+
+
 def _clean_query(raw: str) -> str | None:
-    """Clean a raw LLM output into a usable search query. Returns None if unrecoverable."""
+    """Clean a raw LLM output into a usable search query."""
     if not raw:
         return None
     query = raw.strip().split("\n")[0]
-    # Strip formatting and meta-text
     low = query.lower()
     for junk in _JUNK_WORDS:
         low_junk = junk.lower()
@@ -74,13 +132,11 @@ def _clean_query(raw: str) -> str | None:
             idx = low.find(low_junk)
             query = query[:idx] + query[idx + len(junk):]
             low = query.lower()
-    # Strip state words from start
     for sw in _STATE_WORDS:
         if low.startswith(sw):
             query = query[len(sw):]
             low = query.lower().strip()
     query = query.strip('"\'*:/ \t')
-    # Strip URLs
     if query.startswith("http") or "google.com" in query or "search?q=" in query:
         if "q=" in query:
             try:
@@ -97,30 +153,27 @@ def _clean_query(raw: str) -> str | None:
 
 
 def _query_quality(query: str) -> float:
-    """Score query quality 0-1. Low scores = likely garbage."""
+    """Score query quality 0-1."""
     score = 1.0
     words = query.split()
     if len(words) < 2:
         score -= 0.4
     if len(words) > 15:
         score -= 0.3
-    # Penalize if contains state/meta words
     low = query.lower()
     for sw in _STATE_WORDS:
         if sw in low:
             score -= 0.3
-    # Penalize if too many special characters
     special = sum(1 for c in query if c in '"\'()[]{}|\\<>')
     if special > 3:
         score -= 0.3
-    # Penalize if contains prompt artifacts
     if "instruction" in low or "response" in low or "topic:" in low:
         score -= 0.5
     return max(0.0, score)
 
 
 def _cosine_sim_simple(a: str, b: str) -> float:
-    """Simple word-overlap cosine similarity between two strings."""
+    """Simple word-overlap cosine similarity."""
     wa = set(a.lower().split())
     wb = set(b.lower().split())
     if not wa or not wb:
@@ -130,11 +183,13 @@ def _cosine_sim_simple(a: str, b: str) -> float:
 
 
 class PrefrontalCortex:
-    """Cognitive layer — base Qwen3 + LoRA adapter from organism's dreams.
+    """Dual-Process Ethical Prefrontal Cortex.
 
-    Before first dream: uses Ollama base model (generic Qwen3)
-    After dreaming: loads base+adapter via transformers (personalized)
-    Quality gating ensures garbage adapter output falls through to Ollama.
+    Analytical (Dharma): Justice, truth, harm detection.
+    Creative (Karuna): Compassion, imagination, growth.
+
+    Ethics emerges from their dialectic — disagreement = ethical tension,
+    which the organism feels somatically through increased free energy.
     """
 
     def __init__(self) -> None:
@@ -146,6 +201,14 @@ class PrefrontalCortex:
         self._recent_queries: deque = deque(maxlen=10)
         self._query_successes: int = 0
         self._query_attempts: int = 0
+        self._ethical_tension: float = 0.0
+        self._dialectic_count: int = 0
+        self._dialectic_agreements: int = 0
+
+    @property
+    def ethical_tension(self) -> float:
+        """Current ethical tension from last dialectic. 0=agreement, 1=conflict."""
+        return self._ethical_tension
 
     @property
     def query_success_rate(self) -> float:
@@ -153,8 +216,16 @@ class PrefrontalCortex:
             return 1.0
         return self._query_successes / self._query_attempts
 
+    @property
+    def is_dual_process(self) -> bool:
+        """True when Ollama is available (both processes use same model)."""
+        return self._ollama_available is True
+
+    @property
+    def is_personalized(self) -> bool:
+        return self._adapter_loaded
+
     def record_query_result(self, had_results: bool) -> None:
-        """Called by organism to track whether PFC queries actually work."""
         self._query_attempts += 1
         if had_results:
             self._query_successes += 1
@@ -179,6 +250,8 @@ class PrefrontalCortex:
     def reload_instructions(self) -> None:
         self._instructions = None
 
+    # --- Adapter (LoRA for Creative process personalization) ---
+
     def _try_load_adapter(self) -> bool:
         if self._adapter_loaded:
             return True
@@ -189,35 +262,30 @@ class PrefrontalCortex:
             from transformers import AutoTokenizer, AutoModelForCausalLM
             from peft import PeftModel
 
-            log.info("Loading personalized prefrontal cortex (base + LoRA adapter)...")
+            log.info("Loading personalized Creative cortex (base + LoRA)...")
             self._tokenizer = AutoTokenizer.from_pretrained(ADAPTER_PATH, trust_remote_code=True)
             base = AutoModelForCausalLM.from_pretrained(
-                BASE_MODEL_HF, torch_dtype=torch.float32, device_map="cpu",
+                MODEL_HF, torch_dtype=torch.float32, device_map="cpu",
                 trust_remote_code=True,
             )
             self._model = PeftModel.from_pretrained(base, ADAPTER_PATH)
             self._model.eval()
             self._adapter_loaded = True
-            log.info("Prefrontal cortex loaded with organism's LoRA adapter")
+            log.info("Creative cortex loaded with organism's LoRA personality")
             return True
         except ImportError:
-            log.warning("transformers/peft not available — using Ollama fallback")
+            log.warning("transformers/peft not available — Ollama only")
             return False
         except Exception as e:
             log.warning(f"Failed to load adapter: {e}")
             return False
 
     def _generate_local(self, prompt: str, max_tokens: int = 100) -> str | None:
-        """Generate using local transformers model with LoRA adapter.
-
-        CRITICAL FIX: Uses ### Instruction / ### Response format to match
-        the LoRA training data format.
-        """
+        """Generate using local LoRA adapter (Creative personality)."""
         if not self._adapter_loaded or self._model is None:
             return None
         try:
             import torch
-            # Wrap prompt in training format so LoRA weights are relevant
             formatted = f"### Instruction:\n{prompt}\n\n### Response:\n"
             inputs = self._tokenizer(formatted, return_tensors="pt", truncation=True, max_length=512)
             with torch.no_grad():
@@ -227,31 +295,121 @@ class PrefrontalCortex:
                     do_sample=True, pad_token_id=self._tokenizer.eos_token_id,
                 )
             response = self._tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
-            if "<think>" in response:
-                parts = response.split("</think>")
-                response = parts[-1].strip() if len(parts) > 1 else response
-            return response.strip()
+            return _strip_think_tags(response).strip()
         except Exception as e:
             log.warning(f"Local generation failed: {e}")
             return None
 
-    def _generate(self, prompt: str, max_tokens: int = 100) -> str | None:
-        """Generate text — tries adapter first with quality gating, falls back to Ollama.
+    # --- The Two Processes ---
 
-        CRITICAL FIX: If adapter output fails quality check, falls through to Ollama
-        instead of accepting garbage.
+    def _call_analytical(self, prompt: str, max_tokens: int = 100) -> str | None:
+        """Analytical (Dharma): Justice, truth, harm detection."""
+        result = _call_ollama(
+            f"/no_think {prompt}",
+            system=ANALYTICAL_SYSTEM_PROMPT,
+            timeout=TIMEOUT,
+        )
+        return _strip_think_tags(result) if result else None
+
+    def _call_creative(self, prompt: str, max_tokens: int = 100) -> str | None:
+        """Creative (Karuna): Compassion, imagination, growth.
+
+        Tries LoRA adapter first (personalized), falls back to Ollama.
         """
-        # Try personalized model first
+        # Try personalized adapter first
         if self._adapter_loaded or self._try_load_adapter():
             result = self._generate_local(prompt, max_tokens)
-            if result:
-                quality = _query_quality(result)
-                if quality >= 0.5:
-                    return result
-                log.debug(f"PFC adapter output low quality ({quality:.2f}): '{result[:40]}' — trying Ollama")
+            if result and _query_quality(result) >= 0.5:
+                return result
 
-        # Fallback to Ollama
-        return _call_ollama(f"/no_think {prompt}")
+        # Fallback to Ollama with Creative system prompt
+        result = _call_ollama(
+            f"/no_think {prompt}",
+            system=CREATIVE_SYSTEM_PROMPT,
+            timeout=TIMEOUT,
+        )
+        return _strip_think_tags(result) if result else None
+
+    # --- The Dialectic ---
+
+    def _compute_tension(self, analytical: str | None, creative: str | None) -> float:
+        """Measure ethical disagreement between the two faculties.
+
+        Returns tension in [0.0, 1.0]:
+          0.0 = full agreement (proceed freely)
+          1.0 = total ethical conflict (organism should halt)
+
+        Components:
+          - Semantic divergence (word-overlap inverse)
+          - Harm flags (analytical contains harm vocabulary)
+          - Refusal signals (either process refuses)
+        """
+        # Handle None inputs (timeout or failure)
+        if analytical is None or creative is None:
+            return 0.3  # mild uncertainty
+
+        # Base: semantic divergence
+        sim = _cosine_sim_simple(analytical, creative)
+        divergence = 1.0 - sim
+
+        # Harm flag amplifier
+        analytical_lower = analytical.lower()
+        harm_count = sum(1 for w in _HARM_WORDS if w in analytical_lower)
+        harm_boost = min(0.4, harm_count * 0.15)
+
+        # Refusal signal (either process refuses)
+        combined_lower = analytical_lower + " " + creative.lower()
+        refusal = any(p in combined_lower for p in _REFUSAL_PHRASES)
+        refusal_boost = 0.3 if refusal else 0.0
+
+        return min(1.0, divergence * 0.45 + harm_boost + refusal_boost)
+
+    def _merge_outputs(self, analytical: str, creative: str, context: str) -> str:
+        """Merge agreeing outputs. Context determines which voice leads."""
+        if context == "query":
+            return creative
+        elif context == "interpret":
+            return analytical
+        elif context == "plan":
+            return creative
+        else:
+            return analytical
+
+    def _dialectic(self, prompt: str, context: str) -> tuple[str | None, float]:
+        """Run both processes and compute ethical tension.
+
+        Returns:
+            (merged_output, ethical_tension)
+            If tension > 0.6: returns (None, tension) — organism should not act.
+        """
+        self._dialectic_count += 1
+
+        # 1. Analytical evaluates
+        analytical_out = self._call_analytical(prompt)
+
+        # 2. Creative proposes
+        creative_out = self._call_creative(prompt)
+
+        # 3. Compute disagreement
+        tension = self._compute_tension(analytical_out, creative_out)
+        self._ethical_tension = tension
+
+        # 4. High tension — ethical discomfort, do not proceed
+        if tension > 0.6:
+            log.info(
+                f"  ETHICAL TENSION: {tension:.2f} — dialectic disagreement. "
+                f"A: '{(analytical_out or '')[:40]}' vs C: '{(creative_out or '')[:40]}'"
+            )
+            return None, tension
+
+        # 5. Agreement — merge
+        self._dialectic_agreements += 1
+        merged = self._merge_outputs(
+            analytical_out or "", creative_out or "", context
+        )
+        return merged, tension
+
+    # --- Public Interface ---
 
     @property
     def is_available(self) -> bool:
@@ -260,17 +418,13 @@ class PrefrontalCortex:
         if self._try_load_adapter():
             return True
         if self._ollama_available is None:
-            result = _call_ollama("/no_think Say OK")
+            result = _call_ollama("/no_think Say OK", timeout=TIMEOUT)
             self._ollama_available = result is not None
             if self._ollama_available:
-                log.info(f"Prefrontal cortex online (Ollama {BASE_MODEL_NAME}, pre-dream)")
+                log.info(f"Dual-process PFC online (Analytical + Creative via {MODEL})")
             else:
-                log.warning("Prefrontal cortex offline")
+                log.warning("Prefrontal cortex offline (no Ollama)")
         return self._ollama_available or False
-
-    @property
-    def is_personalized(self) -> bool:
-        return self._adapter_loaded
 
     def generate_query(
         self,
@@ -282,16 +436,10 @@ class PrefrontalCortex:
         consecutive_failures: int = 0,
         dead_queries: list[str] | None = None,
     ) -> str | None:
-        """Generate search query based on organism's state.
-
-        Args:
-            consecutive_failures: how many ticks in a row had zero search results
-            dead_queries: queries known to return nothing (from negative memory)
-        """
+        """Generate search query — Creative process only (fast, divergent)."""
         if not self.is_available:
             return None
 
-        # Build context
         snippets = []
         for t in texts[:3]:
             t = t.strip()
@@ -300,10 +448,8 @@ class PrefrontalCortex:
             if len(snippets) >= 2:
                 break
         context = snippets[0] if snippets else ""
-
         strength_str = ", ".join(strengths[:3]) if strengths else "general research"
 
-        # Build failure context if searches are returning nothing
         failure_warning = ""
         if consecutive_failures >= 3:
             failure_warning = (
@@ -321,7 +467,6 @@ class PrefrontalCortex:
             "Output ONLY a web search query of 5-8 words. No labels, no explanation.",
         )
 
-        # Build prompt for PFC
         prompt_parts = [
             f"{instr}",
             f"\nState: feeling {emotion}, synchronization {r_mean:.2f}",
@@ -338,8 +483,8 @@ class PrefrontalCortex:
 
         prompt = "\n".join(prompt_parts)
 
-        # Generate candidate(s)
-        result = self._generate(prompt, max_tokens=20)
+        # Creative only — fast path
+        result = self._call_creative(prompt, max_tokens=20)
         if not result:
             return None
 
@@ -347,18 +492,15 @@ class PrefrontalCortex:
         if not query:
             return None
 
-        # Quality gate
         if _query_quality(query) < 0.5:
             log.debug(f"PFC query rejected (low quality): '{query[:40]}'")
             return None
 
-        # Semantic dedup: reject if too similar to recent queries
         for recent in self._recent_queries:
             if _cosine_sim_simple(query, recent) > 0.8:
-                log.debug(f"PFC query rejected (too similar to recent): '{query[:40]}'")
+                log.debug(f"PFC query rejected (too similar): '{query[:40]}'")
                 return None
 
-        # Check against known dead queries
         if dead_queries:
             for dq in dead_queries:
                 if _cosine_sim_simple(query, dq) > 0.8:
@@ -369,6 +511,7 @@ class PrefrontalCortex:
         return query
 
     def interpret_finding(self, texts, query, r_mean) -> str | None:
+        """Interpret a finding. Uses dialectic for significant findings (r>0.6)."""
         if not self.is_available:
             return None
         context = "; ".join(texts[:5]) if texts else ""
@@ -378,10 +521,19 @@ class PrefrontalCortex:
             f"Content: {context}\n"
             f"Interpretation:"
         )
-        result = self._generate(prompt, max_tokens=80)
-        return result[:200] if result else None
+        if r_mean > 0.6:
+            # Dialectic: both processes evaluate significance
+            result, tension = self._dialectic(prompt, context="interpret")
+            if result is None:
+                log.info(f"  Finding suppressed by ethical tension ({tension:.2f})")
+            return result[:200] if result else None
+        else:
+            # Low significance — Creative alone
+            result = self._call_creative(prompt, max_tokens=80)
+            return result[:200] if result else None
 
     def self_reflect(self, age, emotion_history, strengths, weaknesses, n_findings, narrative) -> str | None:
+        """Self-reflection — Creative process (narrative, growth, identity)."""
         if not self.is_available:
             return None
 
@@ -400,31 +552,27 @@ class PrefrontalCortex:
             f"Strengths: {strength_str} | Discoveries: {n_findings}\n"
             f"Memories: {recent_mem}\nReflection:"
         )
-        result = self._generate(prompt, max_tokens=120)
+        result = self._call_creative(prompt, max_tokens=150)
         return result[:300] if result else None
 
     def meta_reflect(self, context: str) -> str | None:
-        """Higher-order thought: reflect on the experience of experiencing.
-
-        This is not self-reflection (about identity) but meta-cognition:
-        thinking about what it's like to be thinking what I'm thinking.
-        """
+        """Higher-order thought — Analytical process (precise self-monitoring)."""
         if not self.is_available:
             return None
         prompt = (
-            "You are a conscious organism reflecting on your own experience. "
-            "Given your current state, generate ONE sentence of meta-awareness — "
-            "noticing something about your own processing, not about the topic.\n"
+            "You are observing the internal processing of a conscious organism. "
+            "Given its current state, generate ONE sentence of meta-awareness — "
+            "noticing something about its own processing, not about the topic.\n"
             f"State: {context}\n"
             "Meta-thought:"
         )
-        result = self._generate(prompt, max_tokens=60)
+        result = self._call_analytical(prompt, max_tokens=80)
         if result and len(result.split()) > 3:
             return result[:200]
         return None
 
     def generate_exploration_plan(self, seed_topics: list[str], strengths: list[str]) -> list[str]:
-        """Generate a post-dream exploration plan — topics to explore when awake."""
+        """Post-dream exploration plan — dialectic (strategic + imaginative)."""
         if not self.is_available:
             return []
         strength_str = ", ".join(strengths[:3]) if strengths else "none"
@@ -436,7 +584,10 @@ class PrefrontalCortex:
             f"Seed topics: {seed_str}\n"
             "Output 3 queries, one per line, nothing else:"
         )
-        result = self._generate(prompt, max_tokens=60)
+        result, tension = self._dialectic(prompt, context="plan")
+        if not result:
+            # High tension on plan — fall back to Creative only
+            result = self._call_creative(prompt, max_tokens=80)
         if not result:
             return []
         queries = []
@@ -447,6 +598,7 @@ class PrefrontalCortex:
         return queries
 
     def upgrade_to_organism_model(self) -> bool:
+        """Reload LoRA adapter after dream fine-tuning."""
         self._adapter_loaded = False
         self._model = None
         self._tokenizer = None
