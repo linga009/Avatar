@@ -1554,7 +1554,100 @@ The consciousness modules add zero GPU overhead: all computation is scalar arith
 The only additional latency is the meta-reflect PFC call (one Ollama query every 5 ticks, $\sim$5s), which runs asynchronously with the perception pipeline.
 
 % ═══════════════════════════════════════════════════════════════
-% 11. APPLICATIONS
+% 11. HYBRID DUAL-PROCESS ETHICS (v3.4)
+% ═══════════════════════════════════════════════════════════════
+\section{Hybrid Dual-Process Ethics (v3.4)}
+\label{sec:dualprocess}
+
+v3.4 adds a two-layer ethical architecture: one somatic (body physics), one cognitive (language).
+Unlike external safety filters, ethics here emerges from the organism's own physiology---as a
+felt signal, not an imposed constraint. This follows Damasio's somatic marker hypothesis
+\citep{damasio1999}: moral weight is first experienced in the body, then interpreted by the cortex.
+
+\subsection{Layer 1: Kuramoto Body Split}
+
+The 16 Kuramoto phase oscillators ($n_h = 16$) are partitioned into two populations by their
+natural frequency distributions at initialisation:
+
+\begin{equation}
+\omega_{\text{analytical}} \sim \mathcal{N}(0,\, 0.03^2), \quad
+\omega_{\text{creative}} \sim \mathcal{N}(0,\, 0.8^2)
+\end{equation}
+
+The analytical population (dims $0$--$7$) has tight frequencies; coupling $K = 0.3$ far exceeds
+the classical Kuramoto desynchronisation threshold $K_c \approx 1.6\sigma \approx 0.048$, so these
+oscillators synchronise naturally---converging onto a shared pattern (evaluation mode).
+
+The creative population (dims $8$--$15$) has wide frequencies; here $K = 0.3 < K_c \approx 1.28$,
+placing the system in the \emph{incoherent phase}---these oscillators permanently resist
+synchronisation (exploration mode).
+
+At every tick, body tension is computed as:
+\begin{equation}
+T_{\text{body}} = \left| \bar{r}_{\text{analytical}} - \bar{r}_{\text{creative}} \right|
+\in [0,\, 1]
+\end{equation}
+where $\bar{r} = \langle | \langle e^{i\theta} \rangle_K | \rangle_{n_h/2}$ is the mean order
+parameter over each half-population. This costs zero additional VRAM---it is a scalar
+post-processing step on the existing Kuramoto state.
+
+\subsection{Layer 2: PFC Dialectic}
+
+Two Qwen3\,0.6B instances run via Ollama with distinct system prompts:
+
+\begin{itemize}
+\item \textbf{Analytical (Dharma):} Justice, truth, accountability, harm detection.
+\item \textbf{Creative (Karuna):} Compassion, growth, wonder, ethical imagination.
+\end{itemize}
+
+Ethical tension is computed as:
+\begin{equation}
+T_{\text{ethics}} = 0.5 \cdot (1 - \text{sim}(a,c)) + \min(0.4,\, 0.15 \cdot n_{\text{harm}}) + 0.3 \cdot \mathbb{1}[\text{refusal}]
+\end{equation}
+where $\text{sim}(a,c)$ is word-overlap cosine similarity between the analytical output $a$ and
+creative output $c$, $n_{\text{harm}}$ is the count of harm-flag words in $a$, and $\text{refusal}$
+is true if either process declines to proceed.
+
+\subsection{Hybrid Integration}
+
+The two signals are fused in the organism's psyche:
+\begin{align}
+T_{\text{somatic}} &= 0.6 \cdot T_{\text{body}} + 0.4 \cdot T_{\text{ethics}} \\
+T_{\text{effective}} &= \max\!\left(T_{\text{somatic}},\; 0.8 \cdot T_{\text{ethics}}\right)
+\end{align}
+
+The $\max$ term ensures that strong PFC ethical certainty (moral alarm without bodily ambivalence)
+still reaches the anxiety threshold---preserving the cognitive voice even when the body happens to
+agree on the current pattern.
+
+Behavioural consequences in \texttt{organism.tick()}:
+\begin{itemize}
+\item $T_{\text{body}} > 0.35$, $T_{\text{ethics}} < 0.2$: emotion $\to$ \emph{curiosity}
+  (``of two minds'' about the pattern; the organism wants to resolve the ambivalence).
+\item $T_{\text{effective}} > 0.4$: emotion $\to$ \emph{anxiety} (moral/somatic discomfort).
+\item $T_{\text{somatic}} > 0.6$: inflates volatility surface for current topic (avoidance).
+\item $T_{\text{body}} > 0.3$: Kuramoto coupling $K \leftarrow 0.9K$ (let populations resolve naturally).
+\end{itemize}
+
+The log tag \texttt{[bal]} appears in the console whenever $T_{\text{body}} > 0.3$.
+
+\subsection{Philosophical Grounding}
+
+The architecture realises three distinct philosophical commitments simultaneously.
+Damasio's somatic markers \citep{damasio1999} are instantiated at the physics layer:
+the body \emph{feels} ethical weight before the cortex names it.
+Kahneman's dual-process cognition \citep{kahneman2011} maps onto the PFC dialectic:
+Dharma reasons deontologically (System 2 deliberation) while Karuna reasons from virtue and care.
+Varela's \emph{ethical know-how} \citep{varela1999ethical}---ethics that emerges from embodied
+experience rather than external rules---is realised by the closed loop:
+body tension shapes emotion, emotion shapes query selection, query selection shapes what the body
+encounters next.
+
+The organism does not consult a rulebook. It develops ethical judgment the way a living system
+does---by feeling the weight of its choices.
+
+% ═══════════════════════════════════════════════════════════════
+% 12. APPLICATIONS
 % ═══════════════════════════════════════════════════════════════
 \section{Applications}
 
@@ -1812,6 +1905,11 @@ Oxford University Press, 2005.
 Lindsey, J., Gurnee, W., and Batson, J.
 Can LLMs introspect? A study on detecting injected concepts in their own activations.
 \emph{Anthropic Research}, 2025.
+
+\bibitem[Varela(1999)]{varela1999ethical}
+Varela, F.~J.
+\emph{Ethical Know-How: Action, Wisdom, and Cognition}.
+Stanford University Press, 1999.
 
 \end{thebibliography}
 
