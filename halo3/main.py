@@ -73,7 +73,7 @@ def main() -> None:
     # --- Model ---
     from halo3.model import Halo3Model, halo3_step
     from halo3.training.bootstrap import load_checkpoint
-    from halo3.kuramoto import order_parameter
+    from halo3.kuramoto import order_parameter, dual_order_parameters
 
     checkpoint_path = "data/checkpoints/halo3"
     try:
@@ -177,6 +177,8 @@ def main() -> None:
         # 6. MEASURE (extract physics outputs)
         r = order_parameter(carry.kuramoto.theta)
         r_mean = float(jnp.mean(r))
+        _, _, _body_tension = dual_order_parameters(carry.kuramoto.theta)
+        body_tension = float(_body_tension)
 
         # Free energy proxy: reconstruction error + prediction error
         fe = float(jnp.mean((q_final - q_data) ** 2))
@@ -192,7 +194,7 @@ def main() -> None:
             carry_norm = float(sum(jnp.sum(l**2) for l in carry_leaves if hasattr(l, 'shape') and l.size > 1) ** 0.5)
         except Exception:
             carry_norm = None
-        psyche_output = organism.tick(r_mean, combined_surprise, texts, current_query, carry_norm=carry_norm)
+        psyche_output = organism.tick(r_mean, combined_surprise, texts, current_query, carry_norm=carry_norm, body_tension=body_tension)
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]

@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from halo3.config import Halo3Config
 from halo3.kuramoto import (
     KuramotoState, init_kuramoto, kuramoto_step, kuramoto_action,
-    order_parameter, quantum_potential,
+    order_parameter, quantum_potential, dual_order_parameters,
 )
 
 _CFG = Halo3Config(d_model=64, n_heads=4, d_head=16, n_layers=6, d_state=8, d_boundary=8, n_clusters=4, n_tokens=4, n_hidden=4, n_obs=4, n_actions=4, layer_pattern="SSSSSH", lora_rank=4, mera_bond_dim=4, mera_n_cores=2, n_leapfrog_steps=2, meta_n_hidden=4, meta_n_actions=2, meta_k=3, max_cache=8, island_size=4)
@@ -115,3 +115,39 @@ def test_pilot_wave_no_nan():
     pilot = jax.random.normal(jax.random.PRNGKey(1), (_CFG.n_clusters, _CFG.d_boundary))
     new_state = kuramoto_step(state, obs, _CFG, pilot_wave=pilot)
     assert jnp.all(jnp.isfinite(new_state.theta))
+
+
+# --- Dual-process body tension ---
+
+def test_dual_order_parameters_zero_tension():
+    """Both populations fully synchronized → tension ≈ 0."""
+    # All phases = 0: both analytical and creative halves are perfectly synced
+    theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+    r_a, r_c, tension = dual_order_parameters(theta)
+    assert float(r_a) > 0.99
+    assert float(r_c) > 0.99
+    assert float(tension) < 0.05
+
+
+def test_dual_order_parameters_high_tension():
+    """Analytical synced, creative spread → tension ≈ 1."""
+    mid = _CFG.n_hidden // 2
+    # Analytical half: all phases = 0 (fully synced, r_a → 1)
+    theta_a = jnp.zeros((_CFG.n_clusters, mid))
+    # Creative half: uniformly spread around circle (r_c → 0)
+    angles = jnp.linspace(0, 2 * jnp.pi, _CFG.n_clusters, endpoint=False)
+    theta_c = jnp.tile(angles[:, None], (1, mid))
+    theta = jnp.concatenate([theta_a, theta_c], axis=1)
+    r_a, r_c, tension = dual_order_parameters(theta)
+    assert float(r_a) > 0.95
+    assert float(r_c) < 0.1
+    assert float(tension) > 0.85
+
+
+def test_dual_order_parameters_range():
+    """Tension is always in [0, 1] on random phases."""
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    r_a, r_c, tension = dual_order_parameters(theta)
+    assert 0.0 <= float(r_a) <= 1.0 + 1e-5
+    assert 0.0 <= float(r_c) <= 1.0 + 1e-5
+    assert 0.0 <= float(tension) <= 1.0 + 1e-5

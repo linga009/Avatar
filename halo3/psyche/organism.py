@@ -60,6 +60,7 @@ class Organism:
         texts: list[str],
         current_query: str,
         carry_norm: float | None = None,
+        body_tension: float = 0.0,
     ) -> dict:
         """Process one tick of lived experience."""
 
@@ -135,6 +136,44 @@ class Organism:
 
         # ═══ END CONSCIOUSNESS MODULES ═══
 
+        # ═══ DUAL-PROCESS TENSION (body + PFC) ═══
+
+        # Body tension: Kuramoto analytical/creative populations disagree on pattern
+        # Somatic — emerges from physics, not language.
+        if body_tension > 0.3:
+            log.info(f"  ⚖ Body: r_split tension={body_tension:.2f} (populations diverge)")
+
+        # PFC tension: Analytical (Dharma) vs Creative (Karuna) linguistic dialectic
+        # Cognitive — emerges from LLM reasoning.
+        ethical_tension = self.prefrontal.ethical_tension
+
+        # Combined somatic tension: body leads (gut feeling), PFC refines
+        somatic_tension = 0.6 * body_tension + 0.4 * ethical_tension
+
+        # Somatic tension is felt as increased free energy intensity
+        if somatic_tension > 0.2:
+            intensity = min(1.0, intensity + somatic_tension * 0.3)
+            if ethical_tension > 0.2:
+                log.info(f"  Ethics: pfc_tension={ethical_tension:.2f} somatic={somatic_tension:.2f}")
+
+        # High combined tension biases emotion toward anxiety (moral/cognitive discomfort)
+        # Use max so that strong PFC signal alone (moral certainty) can trigger anxiety
+        # even when body populations happen to agree on the pattern.
+        effective_tension = max(somatic_tension, ethical_tension * 0.8)
+        if effective_tension > 0.4 and emotion not in ("frustration",):
+            emotion = "anxiety"
+            intensity = min(1.0, intensity + 0.2)
+
+        # Body tension alone (populations split but PFC calm) → curiosity: "I'm of two minds"
+        if body_tension > 0.35 and ethical_tension < 0.2 and emotion not in ("frustration", "anxiety"):
+            emotion = "curiosity"
+
+        # Persistent high tension triggers topic avoidance via volatility
+        if somatic_tension > 0.6:
+            self.volatility.observe(topic_key, r_mean * 0.5, fe_delta + somatic_tension)
+
+        # ═══ END DUAL-PROCESS TENSION ═══
+
         # 4. Update self-model
         self.self_model.update(topic_key, r_mean, emotion, finding)
 
@@ -155,6 +194,9 @@ class Organism:
         coupling_mod = self.clock.modulate_coupling(1.0, self.drives.fatigue)
         if self.drives.is_satiated:
             coupling_mod *= (1.0 - self.drives.satiation * 0.8)
+        # Body tension: populations disagree — reduce coupling so they can resolve naturally
+        if body_tension > 0.3:
+            coupling_mod *= (1.0 - body_tension * 0.1)
         # Meditation reduces coupling (voluntary decoupling)
         if meditation_result["coupling_override"] is not None:
             coupling_mod *= meditation_result["coupling_override"]
@@ -169,6 +211,8 @@ class Organism:
             consciousness_tag = " ◎"
         if self_surprise > 0.3:
             consciousness_tag += " ⚡"
+        if body_tension > 0.3:
+            consciousness_tag += " ⚖"
 
         log_line = (
             f"{emo_emoji} {emotion:12s} (i={intensity:.2f}) | "
@@ -190,6 +234,9 @@ class Organism:
             "self_surprise": self_surprise,
             "meditation": meditation_result,
             "meta_thought": meta_thought,
+            "ethical_tension": ethical_tension,
+            "body_tension": body_tension,
+            "somatic_tension": somatic_tension,
         }
 
     def _decide_query(

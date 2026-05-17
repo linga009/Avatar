@@ -146,3 +146,25 @@ def order_parameter(theta: jnp.ndarray) -> jnp.ndarray:
     r=1 means full synchronization, r=0 means uniform spread.
     """
     return jnp.abs(jnp.mean(jnp.exp(1j * theta), axis=0))
+
+
+def dual_order_parameters(theta: jnp.ndarray) -> tuple:
+    """Split phases into analytical/creative populations and measure body tension.
+
+    Splits n_hidden phases down the middle:
+      - Analytical ([:n_h//2]): precision, convergence, evaluation
+      - Creative   ([n_h//2:]): divergence, exploration, generation
+
+    Body tension = |r_analytical - r_creative| ∈ [0, 1]
+      0.0 = both populations agree on the pattern (clear signal)
+      1.0 = populations completely split (organism is of two minds)
+
+    Returns:
+        (r_analytical, r_creative, body_tension) — all Python floats
+    """
+    n_h = theta.shape[1]
+    mid = n_h // 2
+    r_a = jnp.mean(order_parameter(theta[:, :mid]))
+    r_c = jnp.mean(order_parameter(theta[:, mid:]))
+    body_tension = jnp.abs(r_a - r_c)
+    return r_a, r_c, body_tension
