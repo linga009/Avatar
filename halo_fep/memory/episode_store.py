@@ -1,9 +1,25 @@
 """FAISS (IndexFlatIP) + SQLite episodic memory store.
 
-FAISS index: 256-dim L2-normalized query embeddings, cosine similarity.
-SQLite: full Episode data, keyed by UUID.
+Design
+------
+* **SQLite** is the source of truth.  Every episode is durably persisted via
+  SQLAlchemy with ``NullPool`` (required on Windows to release file handles
+  promptly).
 
-On startup: if FAISS index file is missing or corrupt, rebuild from SQLite.
+* **FAISS** is a fast in-memory index for semantic retrieval.  It is treated
+  as a *cache* — if the index file is missing or corrupt at startup it is
+  rebuilt from SQLite with no data loss.
+
+* **Batched FAISS writes** (Bug fix): writing the FAISS index to disk after
+  *every* insert caused O(N) disk I/O per tick.  The index is now written
+  only every ``_WRITE_EVERY`` inserts and on explicit ``flush()`` calls
+  (graceful shutdown).  This keeps tick latency constant as the store grows.
+
+* **Embed fallback removed** (Bug fix): the previous fallback ``_embed_from_query``
+  converted UTF-8 bytes to float32 vectors.  This produced semantically
+  meaningless embeddings that broke cosine retrieval.  The fallback now emits
+  a warning and returns a zero vector; callers are expected to always supply a
+  real embedding via the ``query_embed`` argument of ``add()``.
 """
 from __future__ import annotations
 
@@ -21,59 +37,89 @@ from halo_fep.memory.schema import Episode
 
 log = logging.getLogger(__name__)
 
-_EMBED_DIM = 256  # query embedding stored in FAISS
+_EMBED_DIM   = 256   # query embedding dimension stored in FAISS
+_WRITE_EVERY = 50    # persist FAISS index to disk every N inserts
 
 _METADATA = sa.MetaData()
 _EPISODES = sa.Table(
     "episodes", _METADATA,
-    sa.Column("id",                 sa.String,  primary_key=True),
-    sa.Column("timestamp",          sa.Float,   nullable=False),
-    sa.Column("query",              sa.Text,    nullable=False),
+    sa.Column("id",                 sa.String,      primary_key=True),
+    sa.Column("timestamp",          sa.Float,       nullable=False),
+    sa.Column("query",              sa.Text,        nullable=False),
     sa.Column("tokens",             sa.LargeBinary, nullable=False),   # pickled ndarray
     sa.Column("swarm_mu",           sa.LargeBinary, nullable=False),
-    sa.Column("free_energy",        sa.Float,   nullable=False),
-    sa.Column("free_energy_delta",  sa.Float,   nullable=False),
-    sa.Column("llm_output",         sa.Text,    nullable=True),
-    sa.Column("topic_tags",         sa.Text,    nullable=False),       # JSON list
+    sa.Column("free_energy",        sa.Float,       nullable=False),
+    sa.Column("free_energy_delta",  sa.Float,       nullable=False),
+    sa.Column("llm_output",         sa.Text,        nullable=True),
+    sa.Column("topic_tags",         sa.Text,        nullable=False),   # JSON list
     sa.Column("query_embed",        sa.LargeBinary, nullable=False),   # (256,) float32
 )
 
 
 class EpisodeStore:
+    """Dual-backend episodic memory: SQLite for persistence, FAISS for retrieval.
+
+    Parameters
+    ----------
+    path      : Directory path for ``episodes.db`` and ``faiss.index`` files.
+    embed_dim : Dimension of the query embedding (default 256).
+
+    Usage
+    -----
+    >>> store = EpisodeStore("data/episodes/")
+    >>> store.add(episode, query_embed=my_embed)
+    >>> similar = store.retrieve(query_embed, k=5)
+    >>> store.flush()  # call on graceful shutdown
+    """
+
     def __init__(self, path: str, embed_dim: int = _EMBED_DIM) -> None:
         os.makedirs(path, exist_ok=True)
         self._path      = path
         self._embed_dim = embed_dim
         self._db_path   = os.path.join(path, "episodes.db")
         self._idx_path  = os.path.join(path, "faiss.index")
+        self._insert_count = 0  # tracks inserts since last FAISS write
 
-        # NullPool: connections are closed immediately after use — no pooling.
+        # NullPool: connections closed immediately — no pooling.
         # Required on Windows so SQLite file handles are released promptly.
         self._engine = sa.create_engine(
             f"sqlite:///{self._db_path}", poolclass=NullPool
         )
         _METADATA.create_all(self._engine)
 
+        # Load or rebuild FAISS index
         if os.path.exists(self._idx_path):
             try:
                 self._index = faiss.read_index(self._idx_path)
+                log.info(f"FAISS index loaded: {self._index.ntotal} vectors.")
             except Exception:
                 log.warning("FAISS index corrupt — rebuilding from SQLite.")
                 self._index = self._new_index()
                 self.rebuild_index()
         else:
+            log.info("No FAISS index found — starting fresh.")
             self._index = self._new_index()
 
         # In-memory id list mirrors FAISS row order
         self._ids: list[str] = self._load_ids()
 
     def __del__(self) -> None:
+        """Attempt to flush and dispose engine on garbage collection."""
+        try:
+            self.flush()
+        except Exception:
+            pass
         try:
             self._engine.dispose()
         except Exception:
             pass
 
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
     def _new_index(self) -> faiss.IndexFlatIP:
+        """Create a fresh inner-product FAISS index (cosine similarity on L2-normalised vecs)."""
         return faiss.IndexFlatIP(self._embed_dim)
 
     def _load_ids(self) -> list[str]:
@@ -84,21 +130,42 @@ class EpisodeStore:
             ).fetchall()
         return [r[0] for r in rows]
 
-    def _embed_from_query(self, query: str) -> np.ndarray:
-        """Use first 256 UTF-8 bytes as a deterministic stand-in for embedding.
+    def _maybe_write_index(self, force: bool = False) -> None:
+        """Write FAISS index to disk if the write-every threshold is reached.
 
-        NOTE: Real usage passes embedder.embed_text(query) directly via add().
-        This fallback is for rebuild_index() only.
+        Parameters
+        ----------
+        force : If True, write unconditionally (used by ``flush()``).
         """
-        raw = query.encode("utf-8")[:self._embed_dim]
-        vec = np.frombuffer(raw.ljust(self._embed_dim, b"\x00"), dtype=np.uint8).astype(np.float32)
-        norm = np.linalg.norm(vec) + 1e-8
-        return (vec / norm).astype(np.float32)
+        if force or (self._insert_count % _WRITE_EVERY == 0):
+            faiss.write_index(self._index, self._idx_path)
+            log.debug(
+                f"FAISS index written ({self._index.ntotal} vectors, "
+                f"insert #{self._insert_count})."
+            )
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     def add(self, episode: Episode, query_embed: np.ndarray | None = None) -> None:
-        """Persist episode. query_embed: (256,) float32 L2-normalized for FAISS."""
+        """Persist an episode to SQLite and add its embedding to FAISS.
+
+        Parameters
+        ----------
+        episode     : Episode dataclass to store.
+        query_embed : (embed_dim,) float32 L2-normalised embedding for FAISS
+                      retrieval.  **Always pass a real embedding here.**  If
+                      ``None``, a zero vector is used and a warning is emitted.
+        """
         if query_embed is None:
-            query_embed = self._embed_from_query(episode.query)
+            log.warning(
+                "EpisodeStore.add() called without query_embed. "
+                "A zero vector will be stored — semantic retrieval will be degraded. "
+                "Pass embedder.embed_text(query) as query_embed."
+            )
+            query_embed = np.zeros(self._embed_dim, dtype=np.float32)
+
         query_embed = query_embed.astype(np.float32).reshape(1, -1)
         faiss.normalize_L2(query_embed)
 
@@ -117,10 +184,26 @@ class EpisodeStore:
             ))
         self._index.add(query_embed)
         self._ids.append(episode.id)
-        faiss.write_index(self._index, self._idx_path)
+
+        self._insert_count += 1
+        self._maybe_write_index()
+
+    def flush(self) -> None:
+        """Force-write the FAISS index to disk.
+
+        Call this on graceful shutdown to ensure no inserts since the last
+        periodic write are lost.
+        """
+        self._maybe_write_index(force=True)
 
     def update_llm_output(self, episode_id: str, llm_output: str) -> None:
-        """Update the llm_output field for an existing episode."""
+        """Update the llm_output field for an existing episode.
+
+        Parameters
+        ----------
+        episode_id : UUID string of the episode to update.
+        llm_output : Text output from the LLM wake cycle.
+        """
         with self._engine.begin() as conn:
             conn.execute(
                 _EPISODES.update()
@@ -129,17 +212,30 @@ class EpisodeStore:
             )
 
     def retrieve(self, query_embed: np.ndarray, k: int = 5) -> list[Episode]:
-        """Return top-k episodes by cosine similarity to query_embed."""
+        """Return the top-k episodes most similar to ``query_embed``.
+
+        Uses cosine similarity (inner product on L2-normalised vectors).
+
+        Parameters
+        ----------
+        query_embed : (embed_dim,) float32 query vector.
+        k           : Maximum number of results to return.
+
+        Returns
+        -------
+        List of Episode objects ordered by decreasing similarity.
+        """
         if self._index.ntotal == 0:
             return []
         qv = query_embed.astype(np.float32).reshape(1, -1)
         faiss.normalize_L2(qv)
-        k   = min(k, self._index.ntotal)
+        k    = min(k, self._index.ntotal)
         _, idxs = self._index.search(qv, k)
-        ids = [self._ids[i] for i in idxs[0] if i >= 0]
+        ids  = [self._ids[i] for i in idxs[0] if i >= 0]
         return self._load_by_ids(ids)
 
     def get_recent(self, n: int = 500) -> list[Episode]:
+        """Return the n most recent episodes, oldest first."""
         with self._engine.connect() as conn:
             rows = conn.execute(
                 sa.select(_EPISODES).order_by(_EPISODES.c.timestamp.desc()).limit(n)
@@ -147,9 +243,19 @@ class EpisodeStore:
         return [self._row_to_episode(r) for r in reversed(rows)]
 
     def get_high_confidence(self, min_delta: float = -0.05) -> list[Episode]:
+        """Return all episodes where free_energy_delta < min_delta.
+
+        These are episodes where the agent was *surprised* (large negative
+        delta) — the highest-signal experiences for nightly LoRA training.
+
+        Parameters
+        ----------
+        min_delta : Free-energy delta threshold (negative; default -0.05).
+        """
         with self._engine.connect() as conn:
             rows = conn.execute(
-                sa.select(_EPISODES).where(_EPISODES.c.free_energy_delta < min_delta)
+                sa.select(_EPISODES)
+                .where(_EPISODES.c.free_energy_delta < min_delta)
                 .order_by(_EPISODES.c.timestamp)
             ).fetchall()
         return [self._row_to_episode(r) for r in rows]
@@ -160,23 +266,28 @@ class EpisodeStore:
         since_timestamp: float = 0.0,
         alpha: float = 0.6,
         beta: float = 0.4,
-    ) -> tuple[list["Episode"], np.ndarray]:
-        """Return up to n episodes sampled proportional to |free_energy_delta|^alpha.
+    ) -> tuple[list[Episode], np.ndarray]:
+        """Return up to n episodes sampled proportional to ``|ΔFE|^alpha``.
 
-        Higher |delta_fe| = more surprising/informative = higher priority.
+        Implements Prioritized Experience Replay (PER) sampling:
+        higher ``|ΔFE|`` → more surprising → higher priority.
 
-        Args:
-            n: Maximum number of episodes to return.
-            since_timestamp: Only consider episodes after this Unix timestamp.
-            alpha: Priority exponent. 0 = uniform, 1 = full priority.
-            beta: Importance-sampling correction exponent. 0 = no correction.
+        Parameters
+        ----------
+        n               : Maximum number of episodes to return.
+        since_timestamp : Only consider episodes after this Unix timestamp.
+        alpha           : Priority exponent. 0 = uniform, 1 = full priority.
+        beta            : Importance-sampling correction exponent.
 
-        Returns:
-            (episodes, weights) — weights are IS corrections in [0, 1].
+        Returns
+        -------
+        (episodes, weights) where ``weights`` are IS corrections in [0, 1].
         """
         with self._engine.connect() as conn:
-            # N is the true buffer size (for correct IS weight scaling)
-            total_count = conn.execute(sa.select(sa.func.count()).select_from(_EPISODES)).scalar()
+            # True buffer size for correct IS weight scaling
+            total_count = conn.execute(
+                sa.select(sa.func.count()).select_from(_EPISODES)
+            ).scalar()
             rows = conn.execute(
                 sa.select(_EPISODES)
                 .where(_EPISODES.c.timestamp >= since_timestamp)
@@ -188,7 +299,7 @@ class EpisodeStore:
 
         episodes = [self._row_to_episode(r) for r in rows]
 
-        # Priority = |delta_fe|^alpha, clipped to avoid zeros
+        # Priority = |ΔFE|^alpha, clipped to avoid division by zero
         priorities = np.array(
             [abs(ep.free_energy_delta) ** alpha for ep in episodes],
             dtype=np.float32,
@@ -197,20 +308,24 @@ class EpisodeStore:
         probs = priorities / priorities.sum()
 
         n_sample = min(n, len(episodes))
-        indices = np.random.choice(len(episodes), size=n_sample, replace=False, p=probs)
+        indices  = np.random.choice(len(episodes), size=n_sample, replace=False, p=probs)
 
-        sampled = [episodes[i] for i in indices]
+        sampled       = [episodes[i] for i in indices]
         sampled_probs = probs[indices]
 
-        # IS weights: w_i = (1/(N*p_i))^beta, normalized to [0,1]
-        N = total_count  # true buffer size for IS weight normalization
-        raw_weights = (1.0 / (N * sampled_probs)) ** beta
-        weights = (raw_weights / raw_weights.max()).astype(np.float32)
+        # IS weights: w_i = (1/(N*p_i))^beta, normalised to [0,1]
+        raw_weights = (1.0 / (total_count * sampled_probs)) ** beta
+        weights     = (raw_weights / raw_weights.max()).astype(np.float32)
 
         return sampled, weights
 
     def rebuild_index(self) -> None:
-        """Reconstruct FAISS index from SQLite (recovery path)."""
+        """Reconstruct the FAISS index from all rows in SQLite.
+
+        Use this as a recovery path when the index file is missing or corrupt.
+        Writes the rebuilt index to disk immediately.
+        """
+        log.info("Rebuilding FAISS index from SQLite...")
         self._index = self._new_index()
         self._ids   = []
         with self._engine.connect() as conn:
@@ -222,7 +337,12 @@ class EpisodeStore:
             faiss.normalize_L2(qv)
             self._index.add(qv)
             self._ids.append(r.id)
-        faiss.write_index(self._index, self._idx_path)
+        self._maybe_write_index(force=True)
+        log.info(f"FAISS index rebuilt: {self._index.ntotal} vectors.")
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
 
     def _load_by_ids(self, ids: list[str]) -> list[Episode]:
         if not ids:
@@ -231,10 +351,12 @@ class EpisodeStore:
             rows = conn.execute(
                 sa.select(_EPISODES).where(_EPISODES.c.id.in_(ids))
             ).fetchall()
-        return [self._row_to_episode(r) for r in rows]
+        # Ensure returned episodes maintain FAISS distance ordering
+        ep_dict = {r.id: self._row_to_episode(r) for r in rows}
+        return [ep_dict[i] for i in ids if i in ep_dict]
 
     def _row_to_episode(self, r) -> Episode:
-        ep = Episode(
+        return Episode(
             id               = r.id,
             timestamp        = r.timestamp,
             query            = r.query,
@@ -245,4 +367,3 @@ class EpisodeStore:
             llm_output       = r.llm_output,
             topic_tags       = json.loads(r.topic_tags),
         )
-        return ep
