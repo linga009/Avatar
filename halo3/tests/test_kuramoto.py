@@ -151,3 +151,21 @@ def test_dual_order_parameters_range():
     assert 0.0 <= float(r_a) <= 1.0 + 1e-5
     assert 0.0 <= float(r_c) <= 1.0 + 1e-5
     assert 0.0 <= float(tension) <= 1.0 + 1e-5
+
+
+def test_analytical_omega_tighter_than_creative():
+    """Analytical half has tighter natural frequencies than creative — the invariant
+    that makes body_tension real rather than arbitrary noise."""
+    state = init_kuramoto(_CFG, _KEY)
+    mid = _CFG.n_hidden // 2
+    omega_a_std = float(jnp.std(state.omega[:, :mid]))
+    omega_c_std = float(jnp.std(state.omega[:, mid:]))
+    assert omega_a_std < omega_c_std, (
+        f"Analytical omega std {omega_a_std:.4f} must be < creative {omega_c_std:.4f}"
+    )
+    # Creative std must be above the desync threshold (K_c ≈ 1.6σ > K=init_coupling)
+    # so creative oscillators genuinely resist synchronization
+    assert omega_c_std > _CFG.init_coupling / 1.6, (
+        f"Creative std {omega_c_std:.4f} must exceed desync threshold "
+        f"{_CFG.init_coupling / 1.6:.4f}"
+    )

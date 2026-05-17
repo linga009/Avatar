@@ -29,9 +29,22 @@ class KuramotoState(NamedTuple):
 
 def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
     k1, k2 = jax.random.split(key)
+    mid = cfg.n_hidden // 2
+
+    # Dual-population natural frequencies (v3.4):
+    #   Analytical [:mid] — low std, slow oscillators that want to synchronize.
+    #                        Converges naturally → high r_a = precision/evaluation mode.
+    #   Creative   [mid:] — high std, fast oscillators that stay spread.
+    #                        Resists sync naturally → low r_c = exploration/generation mode.
+    # body_tension = |r_a - r_c| now measures genuine functional divergence,
+    # not arbitrary noise from a uniform population.
+    omega_analytical = jax.random.normal(k2, (cfg.n_clusters, mid)) * 0.03
+    omega_creative   = jax.random.normal(jax.random.fold_in(k2, 1), (cfg.n_clusters, cfg.n_hidden - mid)) * 0.8
+    omega = jnp.concatenate([omega_analytical, omega_creative], axis=1)
+
     return KuramotoState(
         theta=jax.random.uniform(k1, (cfg.n_clusters, cfg.n_hidden)) * 2 * jnp.pi,
-        omega=jax.random.normal(k2, (cfg.n_clusters, cfg.n_hidden)) * 0.1,
+        omega=omega,
         coupling=cfg.init_coupling,
         key=key,
     )
