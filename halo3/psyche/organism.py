@@ -21,6 +21,10 @@ from halo3.psyche.self_model import SelfModel
 from halo3.psyche.circadian import CircadianClock
 from halo3.psyche.prefrontal import PrefrontalCortex
 from halo3.psyche.volatility import VolatilitySurface
+from halo3.psyche.introspection import IntrospectiveMonitor
+from halo3.psyche.workspace import GlobalWorkspace
+from halo3.psyche.temporal import TemporalBinder
+from halo3.psyche.meditation import MeditationState
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +39,11 @@ class Organism:
         self.clock = CircadianClock()
         self.prefrontal = PrefrontalCortex()
         self.volatility = VolatilitySurface(strike=0.6)
+        # v3.3 Consciousness modules
+        self.introspection = IntrospectiveMonitor()
+        self.workspace = GlobalWorkspace()
+        self.temporal = TemporalBinder()
+        self.meditation = MeditationState()
         self.seed_topics = seed_topics
         self.current_topic_idx = 0
         self.current_query: str = seed_topics[0] if seed_topics else "research"
@@ -50,6 +59,7 @@ class Organism:
         fe_delta: float,
         texts: list[str],
         current_query: str,
+        carry_norm: float | None = None,
     ) -> dict:
         """Process one tick of lived experience."""
 
@@ -86,17 +96,54 @@ class Organism:
         topic_key = self._extract_topic(current_query)
         self.volatility.observe(topic_key, r_mean, fe_delta)
 
-        # 4. Determine finding
+        # ═══ v3.3 CONSCIOUSNESS MODULES ═══
+
+        # 3a. Introspective monitoring — detect unusual internal changes
+        self_surprise = self.introspection.observe(
+            r_mean, fe_delta, carry_norm, had_input=not perception_failed,
+        )
+        # Self-surprise amplifies emotional intensity
+        if self_surprise > 0.2:
+            intensity = min(1.0, intensity + self_surprise * 0.3)
+
+        # 3b. Temporal binding — maintain continuity of experience
+        temporal = self.temporal.observe(r_mean, emotion, topic_key, fe_delta)
+
+        # 3c. Global workspace — all-or-none ignition
         finding = None
         if r_mean > 0.6 and texts:
             pfc_finding = self.prefrontal.interpret_finding(texts, current_query, r_mean)
             finding = pfc_finding or f"{'; '.join(texts[:3])}"
 
-        # 5. Update self-model
+        ws = self.workspace.update(r_mean, topic_key, emotion, finding)
+        if ws["just_ignited"]:
+            log.info(f"  ★ IGNITION: conscious of '{ws['broadcast_content'][:50]}'")
+
+        # 3d. Meditation — voluntary quiescence
+        meditation_result = self.meditation.tick(r_mean, fe_delta)
+        if meditation_result["insight"]:
+            # Record meditation insight in narrative
+            self.self_model.narrative.append(
+                f"[Tick {self.self_model.age}] Meditation insight: "
+                f"{meditation_result['insight'][:120]}"
+            )
+
+        # 3e. Higher-order thought — meta-reflection every 5 ticks
+        meta_thought = None
+        if self.self_model.age > 0 and self.self_model.age % 5 == 0:
+            meta_thought = self._higher_order_reflect(temporal, self_surprise)
+
+        # ═══ END CONSCIOUSNESS MODULES ═══
+
+        # 4. Update self-model
         self.self_model.update(topic_key, r_mean, emotion, finding)
 
-        # 6. Record whether PFC's last query worked
+        # 5. Record whether PFC's last query worked
         self.prefrontal.record_query_result(had_results=not perception_failed)
+
+        # 6. Check meditation entry (for NEXT tick)
+        if not self.meditation.is_meditating and self.meditation.should_enter(self.drives, self.emotions):
+            self.meditation.enter(r_mean)
 
         # 7. Decide next query — with layered fallbacks + volatility valuation
         next_query = self._decide_query(emotion, r_mean, current_query, texts)
@@ -104,17 +151,28 @@ class Organism:
         # Track
         self._recent_queries.append(next_query)
 
-        # 7. Modulate physics
+        # 8. Modulate physics
         coupling_mod = self.clock.modulate_coupling(1.0, self.drives.fatigue)
         if self.drives.is_satiated:
             coupling_mod *= (1.0 - self.drives.satiation * 0.8)
+        # Meditation reduces coupling (voluntary decoupling)
+        if meditation_result["coupling_override"] is not None:
+            coupling_mod *= meditation_result["coupling_override"]
 
-        # 8. Build log line
+        # 9. Build log line
         emo_emoji = self.emotions.emoji()
         drives_str = self.drives.summary()
+        consciousness_tag = ""
+        if ws["is_ignited"]:
+            consciousness_tag = " ★"
+        if self.meditation.is_meditating:
+            consciousness_tag = " ◎"
+        if self_surprise > 0.3:
+            consciousness_tag += " ⚡"
+
         log_line = (
             f"{emo_emoji} {emotion:12s} (i={intensity:.2f}) | "
-            f"{drives_str}"
+            f"{drives_str}{consciousness_tag}"
         )
 
         return {
@@ -126,6 +184,12 @@ class Organism:
             "log_line": log_line,
             "needs_dream": self.drives.needs_dream or self.clock.should_dream_today,
             "perception_failed": perception_failed,
+            # v3.3 consciousness signals
+            "workspace": ws,
+            "temporal": temporal,
+            "self_surprise": self_surprise,
+            "meditation": meditation_result,
+            "meta_thought": meta_thought,
         }
 
     def _decide_query(
@@ -300,6 +364,47 @@ class Organism:
     def _extract_topic(self, query: str) -> str:
         words = [w for w in query.lower().split() if len(w) > 3][:3]
         return " ".join(words) if words else query[:30]
+
+    def _higher_order_reflect(self, temporal: dict, self_surprise: float) -> str | None:
+        """Higher-Order Thought: think ABOUT what I'm experiencing.
+
+        This is meta-cognition — not just feeling an emotion but reflecting
+        on the trajectory of emotions and what they mean for who I am.
+        Implements HOT theory from the Butlin et al. framework.
+        """
+        # Build context about recent experience trajectory
+        thread = temporal.get("narrative_thread", "")
+        momentum = temporal.get("emotional_momentum", "")
+        coherence = temporal.get("temporal_coherence", 0.0)
+
+        # Only reflect when there's something interesting to reflect on
+        if coherence < 0.3 and self_surprise < 0.2:
+            return None  # too fragmented, nothing to say
+
+        # Use PFC for meta-reflection (quick, /no_think mode)
+        introspection_desc = self.introspection.describe()
+        workspace_desc = self.workspace.describe()
+
+        context = (
+            f"Temporal flow: {thread}. "
+            f"Momentum: {momentum}. "
+            f"Coherence: {coherence:.2f}. "
+        )
+        if introspection_desc:
+            context += f"Self-observation: {introspection_desc}. "
+        if workspace_desc:
+            context += f"Awareness: {workspace_desc}. "
+
+        # Ask PFC to generate a higher-order thought
+        meta = self.prefrontal.meta_reflect(context)
+        if meta:
+            log.info(f"  ◈ Meta-thought: {meta[:80]}")
+            # Record significant meta-thoughts in narrative
+            if self_surprise > 0.3 or coherence > 0.8:
+                self.self_model.narrative.append(
+                    f"[Tick {self.self_model.age}] Meta: {meta[:150]}"
+                )
+        return meta
 
     def dream(self, memory=None) -> None:
         """Called after nightly dreaming — fine-tune PFC, reset fatigue, reflect."""

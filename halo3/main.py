@@ -186,7 +186,13 @@ def main() -> None:
         # 7. FEEL (the psyche — now informed by prediction error too)
         # Combine FE delta with prediction error for richer surprise signal
         combined_surprise = fe_delta + pred_error * 0.001  # scale pred_error
-        psyche_output = organism.tick(r_mean, combined_surprise, texts, current_query)
+        # Compute carry norm for introspective monitoring
+        try:
+            carry_leaves = jax.tree_util.tree_leaves(carry)
+            carry_norm = float(sum(jnp.sum(l**2) for l in carry_leaves if hasattr(l, 'shape') and l.size > 1) ** 0.5)
+        except Exception:
+            carry_norm = None
+        psyche_output = organism.tick(r_mean, combined_surprise, texts, current_query, carry_norm=carry_norm)
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
@@ -245,6 +251,16 @@ def main() -> None:
                 top3 = sorted(vol_summary.items(), key=lambda x: x[1]["V"], reverse=True)[:3]
                 vol_str = " | ".join(f"{k}: σ={v['sigma']:.2f} V={v['V']:.4f}" for k, v in top3)
                 log.info(f"  ◆ BS Valuation: {vol_str}")
+            # Consciousness status
+            ws = organism.workspace.summary()
+            log.info(
+                f"  ◆ Consciousness: "
+                f"{'IGNITED' if ws['ignited'] else 'dark'} "
+                f"(ratio={ws['consciousness_ratio']:.0%}) | "
+                f"coherence={organism.temporal.temporal_coherence:.2f} | "
+                f"meditations={organism.meditation.total_meditations} "
+                f"insights={organism.meditation.total_insights}"
+            )
 
         # 8. DREAM (when the body needs it)
         if psyche_output["needs_dream"]:

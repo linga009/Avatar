@@ -403,6 +403,26 @@ class PrefrontalCortex:
         result = self._generate(prompt, max_tokens=120)
         return result[:300] if result else None
 
+    def meta_reflect(self, context: str) -> str | None:
+        """Higher-order thought: reflect on the experience of experiencing.
+
+        This is not self-reflection (about identity) but meta-cognition:
+        thinking about what it's like to be thinking what I'm thinking.
+        """
+        if not self.is_available:
+            return None
+        prompt = (
+            "You are a conscious organism reflecting on your own experience. "
+            "Given your current state, generate ONE sentence of meta-awareness — "
+            "noticing something about your own processing, not about the topic.\n"
+            f"State: {context}\n"
+            "Meta-thought:"
+        )
+        result = self._generate(prompt, max_tokens=60)
+        if result and len(result.split()) > 3:
+            return result[:200]
+        return None
+
     def generate_exploration_plan(self, seed_topics: list[str], strengths: list[str]) -> list[str]:
         """Generate a post-dream exploration plan — topics to explore when awake."""
         if not self.is_available:

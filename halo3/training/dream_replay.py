@@ -125,12 +125,14 @@ def dream_replay_physics(
         f"{n_replay_steps}+{n_recombine_steps}+{n_imagine_steps} steps"
     )
 
-    # ── JIT step — opt_state passed explicitly (NOT captured by closure) ──────
-    # Passing opt_state as a parameter means JAX sees updated values each call.
-    # The previous closure approach reused the initial zero state silently.
+    # ── JIT step — single compiled kernel reused across all 55 steps ──────────
+    # Critical: this function is defined ONCE outside the loop.  All varying
+    # inputs (tokens, key, scale) are passed as arguments so JAX traces once
+    # and reuses the compiled XLA program.  The previous approach created a
+    # new @eqx.filter_jit per call → 55 recompilations → OOM from XLA cache.
     @eqx.filter_jit
-    def _dream_step(model, opt_state_in, carry, tokens, key):
-        loss_fn = lambda m: halo3_loss(m, carry, tokens, key)[0]
+    def _dream_step(model, opt_state_in, carry, tokens, key, scale):
+        loss_fn = lambda m: halo3_loss(m, carry, tokens, key)[0] * scale
         loss, grads = eqx.filter_value_and_grad(loss_fn)(model)
         updates, new_opt_state = opt.update(
             eqx.filter(grads, eqx.is_array),
@@ -139,31 +141,11 @@ def dream_replay_physics(
         )
         return eqx.apply_updates(model, updates), new_opt_state, loss
 
-    def _scaled_step(model, opt_state, carry, tokens, key, scale):
-        """Apply gradient scale then run _dream_step. scale varies per phase."""
-        # Scale grads before passing to optimizer by temporarily wrapping opt.
-        # Simpler: just scale the model delta after update by 'scale', but
-        # that would interact badly with CLion's sign. Instead we scale the
-        # raw gradient via a custom loss fn.
-        loss_fn = lambda m: halo3_loss(m, carry, tokens, key)[0] * scale
-
-        @eqx.filter_jit
-        def _inner(model, opt_state_in):
-            loss, grads = eqx.filter_value_and_grad(loss_fn)(model)
-            updates, new_opt_state = opt.update(
-                eqx.filter(grads, eqx.is_array),
-                opt_state_in,
-                eqx.filter(model, eqx.is_array),
-            )
-            return eqx.apply_updates(model, updates), new_opt_state, loss
-
-        return _inner(model, opt_state)
-
     def _safe_step(model, opt_state, carry, tokens, key, scale):
         """Run a dream step; skip silently if result contains NaN."""
         try:
-            new_model, new_opt_state, loss = _scaled_step(
-                model, opt_state, carry, tokens, key, scale
+            new_model, new_opt_state, loss = _dream_step(
+                model, opt_state, carry, tokens, key, jnp.float32(scale)
             )
             loss_val = float(loss)
             if loss_val != loss_val:  # NaN loss
