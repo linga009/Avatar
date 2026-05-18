@@ -20,14 +20,15 @@ log = logging.getLogger(__name__)
 _MIN_SCORE = 3       # int_score threshold for quality filtering
 _MIN_WORD_LEN = 4    # minimum word length for keyword index
 _SNIPPET_LEN = 500   # chars to use for SearchResult.snippet
+_MAX_ROWS = 50_000   # cap rows loaded to stay within WSL2 RAM budget (~500MB)
 
 
 class ParquetSource:
     """Local FineWeb-Edu Parquet perception source.
 
-    Loads all *.parquet files found recursively under parquet_dir at startup,
-    filters by int_score >= 3, builds an inverted keyword index, and returns
-    SearchResult lists on each search() call — same interface as web_search().
+    Loads up to _MAX_ROWS rows from Parquet shards, filters by int_score >= 3,
+    builds an inverted keyword index, and returns SearchResult lists on each
+    search() call — same interface as web_search().
     """
 
     def __init__(self, parquet_dir: str) -> None:
@@ -42,13 +43,17 @@ class ParquetSource:
         if not files:
             raise FileNotFoundError(f"No Parquet files in {parquet_dir}")
 
-        log.info(f"ParquetSource: loading {len(files)} shard(s) from {parquet_dir}")
+        log.info(f"ParquetSource: loading {len(files)} shard(s) from {parquet_dir} (max {_MAX_ROWS:,} rows)")
         for path in files:
+            if len(self._texts) >= _MAX_ROWS:
+                break
             try:
                 table = pq.read_table(path, columns=["text", "url", "int_score"])
                 d = table.to_pydict()
                 before = len(self._texts)
                 for text, url, score in zip(d["text"], d["url"], d["int_score"]):
+                    if len(self._texts) >= _MAX_ROWS:
+                        break
                     if (score or 0) >= _MIN_SCORE and text and text.strip():
                         self._texts.append(text)
                         self._urls.append(url or "")
