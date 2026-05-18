@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Download 3 FineWeb-Edu Parquet shards to data/fineweb/.
+"""Download 1 FineWeb-Edu Parquet shard (~2GB) to data/fineweb/.
+
+Actual repo path: sample/10BT/000_00000.parquet
+Each shard has ~700K rows of educational web text (int_score 0-5).
 
 Run on the HOST (not in Docker):
     python scripts/download_fineweb.py
@@ -10,11 +13,8 @@ import sys
 
 TARGET_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "fineweb"))
 REPO_ID = "HuggingFaceFW/fineweb-edu"
-ALLOW_PATTERNS = [
-    "sample-10BT/data/train-00000-of-00096.parquet",
-    "sample-10BT/data/train-00001-of-00096.parquet",
-    "sample-10BT/data/train-00002-of-00096.parquet",
-]
+# 1 shard (~2GB, ~700K rows) — enough for ~140K ticks at 5 rows/tick
+ALLOW_PATTERNS = ["sample/10BT/000_00000.parquet"]
 
 
 def main():
@@ -25,18 +25,17 @@ def main():
         sys.exit(1)
 
     os.makedirs(TARGET_DIR, exist_ok=True)
-    print(f"Downloading 3 FineWeb-Edu shards to {TARGET_DIR} ...")
+    print(f"Downloading FineWeb-Edu shard to {TARGET_DIR} (~2GB, may take 10-30 min)...")
     snapshot_download(
         repo_id=REPO_ID,
         repo_type="dataset",
         allow_patterns=ALLOW_PATTERNS,
         local_dir=TARGET_DIR,
-        local_dir_use_symlinks=False,
     )
 
     import glob
     files = sorted(glob.glob(os.path.join(TARGET_DIR, "**/*.parquet"), recursive=True))
-    print(f"\nDone. {len(files)} shard(s):")
+    print(f"\nDone. {len(files)} shard(s) in {TARGET_DIR}:")
     for f in files:
         size_mb = os.path.getsize(f) / 1e6
         print(f"  {os.path.relpath(f, TARGET_DIR)}  ({size_mb:.0f} MB)")
