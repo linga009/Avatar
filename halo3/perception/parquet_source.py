@@ -48,15 +48,21 @@ class ParquetSource:
             if len(self._texts) >= _MAX_ROWS:
                 break
             try:
-                table = pq.read_table(path, columns=["text", "url", "int_score"])
-                d = table.to_pydict()
+                # Stream row groups — avoids loading the full 2GB file into RAM.
+                # Each row group is read independently; we stop once we have enough rows.
+                pf = pq.ParquetFile(path)
                 before = len(self._texts)
-                for text, url, score in zip(d["text"], d["url"], d["int_score"]):
+                for rg in range(pf.num_row_groups):
                     if len(self._texts) >= _MAX_ROWS:
                         break
-                    if (score or 0) >= _MIN_SCORE and text and text.strip():
-                        self._texts.append(text)
-                        self._urls.append(url or "")
+                    batch = pf.read_row_group(rg, columns=["text", "url", "int_score"])
+                    d = batch.to_pydict()
+                    for text, url, score in zip(d["text"], d["url"], d["int_score"]):
+                        if len(self._texts) >= _MAX_ROWS:
+                            break
+                        if (score or 0) >= _MIN_SCORE and text and text.strip():
+                            self._texts.append(text)
+                            self._urls.append(url or "")
                 log.info(f"  {os.path.basename(path)}: {len(self._texts) - before:,} rows kept")
             except Exception as e:
                 log.warning(f"  Skipping {os.path.basename(path)}: {e}")
