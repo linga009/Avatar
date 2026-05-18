@@ -44,14 +44,17 @@ class ParquetSource:
 
         log.info(f"ParquetSource: loading {len(files)} shard(s) from {parquet_dir}")
         for path in files:
-            table = pq.read_table(path, columns=["text", "url", "int_score"])
-            d = table.to_pydict()
-            before = len(self._texts)
-            for text, url, score in zip(d["text"], d["url"], d["int_score"]):
-                if (score or 0) >= _MIN_SCORE and text:
-                    self._texts.append(text)
-                    self._urls.append(url or "")
-            log.info(f"  {os.path.basename(path)}: {len(self._texts) - before:,} rows kept")
+            try:
+                table = pq.read_table(path, columns=["text", "url", "int_score"])
+                d = table.to_pydict()
+                before = len(self._texts)
+                for text, url, score in zip(d["text"], d["url"], d["int_score"]):
+                    if (score or 0) >= _MIN_SCORE and text and text.strip():
+                        self._texts.append(text)
+                        self._urls.append(url or "")
+                log.info(f"  {os.path.basename(path)}: {len(self._texts) - before:,} rows kept")
+            except Exception as e:
+                log.warning(f"  Skipping {os.path.basename(path)}: {e}")
 
         log.info(f"ParquetSource: {len(self._texts):,} total rows (int_score>={_MIN_SCORE})")
         self._build_index()
@@ -60,7 +63,7 @@ class ParquetSource:
         """Build inverted keyword index: word -> [row_indices]."""
         log.info("ParquetSource: building keyword index...")
         for idx, text in enumerate(self._texts):
-            for word in re.findall(r"[a-z]{4,}", text.lower()):
+            for word in re.findall(rf"[a-z]{{{_MIN_WORD_LEN},}}", text.lower()):
                 self._index[word].append(idx)
             if idx > 0 and idx % 50_000 == 0:
                 log.info(f"  indexed {idx:,} / {len(self._texts):,} rows")
@@ -68,7 +71,7 @@ class ParquetSource:
 
     def search(self, query: str, n: int = 5) -> list[SearchResult]:
         """Find rows matching query keywords. Falls back to sequential cursor."""
-        words = re.findall(r"[a-z]{4,}", query.lower())
+        words = re.findall(rf"[a-z]{{{_MIN_WORD_LEN},}}", query.lower())
 
         if words:
             scores: dict[int, int] = defaultdict(int)
@@ -80,6 +83,7 @@ class ParquetSource:
                 return [self._make_result(i) for i in top]
 
         # Sequential cursor fallback
+        log.debug(f"ParquetSource: no keyword match for '{query[:30]}' — sequential cursor")
         total = len(self._texts)
         results = []
         for _ in range(n):
