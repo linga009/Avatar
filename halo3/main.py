@@ -295,7 +295,8 @@ def main() -> None:
                      "--output", "data/checkpoints/halo3",
                      "--replay-steps", "10",
                      "--recombine-steps", "5",
-                     "--imagine-steps", "5"],
+                     "--imagine-steps", "5",
+                     "--fineweb-steps", "40"],
                     timeout=3600,  # 1 hour max
                 )
                 if result.returncode == 0:

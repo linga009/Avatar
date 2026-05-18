@@ -35,6 +35,8 @@ def main():
     parser.add_argument("--recombine-steps", type=int, default=5)
     parser.add_argument("--imagine-steps", type=int, default=5)
     parser.add_argument("--lr", type=float, default=5e-6)
+    parser.add_argument("--fineweb-steps", type=int, default=40,
+                        help="FineWeb batch steps per dream (0 = disabled)")
     args = parser.parse_args()
 
     # --- XLA compilation cache (same as parent) ---
@@ -85,6 +87,20 @@ def main():
     # --- Save ---
     log.info(f"Saving dreamed model to {args.output}.eqx")
     save_checkpoint(model, args.output)
+
+    # --- Phase 4: FineWeb batch training ---
+    if args.fineweb_steps > 0:
+        from halo3.training.dream_fineweb import fineweb_dream_phase
+        log.info(f"  ☽ Phase 4: FineWeb batch ({args.fineweb_steps} steps)...")
+        model, fw_info = fineweb_dream_phase(
+            model,
+            parquet_dir="data/fineweb",
+            n_steps=args.fineweb_steps,
+            lr=args.lr,
+        )
+        dream_info.update(fw_info)
+        save_checkpoint(model, args.output)
+        log.info(f"  ☽ FineWeb phase done: {fw_info}")
 
     # Write dream info for parent to read
     info_path = args.output + "_dream_info.json"
