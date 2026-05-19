@@ -296,8 +296,8 @@ def main() -> None:
                      "--replay-steps", "10",
                      "--recombine-steps", "5",
                      "--imagine-steps", "5",
-                     "--fineweb-steps", "40"],
-                    timeout=3600,  # 1 hour max
+                     "--fineweb-steps", "10"],
+                    timeout=7200,  # 2 hours max (FineWeb Phase 4 needs extra time)
                 )
                 if result.returncode == 0:
                     info_path = "data/checkpoints/halo3_dream_info.json"

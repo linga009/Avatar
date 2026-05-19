@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--recombine-steps", type=int, default=5)
     parser.add_argument("--imagine-steps", type=int, default=5)
     parser.add_argument("--lr", type=float, default=5e-6)
-    parser.add_argument("--fineweb-steps", type=int, default=40,
+    parser.add_argument("--fineweb-steps", type=int, default=10,
                         help="FineWeb batch steps per dream (0 = disabled)")
     args = parser.parse_args()
 

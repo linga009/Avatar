@@ -42,8 +42,17 @@ def fineweb_dream_phase(
 
     log.info(f"  FineWeb dream: loading source ({n_steps} steps, lr={lr})...")
     source = ParquetSource(parquet_dir)
-    embedder = NativeEmbedder(model.cfg.d_model, n_tokens=model.cfg.n_tokens)
     texts = source.sample_texts(n_steps)
+    del source          # free ~450MB RAM before embedder
+    gc.collect()
+
+    embedder = NativeEmbedder(model.cfg.d_model, n_tokens=model.cfg.n_tokens)
+    log.info(f"  Pre-embedding {len(texts)} texts on CPU...")
+    token_tensors = [embedder.texts_to_tokens([t], model.cfg.n_tokens) for t in texts]
+    del embedder        # free ~300MB RAM before optimizer state
+    del texts
+    gc.collect()
+    jax.clear_caches()  # flush XLA buffers before new allocations
 
     key = jax.random.PRNGKey(seed)
     carry = model.init_carry(key)
@@ -87,9 +96,8 @@ def fineweb_dream_phase(
     log.info(f"  Phase 4: FineWeb batch ({n_steps} steps, scale=0.05)...")
     total_loss = 0.0
     completed = 0
-    for text in texts:
+    for tokens in token_tensors:
         key, sk = jax.random.split(key)
-        tokens = embedder.texts_to_tokens([text], model.cfg.n_tokens)
         model, opt_state, loss = _safe_step(model, opt_state, carry, tokens, sk, 0.05)
         total_loss += float(loss)
         completed += 1
