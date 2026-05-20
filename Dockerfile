@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update -qq && \
-    apt-get install -y -qq --no-install-recommends python3 python3-pip && \
+    apt-get install -y -qq --no-install-recommends python3 python3-pip libsndfile1 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
