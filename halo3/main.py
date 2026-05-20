@@ -103,6 +103,10 @@ def main() -> None:
     from halo3.psyche.organism import Organism
 
     from halo3.predictive import PredictiveProcessor
+    from halo3.senses.audio_sense import AudioSense
+    from halo3.senses.vision_sense import VisionSense
+    from halo3.senses.sense_buffer import SenseBuffer
+    from halo3.senses.projections import SenseProjections, load_sense_proj, save_sense_proj
 
     perception = PerceptionPipeline(cfg.d_model, cfg.n_tokens)
     memory = EpisodeStore()
@@ -112,6 +116,18 @@ def main() -> None:
     # --- Chat server (talk to the whole organism) ---
     from halo3.chat_server import start_chat_server, update_live_state
     start_chat_server(port=8420)
+
+    # --- Senses (hearing + vision) ---
+    audio_sense = AudioSense(cache_dir="data/model_cache")
+    vision_sense = VisionSense(cache_dir="data/model_cache")
+    sense_buffer = SenseBuffer(data_dir="data", stale_threshold_secs=30.0)
+    sense_proj = load_sense_proj(
+        audio_dim=768, vision_dim=512, d_model=cfg.d_model,
+        path="data/checkpoints/sense_proj")
+    _sense_zero_audio = jnp.zeros((8, 768))
+    _sense_zero_vision = jnp.zeros((512,))
+    log.info(f"Senses: hearing={'ON' if audio_sense.available else 'OFF'}, "
+             f"vision={'ON' if vision_sense.available else 'OFF'}")
 
     log.info(f"Organism awakening. {organism.self_model.identity_statement}")
     log.info(f"Watching: {seed_topics}")
@@ -143,7 +159,7 @@ def main() -> None:
         # Circadian: tired organisms think slower
         tick_interval = organism.clock.modulate_tick_interval(base_tick, organism.drives.fatigue)
 
-        # 1. PERCEIVE
+        # 1. PERCEIVE — text
         try:
             tokens, texts = perception.perceive(current_query, max_results)
         except Exception as e:
@@ -152,6 +168,37 @@ def main() -> None:
             texts = []
 
         perception_failed = len(texts) == 0
+
+        # 1b. SENSE — hearing + vision
+        raw_paths = sense_buffer.get_raw()
+        audio_jax = _sense_zero_audio
+        vision_jax = _sense_zero_vision
+        sense_label = "[ ][ ]"
+
+        if raw_paths.audio_path is not None and audio_sense.available:
+            try:
+                import numpy as _np
+                audio_np = _np.load(raw_paths.audio_path)
+                encoded = audio_sense.encode(audio_np)
+                if encoded is not None:
+                    audio_jax = jnp.array(encoded)
+                    sense_label = "[A][ ]"
+            except Exception as e:
+                log.warning(f"Audio encode error: {e}")
+
+        if raw_paths.video_path is not None and vision_sense.available:
+            try:
+                from PIL import Image as _PIL
+                img = _PIL.open(raw_paths.video_path).convert("RGB")
+                encoded = vision_sense.encode(img)
+                if encoded is not None:
+                    vision_jax = jnp.array(encoded)
+                    sense_label = sense_label.replace("[ ]", "[V]", 1)
+            except Exception as e:
+                log.warning(f"Vision encode error: {e}")
+
+        # Inject sense signal into text tokens (shape stays (n_tokens, d_model))
+        tokens = sense_proj.inject(tokens, audio_jax, vision_jax)
 
         # 2. PHYSICS (the body processes input)
         key, sk = jax.random.split(key)
@@ -165,8 +212,8 @@ def main() -> None:
         # 3. LEARN (the body adapts — weights change EVERY tick)
         key, lk = jax.random.split(key)
         try:
-            model, pred_loss = predictor.learn_from_error(
-                model, carry, tokens, q_data, lk
+            model, sense_proj, pred_loss = predictor.learn_from_error(
+                model, sense_proj, carry, tokens, audio_jax, vision_jax, q_data, lk
             )
             pred_error = pred_loss
         except Exception as e:
@@ -238,7 +285,7 @@ def main() -> None:
         improving = "↑" if predictor.is_improving else "→"
         fail_marker = " ⊘ NO INPUT" if perception_failed else ""
         log.info(
-            f"         | q=\"{current_query[:45]}\" | FE_Δ={fe_delta:+.2e} | ε={pred_error:.2e}{improving}{fail_marker}"
+            f"         | q=\"{current_query[:45]}\" | FE_Δ={fe_delta:+.2e} | ε={pred_error:.2e}{improving}{fail_marker} | {sense_label}"
         )
         if finding:
             log.info(f"         → DISCOVERY: {finding[:90]}")
@@ -275,6 +322,7 @@ def main() -> None:
             from halo3.training.bootstrap import save_checkpoint as _save_ckpt
             _save_ckpt(model, "data/checkpoints/pre_dream")
             _save_ckpt(model, "data/checkpoints/halo3")  # safety copy
+            save_sense_proj(sense_proj, "data/checkpoints/sense_proj")
             memory.flush()  # ensure episodes visible to subprocess
 
             # Save carry and predictor state for warm-start after dream
