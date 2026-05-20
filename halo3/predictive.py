@@ -40,6 +40,8 @@ class PredictiveProcessor:
         self.opt = optax.adam(lr)
         self._opt_state = None
         self._prediction_history: list[float] = []
+        self._sense_opt = optax.adam(lr * 10)  # sense projections train 10x faster
+        self._sense_opt_state = None
 
     def predict(self, model, carry, key) -> jnp.ndarray:
         """Generate predicted boundary coordinates from current state.
@@ -87,51 +89,65 @@ class PredictiveProcessor:
     def learn_from_error(
         self,
         model,
+        sense_proj,
         carry,
-        tokens: jnp.ndarray,
+        text_tokens: jnp.ndarray,
+        audio_jax: jnp.ndarray,
+        vision_jax: jnp.ndarray,
         q_actual: jnp.ndarray,
         key: jnp.ndarray,
     ):
-        """Update the physics body based on prediction error.
+        """Update the physics body and sense projections based on prediction error.
 
-        Takes a small gradient step on the backbone and Hamiltonian
-        to reduce future prediction errors. The body physically changes.
-
-        Returns updated model.
+        Runs one backward pass through both model and sense_proj jointly.
+        Returns updated (model, sense_proj, loss).
         """
         if self._opt_state is None:
             self._opt_state = self.opt.init(eqx.filter(model, eqx.is_array))
+        if self._sense_opt_state is None:
+            self._sense_opt_state = self._sense_opt.init(
+                eqx.filter(sense_proj, eqx.is_array))
 
-        # Loss: how far was our prediction from reality?
-        def prediction_loss(m):
+        def prediction_loss(params):
+            m, sp = params
+            # Re-run injection inside loss so gradients flow through sp
+            tokens_mod = sp.inject(text_tokens, audio_jax, vision_jax)
             from halo3.loss import halo3_loss
-            return halo3_loss(m, carry, tokens, key)[0]
+            return halo3_loss(m, carry, tokens_mod, key)[0]
 
-        loss, grads = eqx.filter_value_and_grad(prediction_loss)(model)
+        params = (model, sense_proj)
+        loss, grads = eqx.filter_value_and_grad(prediction_loss)(params)
+        m_grads, sp_grads = grads
 
-        # SELECTIVE LEARNING: only update Hamiltonian + MERA, NOT SSM/attention
-        # SSM/attention feed the Kuramoto; training them causes r->1.0 collapse
-        # Hamiltonian + MERA learn the data structure without disrupting sync
+        # SELECTIVE LEARNING for model: only Hamiltonian + MERA, NOT SSM/attention
         lr_scale = self._adaptive_lr_scale()
 
         def _zero_non_target(path, grad):
             p = str(path)
-            # Only keep gradients for hamiltonian and mera_ffn
             if "hamiltonian" in p or "mera" in p or "ffns" in p:
                 return grad * 0.001 * lr_scale
-            return jax.tree_util.tree_map(jnp.zeros_like, grad)  # freeze everything else
+            return jax.tree_util.tree_map(jnp.zeros_like, grad)
 
-        grads = jax.tree_util.tree_map_with_path(_zero_non_target, grads)
+        m_grads = jax.tree_util.tree_map_with_path(_zero_non_target, m_grads)
 
-        updates, self._opt_state = self.opt.update(
-            eqx.filter(grads, eqx.is_array),
+        # Update model
+        m_updates, self._opt_state = self.opt.update(
+            eqx.filter(m_grads, eqx.is_array),
             self._opt_state,
             eqx.filter(model, eqx.is_array),
         )
-        model = eqx.apply_updates(model, updates)
+        new_model = eqx.apply_updates(model, m_updates)
+
+        # Update sense_proj (all params trainable)
+        sp_updates, self._sense_opt_state = self._sense_opt.update(
+            eqx.filter(sp_grads, eqx.is_array),
+            self._sense_opt_state,
+            eqx.filter(sense_proj, eqx.is_array),
+        )
+        new_sense_proj = eqx.apply_updates(sense_proj, sp_updates)
 
         self._prediction_history.append(float(loss))
-        return model, float(loss)
+        return new_model, new_sense_proj, float(loss)
 
     def _adaptive_lr_scale(self) -> float:
         """Scale learning rate based on prediction accuracy trend.
@@ -184,8 +200,9 @@ class PredictiveProcessor:
         try:
             data = np.load(path, allow_pickle=False)
             self._prediction_history = list(data["prediction_history"])
-            # Force optimizer to re-initialize with dreamed model
+            # Force optimizers to re-initialize with dreamed model/sense_proj
             self._opt_state = None
+            self._sense_opt_state = None
             log.info(f"Predictor state restored ({len(self._prediction_history)} history entries)")
         except Exception as e:
             log.warning(f"Failed to restore predictor state: {e}")
