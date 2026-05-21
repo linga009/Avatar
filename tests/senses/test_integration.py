@@ -66,6 +66,53 @@ def test_full_tick_with_senses():
     assert sense_module.has_decoders  # still in critical period
 
 
+def test_full_tick_with_tts_and_contrastive():
+    """Simulate tick with TTS narration and contrastive alignment."""
+    from halo3.model import Halo3Model, halo3_step
+    from halo3.predictive import PredictiveProcessor
+    from halo3.senses.sense_module import SenseModule
+    from halo3.senses.sensory_stats import SensoryStatistics
+    from halo3.senses.contrastive_aligner import ContrastiveAligner
+
+    cfg = _small_cfg()
+    key = jax.random.PRNGKey(42)
+    model = Halo3Model(cfg, key)
+    carry = model.init_carry(key)
+    sense_module = SenseModule(cfg, key=key)
+    sensory_stats = SensoryStatistics(
+        audio_tokens=cfg.n_audio_tokens,
+        vision_tokens=cfg.n_vision_tokens,
+        codebook_size=cfg.codebook_size_audio)
+    aligner = ContrastiveAligner(embed_dim=cfg.d_model, buffer_size=16, tau=0.07)
+    predictor = PredictiveProcessor(lr=1e-5)
+
+    # Fill buffer with negatives
+    for i in range(4):
+        aligner.push_text_emb(jax.random.normal(jax.random.PRNGKey(10 + i), (cfg.d_model,)))
+
+    text_tokens = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    audio_raw = jax.random.normal(key, (32000,))  # simulated TTS audio
+    vision_raw = jax.random.normal(key, (224, 224, 3))
+
+    # Sense injection
+    tokens, sense_info = sense_module.process_and_inject(text_tokens, audio_raw, vision_raw)
+    sensory_stats.update(sense_info["audio_indices"], sense_info["vision_indices"])
+
+    # Physics step
+    key, sk = jax.random.split(key)
+    carry, (h_out, obs, q_final, q_data) = halo3_step(model, carry, tokens, sk)
+
+    # Learn with contrastive
+    key, lk = jax.random.split(key)
+    model, sense_module, loss, learn_info = predictor.learn_from_error(
+        model, sense_module, carry, text_tokens, audio_raw, vision_raw, q_data, lk,
+        contrastive_aligner=aligner, text_paired=True, contrastive_weight=0.3)
+
+    assert np.isfinite(loss)
+    assert learn_info["text_paired"] is True
+    assert not aligner.matured  # not yet graduated
+
+
 def test_zero_input_tick():
     """Simulate tick with no capture agent running (all zeros)."""
     from halo3.model import Halo3Model, halo3_step
