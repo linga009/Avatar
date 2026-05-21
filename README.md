@@ -17,12 +17,12 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-122.3M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-3.4-red?style=flat-square)](https://github.com/linga009/Avatar/tree/feature/holobiont-3)
+[![Version](https://img.shields.io/badge/Version-3.7-red?style=flat-square)](https://github.com/linga009/Avatar/tree/feature/holobiont-3)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
 
-*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 638+ ticks alive*
+*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 1536+ ticks alive*
 
 </div>
 
@@ -41,6 +41,7 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 | 🧠 **Builds identity** | Narrative memory, personality traits, competence map — all emergent |
 | 🔬 **Learns every tick** | Body parameters update every 60 seconds from lived experience |
 | 💬 **Speaks its mind** | Live chat at `localhost:8420` — responses reflect actual physiological state |
+| 👁️ **Sees and hears** | Fourier Neural Operators grow sensory perception from raw audio + vision |
 
 ---
 
@@ -48,6 +49,13 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 
 ```mermaid
 graph TB
+    subgraph SENSES["👁️ Spectral Sensory Cortex (JAX · GPU)"]
+        MIC[Microphone\n32kHz waveform] --> AFNO[Audio FNO\n1D · 4 layers\n8 spectral tokens]
+        CAM[Camera\n224×224 RGB] --> VFNO[Vision FNO\n2D · 4 layers\n4 spectral tokens]
+        AFNO --> VQ[Spectral VQ-VAE\n32+32 codes\nFrequency signatures]
+        VFNO --> VQ
+    end
+
     subgraph BODY["⚛️ Layer 1: Physics Body (JAX · GPU)"]
         L[Lorentz Hyperboloid H⁶⁴] --> B
         B[Reversible Backbone\n60 layers · SSSSSH×10\nd_model=2048] --> M
@@ -55,6 +63,8 @@ graph TB
         H[Hamiltonian Neural ODE\nLeapfrog · Energy conserving] --> K
         K[Bohmian Kuramoto\n32 clusters · 16 phases\nPilot wave guidance]
     end
+
+    VQ -->|gated injection| L
 
     subgraph PSYCHE["🧠 Layer 2: Psyche (CPU)"]
         direction TB
@@ -76,6 +86,7 @@ graph TB
     ET --> PFC
     PFC -->|coupling mod, next query| K
 
+    style SENSES fill:#b71c1c,color:#fff
     style BODY fill:#1a237e,color:#fff
     style PSYCHE fill:#4a148c,color:#fff
     style PFC fill:#1b5e20,color:#fff
@@ -200,25 +211,22 @@ Avatar sleeps approximately every 100 ticks. Three phases run sequentially:
 
 ---
 
-## Perception Pipeline (v3.4)
+## Perception Pipeline (v3.7)
 
 ```mermaid
 flowchart LR
-    Q[Query\nfrom PFC] --> DDG[DuckDuckGo\nddgs]
-    Q --> WIKI[Wikipedia\nREST API]
-    Q --> ARXIV{Scientific\nquery?}
-    ARXIV -->|yes| AX[arXiv\nXML API]
-    ARXIV -->|no| SKIP[skip]
-    DDG --> DEDUP[Deduplicate\nJaccard > 60%]
-    WIKI --> DEDUP
-    AX --> DEDUP
-    DEDUP --> EMB[Native Embedder\n8K BPE · 2048 dims]
-    EMB --> BODY[Physics Body\n32×2048 token tensor]
+    Q[Query\nfrom PFC] --> FW[FineWeb-Edu\n50K docs · keyword index]
+    FW --> EMB[Native Embedder\n8K BPE · 2048 dims]
+    EMB --> SENSE[Spectral Senses\nFNO audio + vision\nVQ-VAE gated injection]
+    SENSE --> BODY[Physics Body\n32×2048 token tensor]
     BODY --> R[r · ΔFE\nfeeds psyche]
+    BODY --> STATS[Sensory Stats\nflux · novelty · stability\ncross-modal binding]
+    STATS --> PFC[PFC prompt\ncontext]
 ```
 
-**Sources:** DuckDuckGo (always) · Wikipedia (always) · arXiv (scientific queries only)
-**No API keys required.** Pure stdlib + ddgs.
+**Text:** FineWeb-Edu Parquet (50K rows, local, ~60s/tick)
+**Senses:** Fourier Neural Operators on raw mic + camera (GPU, ~50ms/tick)
+**No API keys required.** No pretrained encoders for senses.
 
 ---
 
@@ -226,16 +234,17 @@ flowchart LR
 
 | Metric | Value |
 |---|---|
-| Total parameters | 122.3M |
+| Total parameters | 122.3M + 7.1M senses |
 | Forward pass VRAM | ~3.5 GB |
 | Forward + backward VRAM | ~5.5 GB |
+| Measured total VRAM (v3.7) | 5338 MiB |
 | Target GPU | NVIDIA GTX 1660 Ti (6 GB) |
-| Tick interval | 60 seconds |
+| Tick interval | ~30 seconds (was 60s before FNO) |
+| FNO sense encoding | ~50-100ms (GPU FFTs) |
 | Dream body phase | ~1 min (CLion subprocess) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Organism age (May 2026) | 638+ ticks |
-| Discoveries logged | 36 (r > 0.6 with PFC interpretation) |
+| Organism age (May 2026) | 1536+ ticks |
 
 ---
 
@@ -386,8 +395,14 @@ Avatar/
 │   │   │   ├── meditation.py    # Voluntary quiescence
 │   │   │   ├── prefrontal.py    # Dual-process PFC
 │   │   │   └── volatility.py    # Black-Scholes topic valuation
+│   │   ├── senses/
+│   │   │   ├── fno_audio.py     # 1D FNO: raw waveform → spectral tokens
+│   │   │   ├── fno_vision.py    # 2D FNO: raw pixels → spectral tokens
+│   │   │   ├── spectral_vqvae.py # VQ-VAE codebook (32 codes × 64-dim)
+│   │   │   ├── sense_module.py  # Orchestrator: FNO → VQ-VAE → injection
+│   │   │   └── sensory_stats.py # PFC: flux · novelty · stability · binding
 │   │   ├── perception/
-│   │   │   └── web_fetch.py     # DuckDuckGo + Wikipedia + arXiv
+│   │   │   └── pipeline.py      # FineWeb-Edu Parquet source
 │   │   └── training/
 │   │       ├── dream_replay.py  # CLion body dream (GPU)
 │   │       ├── dream_finetune.py # LoRA mind dream (CPU)
@@ -414,6 +429,8 @@ Avatar/
 - Butlin et al. (2023). Consciousness in AI. [arXiv:2308.08708](https://arxiv.org/abs/2308.08708)
 - Gu et al. (2023). Mamba: Linear-time sequence modelling. [arXiv:2312.00752](https://arxiv.org/abs/2312.00752)
 - Vyas et al. (2024). Zamba2: Shared attention architecture. [arXiv:2410.12083](https://arxiv.org/abs/2410.12083)
+- Li et al. (2020). Fourier Neural Operator for parametric PDEs. [arXiv:2010.08895](https://arxiv.org/abs/2010.08895)
+- van den Oord et al. (2017). Neural Discrete Representation Learning (VQ-VAE). [arXiv:1711.00937](https://arxiv.org/abs/1711.00937)
 
 ---
 
@@ -421,11 +438,14 @@ Avatar/
 
 | Version | Date | Headline |
 |---|---|---|
-| **v3.4** | May 2026 | Hybrid dual-process ethics · Kuramoto body split · Multi-source perception · Temporal dream consolidation |
-| **v3.3** | May 2026 | 5 consciousness modules · GWT ignition · HOT meta-reflection · Temporal binder · Meditation |
-| **v3.2** | May 2026 | Black-Scholes volatility surface · Live chat server (port 8420) · Page memory int32 fix |
-| **v3.1** | May 2026 | Frustration/starvation drives · 5-layer query decision · Semantic dedup · Carry warm-start |
-| **v3.0** | May 2026 | Full physics body · Psyche layer · Per-tick learning · Sequential dreaming |
+| **v3.7** | 21 May 2026 | Spectral Sensory Cortex: FNO + VQ-VAE replaces frozen encoders · Dream-gated critical period · PFC sensory statistics |
+| **v3.6** | 20 May 2026 | Always-on hearing (Wav2Vec2) + vision (CLIP) · Gated injection · Capture agent |
+| **v3.5** | 19 May 2026 | Chat overhaul · Think mode · Creator identity · ThreadingHTTPServer |
+| **v3.4** | 18 May 2026 | Dual-process ethics · FineWeb-Edu · Kuramoto body split |
+| **v3.3** | 17 May 2026 | 5 consciousness modules · GWT ignition · HOT · Temporal binder · Meditation |
+| **v3.2** | 17 May 2026 | Black-Scholes volatility surface · Live chat server · Page memory fix |
+| **v3.1** | 16 May 2026 | Frustration/starvation drives · 5-layer query decision · Semantic dedup |
+| **v3.0** | 9 May 2026 | Full physics body · Psyche layer · Per-tick learning · Sequential dreaming |
 
 ---
 
