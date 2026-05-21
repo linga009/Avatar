@@ -267,6 +267,7 @@ def main() -> None:
             tick=tick, r_mean=r_mean, fe_delta=fe_delta,
             pred_error=pred_error, current_query=current_query,
             texts=texts, organism=organism, memory=memory, predictor=predictor,
+            sensory_stats_line=sensory_stats.format_for_pfc(),
         )
 
         # 8. SATIATION — actively break Kuramoto sync when restless
