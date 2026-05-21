@@ -14,6 +14,13 @@ bootstrap training. The body reshapes itself based on experience.
 v3.1 additions:
   - State persistence: save/restore optimizer state across dreams
   - Adaptive learning rate: scales with prediction accuracy trend
+
+v3.7 additions:
+  - SenseModule integration: FNO + VQ-VAE + gated injection replaces
+    old SenseProjections (3 linear layers)
+  - Commitment loss included in per-tick backward pass
+  - Codebook embeddings zeroed (EMA only, not gradient-updated)
+  - Decoder gradients zeroed (trained separately during critical period)
 """
 from __future__ import annotations
 import logging
@@ -89,35 +96,40 @@ class PredictiveProcessor:
     def learn_from_error(
         self,
         model,
-        sense_proj,
+        sense_module,
         carry,
         text_tokens: jnp.ndarray,
-        audio_jax: jnp.ndarray,
-        vision_jax: jnp.ndarray,
+        audio_raw: jnp.ndarray,
+        vision_raw: jnp.ndarray,
         q_actual: jnp.ndarray,
         key: jnp.ndarray,
     ):
-        """Update the physics body and sense projections based on prediction error.
+        """Update the physics body and sense module based on prediction error.
 
-        Runs one backward pass through both model and sense_proj jointly.
-        Returns updated (model, sense_proj, loss).
+        Returns updated (model, sense_module, loss, info).
         """
         if self._opt_state is None:
             self._opt_state = self.opt.init(eqx.filter(model, eqx.is_array))
         if self._sense_opt_state is None:
             self._sense_opt_state = self._sense_opt.init(
-                eqx.filter(sense_proj, eqx.is_array))
+                eqx.filter(sense_module, eqx.is_array))
+
+        # Forward pass outside grad for info extraction
+        _, info = sense_module.process_and_inject(text_tokens, audio_raw, vision_raw)
 
         def prediction_loss(params):
-            m, sp = params
-            # Re-run injection inside loss so gradients flow through sp
-            tokens_mod = sp.inject(text_tokens, audio_jax, vision_jax)
+            m, sm = params
+            tokens_out, _ = sm.process_and_inject(text_tokens, audio_raw, vision_raw)
             from halo3.loss import halo3_loss
-            return halo3_loss(m, carry, tokens_mod, key)[0]
+            body_loss = halo3_loss(m, carry, tokens_out, key)[0]
+            _, _, commit_a = sm.audio_codebook.quantize(sm.audio_fno(audio_raw))
+            _, _, commit_v = sm.vision_codebook.quantize(sm.vision_fno(vision_raw))
+            commitment = 0.25 * (commit_a + commit_v)
+            return body_loss + commitment
 
-        params = (model, sense_proj)
+        params = (model, sense_module)
         loss, grads = eqx.filter_value_and_grad(prediction_loss)(params)
-        m_grads, sp_grads = grads
+        m_grads, sm_grads = grads
 
         # SELECTIVE LEARNING for model: only Hamiltonian + MERA, NOT SSM/attention
         lr_scale = self._adaptive_lr_scale()
@@ -138,16 +150,26 @@ class PredictiveProcessor:
         )
         new_model = eqx.apply_updates(model, m_updates)
 
-        # Update sense_proj (all params trainable)
+        # Zero codebook + decoder gradients
+        def _zero_codebook(path, grad):
+            p = str(path)
+            if "codebook" in p and "embeddings" in p:
+                return jax.tree_util.tree_map(jnp.zeros_like, grad)
+            if "decoder" in p:
+                return jax.tree_util.tree_map(jnp.zeros_like, grad)
+            return grad
+
+        sm_grads = jax.tree_util.tree_map_with_path(_zero_codebook, sm_grads)
+
         sp_updates, self._sense_opt_state = self._sense_opt.update(
-            eqx.filter(sp_grads, eqx.is_array),
+            eqx.filter(sm_grads, eqx.is_array),
             self._sense_opt_state,
-            eqx.filter(sense_proj, eqx.is_array),
+            eqx.filter(sense_module, eqx.is_array),
         )
-        new_sense_proj = eqx.apply_updates(sense_proj, sp_updates)
+        new_sm = eqx.apply_updates(sense_module, sp_updates)
 
         self._prediction_history.append(float(loss))
-        return new_model, new_sense_proj, float(loss)
+        return new_model, new_sm, float(loss), info
 
     def _adaptive_lr_scale(self) -> float:
         """Scale learning rate based on prediction accuracy trend.
