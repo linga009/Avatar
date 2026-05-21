@@ -122,7 +122,7 @@ def main() -> None:
     sense_module = load_sense_module(cfg, path="data/checkpoints/sense_module")
     sensory_stats = SensoryStatistics(
         audio_tokens=cfg.n_audio_tokens, vision_tokens=cfg.n_vision_tokens,
-        codebook_size=cfg.codebook_size)
+        codebook_size=cfg.codebook_size_audio)
     sensory_stats.load("data/sensory_stats.json")
     _sense_zero_audio = jnp.zeros((32000,))
     _sense_zero_vision = jnp.zeros((224, 224, 3))

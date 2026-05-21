@@ -16,7 +16,7 @@ def _small_cfg():
         meta_n_hidden=4, meta_n_actions=2, meta_k=3,
         max_cache=8, island_size=4,
         fno_hidden_dim=16, fno_n_layers=2, fno_audio_modes=4,
-        fno_vision_modes=4, codebook_size=8, codebook_dim=16,
+        fno_vision_modes=4, codebook_size_audio=16, codebook_size_vision=8, codebook_dim=16,
         n_audio_tokens=2, n_vision_tokens=2,
     )
 
@@ -36,7 +36,7 @@ def test_full_tick_with_senses():
     sensory_stats = SensoryStatistics(
         audio_tokens=cfg.n_audio_tokens,
         vision_tokens=cfg.n_vision_tokens,
-        codebook_size=cfg.codebook_size)
+        codebook_size=cfg.codebook_size_audio)
     predictor = PredictiveProcessor(lr=1e-5)
 
     text_tokens = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))

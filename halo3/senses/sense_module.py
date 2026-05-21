@@ -103,9 +103,9 @@ class SenseModule(eqx.Module):
             modes=cfg.fno_vision_modes, n_tokens=cfg.n_vision_tokens,
             codebook_dim=cfg.codebook_dim, key=keys[1])
         self.audio_codebook = SpectralCodebook(
-            codebook_size=cfg.codebook_size, codebook_dim=cfg.codebook_dim, key=keys[2])
+            codebook_size=cfg.codebook_size_audio, codebook_dim=cfg.codebook_dim, key=keys[2])
         self.vision_codebook = SpectralCodebook(
-            codebook_size=cfg.codebook_size, codebook_dim=cfg.codebook_dim, key=keys[3])
+            codebook_size=cfg.codebook_size_vision, codebook_dim=cfg.codebook_dim, key=keys[3])
         self.spectral_proj = eqx.nn.Linear(
             cfg.codebook_dim, cfg.d_model, use_bias=False, key=keys[4])
         self.sense_gate = eqx.nn.Linear(
