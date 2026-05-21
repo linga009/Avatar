@@ -14,6 +14,7 @@ import signal
 import sys
 import time
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import yaml
@@ -103,10 +104,9 @@ def main() -> None:
     from halo3.psyche.organism import Organism
 
     from halo3.predictive import PredictiveProcessor
-    from halo3.senses.audio_sense import AudioSense
-    from halo3.senses.vision_sense import VisionSense
     from halo3.senses.sense_buffer import SenseBuffer
-    from halo3.senses.projections import SenseProjections, load_sense_proj, save_sense_proj
+    from halo3.senses.sense_module import SenseModule, load_sense_module, save_sense_module, delete_decoders
+    from halo3.senses.sensory_stats import SensoryStatistics
 
     perception = PerceptionPipeline(cfg.d_model, cfg.n_tokens)
     memory = EpisodeStore()
@@ -117,17 +117,17 @@ def main() -> None:
     from halo3.chat_server import start_chat_server, update_live_state
     start_chat_server(port=8420)
 
-    # --- Senses (hearing + vision) ---
-    audio_sense = AudioSense(cache_dir="data/model_cache")
-    vision_sense = VisionSense(cache_dir="data/model_cache")
+    # --- Senses (spectral FNO + VQ-VAE) ---
     sense_buffer = SenseBuffer(data_dir="data", stale_threshold_secs=30.0)
-    sense_proj = load_sense_proj(
-        audio_dim=768, vision_dim=768, d_model=cfg.d_model,
-        path="data/checkpoints/sense_proj")
-    _sense_zero_audio = jnp.zeros((8, 768))
-    _sense_zero_vision = jnp.zeros((768,))
-    log.info(f"Senses: hearing={'ON' if audio_sense.available else 'OFF'}, "
-             f"vision={'ON' if vision_sense.available else 'OFF'}")
+    sense_module = load_sense_module(cfg, path="data/checkpoints/sense_module")
+    sensory_stats = SensoryStatistics(
+        audio_tokens=cfg.n_audio_tokens, vision_tokens=cfg.n_vision_tokens,
+        codebook_size=cfg.codebook_size)
+    sensory_stats.load("data/sensory_stats.json")
+    _sense_zero_audio = jnp.zeros((32000,))
+    _sense_zero_vision = jnp.zeros((224, 224, 3))
+    _first_dream_done = not sense_module.has_decoders
+    log.info(f"Senses: FNO spectral cortex ({'critical period' if sense_module.has_decoders else 'mature'})")
 
     log.info(f"Organism awakening. {organism.self_model.identity_statement}")
     log.info(f"Watching: {seed_topics}")
@@ -169,36 +169,21 @@ def main() -> None:
 
         perception_failed = len(texts) == 0
 
-        # 1b. SENSE — hearing + vision
-        raw_paths = sense_buffer.get_raw()
-        audio_jax = _sense_zero_audio
-        vision_jax = _sense_zero_vision
+        # 1b. SENSE — spectral FNO perception
+        raw_data = sense_buffer.get_raw_arrays()
+        audio_raw = jnp.array(raw_data.audio_np) if raw_data.audio_np is not None else _sense_zero_audio
+        vision_raw = jnp.array(raw_data.vision_np) if raw_data.vision_np is not None else _sense_zero_vision
         sense_label = "[ ][ ]"
-
-        if raw_paths.audio_path is not None and audio_sense.available:
-            try:
-                import numpy as _np
-                audio_np = _np.load(raw_paths.audio_path)
-                encoded = audio_sense.encode(audio_np)
-                if encoded is not None:
-                    audio_jax = jnp.array(encoded)
-                    sense_label = "[A][ ]"
-            except Exception as e:
-                log.warning(f"Audio encode error: {e}")
-
-        if raw_paths.video_path is not None and vision_sense.available:
-            try:
-                from PIL import Image as _PIL
-                img = _PIL.open(raw_paths.video_path).convert("RGB")
-                encoded = vision_sense.encode(img)
-                if encoded is not None:
-                    vision_jax = jnp.array(encoded)
-                    sense_label = sense_label.replace("[ ]", "[V]", 1)
-            except Exception as e:
-                log.warning(f"Vision encode error: {e}")
+        if raw_data.audio_np is not None:
+            sense_label = "[A][ ]"
+        if raw_data.vision_np is not None:
+            sense_label = sense_label.replace("[ ]", "[V]", 1)
 
         # Inject sense signal into text tokens (shape stays (n_tokens, d_model))
-        tokens = sense_proj.inject(tokens, audio_jax, vision_jax)
+        tokens, sense_info = sense_module.process_and_inject(tokens, audio_raw, vision_raw)
+
+        # Update sensory statistics for PFC
+        sensory_stats.update(sense_info["audio_indices"], sense_info["vision_indices"])
 
         # 2. PHYSICS (the body processes input)
         key, sk = jax.random.split(key)
@@ -212,9 +197,40 @@ def main() -> None:
         # 3. LEARN (the body adapts — weights change EVERY tick)
         key, lk = jax.random.split(key)
         try:
-            model, sense_proj, pred_loss = predictor.learn_from_error(
-                model, sense_proj, carry, tokens, audio_jax, vision_jax, q_data, lk
+            model, sense_module, pred_loss, _learn_info = predictor.learn_from_error(
+                model, sense_module, carry, tokens, audio_raw, vision_raw, q_data, lk
             )
+
+            # EMA codebook update (outside gradient)
+            sense_module = eqx.tree_at(
+                lambda m: m.audio_codebook,
+                sense_module,
+                sense_module.audio_codebook.ema_update(
+                    _learn_info["audio_z_e"], _learn_info["audio_indices"],
+                    decay=cfg.codebook_ema_decay))
+            sense_module = eqx.tree_at(
+                lambda m: m.vision_codebook,
+                sense_module,
+                sense_module.vision_codebook.ema_update(
+                    _learn_info["vision_z_e"], _learn_info["vision_indices"],
+                    decay=cfg.codebook_ema_decay))
+
+            # Dead code revival
+            if tick % cfg.dead_code_threshold == 0:
+                key, dk = jax.random.split(key)
+                audio_usage = jnp.array(sensory_stats.audio_usage_counts)
+                vision_usage = jnp.array(sensory_stats.vision_usage_counts)
+                sense_module = eqx.tree_at(
+                    lambda m: m.audio_codebook,
+                    sense_module,
+                    sense_module.audio_codebook.revive_dead_codes(
+                        audio_usage, _learn_info["audio_z_e"], cfg.dead_code_threshold, dk))
+                key, dk2 = jax.random.split(key)
+                sense_module = eqx.tree_at(
+                    lambda m: m.vision_codebook,
+                    sense_module,
+                    sense_module.vision_codebook.revive_dead_codes(
+                        vision_usage, _learn_info["vision_z_e"], cfg.dead_code_threshold, dk2))
             pred_error = pred_loss
         except Exception as e:
             log.warning(f"Body learning failed: {e}")
@@ -268,10 +284,12 @@ def main() -> None:
         episode = Episode(
             query=current_query,
             order_param=r_mean,
-            mode=emotion,  # emotion IS the mode now
+            mode=emotion,
             finding=finding,
             query_embed=query_embed,
             free_energy_delta=fe_delta,
+            audio_codes=list(int(x) for x in sense_info["audio_indices"]),
+            vision_codes=list(int(x) for x in sense_info["vision_indices"]),
         )
         memory.add(episode)
 
@@ -322,7 +340,8 @@ def main() -> None:
             from halo3.training.bootstrap import save_checkpoint as _save_ckpt
             _save_ckpt(model, "data/checkpoints/pre_dream")
             _save_ckpt(model, "data/checkpoints/halo3")  # safety copy
-            save_sense_proj(sense_proj, "data/checkpoints/sense_proj")
+            save_sense_module(sense_module, "data/checkpoints/sense_module")
+            sensory_stats.save("data/sensory_stats.json")
             memory.flush()  # ensure episodes visible to subprocess
 
             # Save carry and predictor state for warm-start after dream
@@ -417,6 +436,13 @@ def main() -> None:
             log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
             log.info(f"  ☽ Prediction accuracy: {predictor.recent_prediction_accuracy:.4f}")
 
+            # End critical period after first dream
+            if not _first_dream_done and sense_module.has_decoders:
+                sense_module = delete_decoders(sense_module)
+                _first_dream_done = True
+                log.info("  ☽ Critical period ended -- sensory cortex matured")
+                import gc; gc.collect()
+
         # 9. SLEEP (the body rests between ticks)
         elapsed = time.time() - tick_start
         sleep_time = max(0.0, tick_interval - elapsed)
@@ -425,6 +451,8 @@ def main() -> None:
         time.sleep(sleep_time)
 
     # --- Shutdown ---
+    save_sense_module(sense_module, "data/checkpoints/sense_module")
+    sensory_stats.save("data/sensory_stats.json")
     memory.flush()
     organism.self_model.save()
     log.info(f"Organism resting after {tick} ticks.")
