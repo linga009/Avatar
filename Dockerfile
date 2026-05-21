@@ -26,11 +26,8 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 RUN pip3 install --no-cache-dir --break-system-packages \
     transformers peft
 
-# --- Senses deps (new layers — everything above stays cached) ---
-RUN apt-get update -qq && \
-    apt-get install -y -qq --no-install-recommends libsndfile1 && \
-    rm -rf /var/lib/apt/lists/*
-RUN pip3 install --no-cache-dir --break-system-packages soundfile Pillow
+# --- Senses deps (v3.7: FNO runs on JAX/GPU, only need Pillow for image loading) ---
+RUN pip3 install --no-cache-dir --break-system-packages Pillow
 
 COPY halo3/ /app/halo3/
 COPY train_halo3.py /app/train_halo3.py
