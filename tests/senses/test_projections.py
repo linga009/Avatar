@@ -10,14 +10,14 @@ def make_proj(key=None):
     from halo3.senses.projections import SenseProjections
     if key is None:
         key = jax.random.PRNGKey(0)
-    return SenseProjections(audio_dim=768, vision_dim=512, d_model=2048, key=key)
+    return SenseProjections(audio_dim=768, vision_dim=768, d_model=2048, key=key)
 
 
 def test_inject_shape():
     proj = make_proj()
     text = jnp.zeros((32, 2048))
     audio = jnp.zeros((8, 768))
-    vision = jnp.zeros((512,))
+    vision = jnp.zeros((768,))
     out = proj.inject(text, audio, vision)
     assert out.shape == (32, 2048), f"Expected (32, 2048), got {out.shape}"
 
@@ -27,7 +27,7 @@ def test_inject_zero_input_produces_zero_residual():
     proj = make_proj()
     text = jnp.ones((32, 2048))
     audio = jnp.zeros((8, 768))
-    vision = jnp.zeros((512,))
+    vision = jnp.zeros((768,))
     out = proj.inject(text, audio, vision)
     # Residual should be zero: sense_context = 0 -> gate * 0 = 0
     np.testing.assert_allclose(np.array(out), np.ones((32, 2048)), atol=1e-5)
@@ -38,7 +38,7 @@ def test_inject_finite():
     proj = make_proj(key)
     text = jax.random.normal(key, (32, 2048))
     audio = jax.random.normal(key, (8, 768))
-    vision = jax.random.normal(key, (512,))
+    vision = jax.random.normal(key, (768,))
     out = proj.inject(text, audio, vision)
     assert bool(jnp.all(jnp.isfinite(out)))
 

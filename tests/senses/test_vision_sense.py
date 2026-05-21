@@ -7,7 +7,7 @@ from PIL import Image
 
 def make_mock_clip_model():
     class FakeOutput:
-        pooler_output = np.zeros((1, 512), dtype=np.float32)
+        pooler_output = np.zeros((1, 768), dtype=np.float32)
     model = MagicMock()
     model.return_value = FakeOutput()
     return model
@@ -33,7 +33,7 @@ def test_vision_sense_shape(mock_model, mock_proc):
     img = Image.fromarray(np.zeros((224, 224, 3), dtype=np.uint8))
     result = sense._encode(img)
 
-    assert result.shape == (512,), f"Expected (512,), got {result.shape}"
+    assert result.shape == (768,), f"Expected (768,), got {result.shape}"
     assert result.dtype == np.float32
 
 

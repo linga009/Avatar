@@ -16,4 +16,4 @@ class Episode:
     query_embed: np.ndarray | None = None  # (384,) for FAISS
     free_energy_delta: float = 0.0
     audio_features: np.ndarray | None = None   # (8, 768) pre-projection
-    vision_features: np.ndarray | None = None  # (512,) pre-projection
+    vision_features: np.ndarray | None = None  # (768,) pre-projection

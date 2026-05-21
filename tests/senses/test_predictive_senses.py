@@ -28,13 +28,13 @@ def test_learn_from_error_returns_updated_sense_proj():
     model = Halo3Model(cfg, key)
     carry = model.init_carry(key)
     sense_proj = SenseProjections(
-        audio_dim=768, vision_dim=512, d_model=cfg.d_model, key=key)
+        audio_dim=768, vision_dim=768, d_model=cfg.d_model, key=key)
 
     predictor = PredictiveProcessor(lr=1e-5)
 
     text_tokens = jnp.zeros((cfg.n_tokens, cfg.d_model))
     audio_jax = jnp.zeros((8, 768))
-    vision_jax = jnp.zeros((512,))
+    vision_jax = jnp.zeros((768,))
     q_actual = jnp.zeros((cfg.n_tokens, cfg.d_boundary))
 
     new_model, new_sense_proj, loss = predictor.learn_from_error(
@@ -55,12 +55,12 @@ def test_learn_from_error_loss_is_finite():
     model = Halo3Model(cfg, key)
     carry = model.init_carry(key)
     sense_proj = SenseProjections(
-        audio_dim=768, vision_dim=512, d_model=cfg.d_model, key=key)
+        audio_dim=768, vision_dim=768, d_model=cfg.d_model, key=key)
 
     predictor = PredictiveProcessor(lr=1e-5)
     text_tokens = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
     audio_jax = jnp.zeros((8, 768))
-    vision_jax = jnp.zeros((512,))
+    vision_jax = jnp.zeros((768,))
     q_actual = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
 
     _, _, loss = predictor.learn_from_error(

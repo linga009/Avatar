@@ -122,10 +122,10 @@ def main() -> None:
     vision_sense = VisionSense(cache_dir="data/model_cache")
     sense_buffer = SenseBuffer(data_dir="data", stale_threshold_secs=30.0)
     sense_proj = load_sense_proj(
-        audio_dim=768, vision_dim=512, d_model=cfg.d_model,
+        audio_dim=768, vision_dim=768, d_model=cfg.d_model,
         path="data/checkpoints/sense_proj")
     _sense_zero_audio = jnp.zeros((8, 768))
-    _sense_zero_vision = jnp.zeros((512,))
+    _sense_zero_vision = jnp.zeros((768,))
     log.info(f"Senses: hearing={'ON' if audio_sense.available else 'OFF'}, "
              f"vision={'ON' if vision_sense.available else 'OFF'}")
 

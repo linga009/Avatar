@@ -1,7 +1,7 @@
 """VisionSense — CLIP ViT-B/32 encoder for always-on vision.
 
 Loads once at startup on CPU (~350 MB RAM).
-Encodes a PIL Image -> (512,) numpy float32 CLS embedding.
+Encodes a PIL Image -> (768,) numpy float32 CLS embedding.
 """
 from __future__ import annotations
 import logging
