@@ -107,6 +107,8 @@ def main() -> None:
     from halo3.senses.sense_buffer import SenseBuffer
     from halo3.senses.sense_module import SenseModule, load_sense_module, save_sense_module, delete_decoders
     from halo3.senses.sensory_stats import SensoryStatistics
+    from halo3.senses.tts_narration import TTSNarrator, extract_narration_text
+    from halo3.senses.contrastive_aligner import ContrastiveAligner
 
     perception = PerceptionPipeline(cfg.d_model, cfg.n_tokens)
     memory = EpisodeStore()
@@ -128,6 +130,13 @@ def main() -> None:
     _sense_zero_vision = jnp.zeros((224, 224, 3))
     _first_dream_done = not sense_module.has_decoders
     log.info(f"Senses: FNO spectral cortex ({'critical period' if sense_module.has_decoders else 'mature'})")
+
+    # --- TTS self-narration + contrastive alignment (v3.8) ---
+    tts = TTSNarrator(mode=cfg.tts_mode, sample_rate=16000, duration_samples=32000)
+    contrastive_aligner = ContrastiveAligner(
+        embed_dim=cfg.d_model, buffer_size=16, tau=cfg.contrastive_tau)
+    log.info(f"TTS: {cfg.tts_mode} ({'ON' if tts.available else 'OFF'}) | "
+             f"Contrastive: tau={cfg.contrastive_tau}, weight={cfg.contrastive_weight}")
 
     log.info(f"Organism awakening. {organism.self_model.identity_statement}")
     log.info(f"Watching: {seed_topics}")
@@ -179,6 +188,19 @@ def main() -> None:
         if raw_data.vision_np is not None:
             sense_label = sense_label.replace("[ ]", "[V]", 1)
 
+        # TTS self-narration mixing (v3.8)
+        import numpy as _np
+        text_paired = False
+        if tts.available and not contrastive_aligner.matured:
+            use_tts = (raw_data.audio_np is None) or (tick % cfg.tts_every_n == 0)
+            if use_tts and texts:
+                narration_text = extract_narration_text(texts, max_words=20)
+                tts_audio = tts.narrate(narration_text)
+                if tts_audio is not None and _np.any(tts_audio != 0):
+                    audio_raw = jnp.array(tts_audio)
+                    text_paired = True
+                    sense_label = sense_label[:3] + "[T]"
+
         # Inject sense signal into text tokens (shape stays (n_tokens, d_model))
         tokens, sense_info = sense_module.process_and_inject(tokens, audio_raw, vision_raw)
 
@@ -198,7 +220,10 @@ def main() -> None:
         key, lk = jax.random.split(key)
         try:
             model, sense_module, pred_loss, _learn_info = predictor.learn_from_error(
-                model, sense_module, carry, tokens, audio_raw, vision_raw, q_data, lk
+                model, sense_module, carry, tokens, audio_raw, vision_raw, q_data, lk,
+                contrastive_aligner=contrastive_aligner,
+                text_paired=text_paired,
+                contrastive_weight=cfg.contrastive_weight,
             )
 
             # EMA codebook update (outside gradient)
@@ -231,6 +256,18 @@ def main() -> None:
                     sense_module,
                     sense_module.vision_codebook.revive_dead_codes(
                         vision_usage, _learn_info["vision_z_e"], cfg.dead_code_threshold, dk2))
+
+            # Contrastive: push text embedding and track indices
+            if text_paired:
+                text_emb_mean = jnp.mean(tokens, axis=0)
+                contrastive_aligner.push_text_emb(text_emb_mean)
+            contrastive_aligner.push_indices(_learn_info["audio_indices"])
+
+            # Register speech codes from TTS ticks
+            if text_paired:
+                new_codes = sensory_stats._speech_codes | set(int(x) for x in _learn_info["audio_indices"])
+                sensory_stats.register_speech_codes(new_codes)
+
             pred_error = pred_loss
         except Exception as e:
             log.warning(f"Body learning failed: {e}")
@@ -443,6 +480,11 @@ def main() -> None:
                 _first_dream_done = True
                 log.info("  ☽ Critical period ended -- sensory cortex matured")
                 import gc; gc.collect()
+
+            # Check contrastive maturation after dream (Phase B -> Phase C)
+            if not contrastive_aligner.matured:
+                contrastive_aligner.check_maturation(
+                    cfg.codebook_size_audio, cfg.contrastive_maturation_threshold)
 
         # 9. SLEEP (the body rests between ticks)
         elapsed = time.time() - tick_start
