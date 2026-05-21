@@ -39,6 +39,15 @@ class SensoryStatistics:
         self._audio_history: list[np.ndarray] = []
         self._vision_history: list[np.ndarray] = []
 
+        # Speech detection (v3.8)
+        self._speech_codes: set[int] = set()
+        self.speech_detected: bool = False
+        self.speech_stability: int = 0
+
+    def register_speech_codes(self, codes: set[int]) -> None:
+        """Register codebook indices that correspond to speech patterns."""
+        self._speech_codes = codes
+
     def update(self, audio_indices, vision_indices) -> None:
         audio_np = np.array(audio_indices, dtype=np.int32)
         vision_np = np.array(vision_indices, dtype=np.int32)
@@ -61,6 +70,17 @@ class SensoryStatistics:
             self.vision_stability += 1
         else:
             self.vision_stability = 0
+        # Speech detection: >50% of active audio codes are in speech set
+        if self._speech_codes and self._cur_audio is not None:
+            speech_count = sum(1 for c in audio_np if int(c) in self._speech_codes)
+            was_speech = self.speech_detected
+            self.speech_detected = speech_count > len(audio_np) * 0.5
+            if self.speech_detected and was_speech:
+                self.speech_stability += 1
+            elif not self.speech_detected:
+                self.speech_stability = 0
+        else:
+            self.speech_detected = False
         for idx in audio_np:
             self._audio_usage[idx] += 1
         for idx in vision_np:
@@ -122,9 +142,13 @@ class SensoryStatistics:
 
     def format_for_pfc(self) -> str:
         binding_label = "familiar" if self.cross_modal_binding > 0.5 else "novel"
+        speech_str = ""
+        if self._speech_codes:
+            speech_str = f", speech={'yes' if self.speech_detected else 'no'}, speaking_for={self.speech_stability}"
         return (
             f"Senses: audio(flux={self.audio_flux}/{self._audio_tokens}, "
-            f"novelty={self.audio_novelty:.2f}, stable={self.audio_stability}), "
+            f"novelty={self.audio_novelty:.2f}, stable={self.audio_stability}"
+            f"{speech_str}), "
             f"vision(flux={self.vision_flux}/{self._vision_tokens}, "
             f"novelty={self.vision_novelty:.2f}, stable={self.vision_stability}), "
             f"binding={binding_label}({self.cross_modal_binding:.2f})"
@@ -140,6 +164,7 @@ class SensoryStatistics:
             "total_cooccurrences": self._total_cooccurrences,
             "audio_stability": self.audio_stability,
             "vision_stability": self.vision_stability,
+            "speech_codes": list(self._speech_codes),
         }
         with open(path, "w") as f:
             json.dump(data, f)
@@ -160,6 +185,7 @@ class SensoryStatistics:
             self._total_cooccurrences = data.get("total_cooccurrences", 0)
             self.audio_stability = data.get("audio_stability", 0)
             self.vision_stability = data.get("vision_stability", 0)
+            self._speech_codes = set(data.get("speech_codes", []))
             log.info(f"SensoryStatistics loaded from {path}")
         except Exception as e:
             log.warning(f"Failed to load sensory stats: {e}")

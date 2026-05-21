@@ -61,6 +61,24 @@ def test_format_for_pfc():
     assert "binding" in line
 
 
+def test_speech_detection():
+    from halo3.senses.sensory_stats import SensoryStatistics
+    stats = SensoryStatistics(audio_tokens=16, vision_tokens=4, codebook_size=128)
+    stats.register_speech_codes({0, 1, 2, 3, 4, 5, 6, 7})
+    stats.update(jnp.array([0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7]),
+                 jnp.array([0, 1, 2, 3]))
+    assert stats.speech_detected is True
+
+
+def test_speech_not_detected_with_non_speech_codes():
+    from halo3.senses.sensory_stats import SensoryStatistics
+    stats = SensoryStatistics(audio_tokens=16, vision_tokens=4, codebook_size=128)
+    stats.register_speech_codes({0, 1, 2, 3})
+    stats.update(jnp.array([50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65]),
+                 jnp.array([0, 1, 2, 3]))
+    assert stats.speech_detected is False
+
+
 def test_save_load_roundtrip(tmp_path):
     from halo3.senses.sensory_stats import SensoryStatistics
     stats = SensoryStatistics(audio_tokens=8, vision_tokens=4, codebook_size=32)
