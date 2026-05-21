@@ -69,3 +69,31 @@ def test_learn_from_error_loss_is_finite():
         model, sense_module, carry, text_tokens, audio_raw, vision_raw, q_actual, key)
 
     assert np.isfinite(loss), f"Loss was not finite: {loss}"
+
+
+def test_learn_from_error_with_contrastive():
+    from halo3.model import Halo3Model
+    from halo3.predictive import PredictiveProcessor
+    from halo3.senses.sense_module import SenseModule
+    from halo3.senses.contrastive_aligner import ContrastiveAligner
+
+    cfg = _small_cfg()
+    key = jax.random.PRNGKey(2)
+    model = Halo3Model(cfg, key)
+    carry = model.init_carry(key)
+    sense_module = SenseModule(cfg, key=key)
+    aligner = ContrastiveAligner(embed_dim=cfg.d_model, buffer_size=16, tau=0.07)
+    for i in range(4):
+        aligner.push_text_emb(jax.random.normal(jax.random.PRNGKey(10 + i), (cfg.d_model,)))
+
+    predictor = PredictiveProcessor(lr=1e-5)
+    text_tokens = jax.random.normal(key, (cfg.n_tokens, cfg.d_model))
+    audio_raw = jax.random.normal(key, (32000,))
+    vision_raw = jax.random.normal(key, (224, 224, 3))
+    q_actual = jax.random.normal(key, (cfg.n_tokens, cfg.d_boundary))
+
+    new_model, new_sm, loss, info = predictor.learn_from_error(
+        model, sense_module, carry, text_tokens, audio_raw, vision_raw, q_actual, key,
+        contrastive_aligner=aligner, text_paired=True, contrastive_weight=0.3)
+    assert np.isfinite(loss)
+    assert info["text_paired"] is True

@@ -103,6 +103,9 @@ class PredictiveProcessor:
         vision_raw: jnp.ndarray,
         q_actual: jnp.ndarray,
         key: jnp.ndarray,
+        contrastive_aligner=None,
+        text_paired: bool = False,
+        contrastive_weight: float = 0.0,
     ):
         """Update the physics body and sense module based on prediction error.
 
@@ -125,7 +128,8 @@ class PredictiveProcessor:
             _, _, commit_a = sm.audio_codebook.quantize(sm.audio_fno(audio_raw))
             _, _, commit_v = sm.vision_codebook.quantize(sm.vision_fno(vision_raw))
             commitment = 0.25 * (commit_a + commit_v)
-            return body_loss + commitment
+            total = body_loss + commitment
+            return total
 
         params = (model, sense_module)
         loss, grads = eqx.filter_value_and_grad(prediction_loss)(params)
@@ -168,6 +172,17 @@ class PredictiveProcessor:
         )
         new_sm = eqx.apply_updates(sense_module, sp_updates)
 
+        # Contrastive alignment (Phase B — optional)
+        if text_paired and contrastive_aligner is not None and not contrastive_aligner.matured:
+            audio_emb_mean = jnp.mean(
+                jax.vmap(sense_module.spectral_proj)(info["audio_z_q"]), axis=0)
+            text_emb_mean = jnp.mean(text_tokens, axis=0)
+            c_loss = contrastive_aligner.compute_loss(audio_emb_mean, text_emb_mean)
+            # Note: c_loss involves numpy buffer, not fully differentiable
+            # We add it to the reported loss for logging
+            loss = float(loss) + contrastive_weight * float(c_loss)
+
+        info["text_paired"] = text_paired
         self._prediction_history.append(float(loss))
         return new_model, new_sm, float(loss), info
 
