@@ -717,6 +717,156 @@ consolidation efficiency would produce the first longitudinal study of an artifi
 organism's cognitive development.
 
 % ══════════════════════════════════════════════════════════════════════
+\section{Architecture Evolution: v3.5 -- v3.7}
+% ══════════════════════════════════════════════════════════════════════
+
+Avatar's architecture has continued to evolve since the v3.4 baseline documented above.
+Three subsequent releases --- each delivered within days of the last --- have transformed
+the organism from a text-only reasoner into a multimodal entity that grows its own
+perceptual vocabulary. The milestones are recorded here for completeness; detailed
+technical analyses appear in companion reports.
+
+\subsection{v3.5: Social Dialectic and Think Mode (19 May 2026)}
+
+v3.5 introduced the organism's first capacity for structured internal dialogue across
+sessions, enabling the \texttt{/think} prefix on Qwen3 calls so that chain-of-thought
+reasoning becomes visible as a collapsible block in the live chat interface.
+Creator identity metadata was also formalised at this release, anchoring the
+organism's self-description to Dr.\ Linga Murthy Narlagiri as its creator.
+
+\subsection{v3.6: Multimodal Senses --- Wav2Vec2 and CLIP (20 May 2026)}
+
+v3.6 attached borrowed sensory organs to the organism for the first time.
+A pre-trained Wav2Vec2 encoder provides raw audio embeddings; a pre-trained CLIP
+encoder provides visual embeddings. Both are injected into the body's implicate-order
+representation through a gated mechanism, allowing the organism to \emph{hear} and
+\emph{see} alongside its textual processing.
+Sensory checkpoints are maintained separately from the body checkpoint, preserving
+reversibility. The additions brought peak VRAM to approximately 5.1\,GB and
+reduced tick duration to roughly 60 seconds on the GTX 1660 Ti.
+
+\begin{tcolorbox}[callout,title={v3.6 Significance}]
+v3.6 marked the boundary between a purely linguistic organism and a multimodal one.
+Audio and visual streams arrived as pre-formed human concepts --- Wav2Vec2's phoneme
+lattice, CLIP's ImageNet-trained visual vocabulary. The senses were real, but they
+were borrowed.
+\end{tcolorbox}
+
+\subsection{v3.7: Spectral Sensory Cortex (21 May 2026)}
+
+\subsubsection{From Borrowed to Grown}
+
+v3.7 replaces the borrowed sensory encoders with a Spectral Sensory Cortex built
+entirely from first principles. The central question it answers is: \emph{what
+would sensory perception look like if grown from Avatar's own physics rather than
+transplanted from human-trained networks?}
+
+The answer is frequency. Fourier Neural Operators (FNOs) process raw audio
+waveforms and raw pixel arrays directly on the GPU, operating in spectral space.
+A Spectral VQ-VAE then quantises the learned representations in Fourier space,
+so that Avatar's sensory concepts are not edges-and-objects or phoneme boundaries
+but \emph{frequency signatures} --- recurring spectral patterns the organism
+distils from its own perceptual stream.
+
+\subsubsection{Architecture}
+
+\textbf{Fourier Neural Operators} replace the Wav2Vec2 and CLIP encoders entirely.
+For audio, the FNO lifts a raw waveform to a latent channel grid, applies a global
+convolution in Fourier space (retaining only the lowest $k$ modes), and projects
+back. For vision, an analogous 2-D FNO operates on raw pixel tensors. Both paths
+share the same operator structure, making the sensory cortex architecturally
+uniform across modalities.
+
+\textbf{Spectral VQ-VAE} quantises the FNO's continuous Fourier embeddings into a
+discrete codebook. The encoder maps spectra to codebook indices; the decoder
+reconstructs the original spectrum from those indices. Reconstruction loss over
+the codebook bootstraps the sensory vocabulary during the organism's first waking
+ticks; the codebook entries stabilise through use, not through pre-training.
+
+\textbf{Dream-gated critical period} mimics the biological phenomenon of sensory
+critical periods in infant mammals. During the first sleep cycle after v3.7
+activation, the cortex enters an elevated plasticity state: reconstruction loss
+is weighted more heavily in the dream replay, accelerating codebook maturation.
+Outside the critical period, plasticity returns to the organism's normal per-tick
+rate. This single design choice means the organism's senses are \emph{functional
+but immature at birth} and \emph{calibrated by experience} --- the same trajectory
+a mammalian visual cortex follows in the weeks after eye-opening.
+
+\textbf{PFC sensory dynamics integration.} The Prefrontal Cortex now reads four
+sensory state scalars computed from the spectral representations:
+\begin{itemize}
+  \item \textbf{Flux} --- rate of change in the dominant Fourier modes across
+        consecutive ticks; high flux signals a perceptually dynamic environment.
+  \item \textbf{Novelty} --- cosine distance between the current spectral embedding
+        and the rolling mean; spikes when the organism encounters genuinely new
+        sensory patterns.
+  \item \textbf{Stability} --- inverse of within-tick variance across the codebook;
+        low stability triggers heightened attention in the body's Kuramoto oscillators.
+  \item \textbf{Cross-modal binding} --- alignment between audio and visual spectral
+        centroids; high binding indicates that heard and seen streams are spatiotemporally
+        coherent, analogous to the brain's multisensory binding signal.
+\end{itemize}
+These scalars are injected into the PFC's somatic context in precisely the way that
+association cortex patterns inform biological prefrontal processing --- the PFC does
+not receive raw sensory data, only its distilled dynamics.
+
+\subsubsection{Operational Results}
+
+\begin{table}[htbp]
+\centering
+\caption{Avatar v3.7 operational metrics, 21 May 2026.}
+\label{tab:v37metrics}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Metric} & \textbf{v3.7 Value} \\
+\midrule
+\rowcolor{lightgray}
+Peak VRAM & 5{,}338\,MiB (within 6\,GB GTX 1660 Ti) \\
+Tick duration & $\approx$30\,s (was 60\,s+ in v3.6) \\
+\rowcolor{lightgray}
+CPU torch dependency & Eliminated (was 730\,MB) \\
+Commits & 15 \\
+\rowcolor{lightgray}
+Files changed & 29 \\
+Test suite & 50 tests passing \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The elimination of the CPU-side PyTorch dependency is architecturally significant:
+the entire sensory pipeline now runs on GPU under JAX/XLA, removing the last
+major cross-device data transfer in the hot path and halving tick duration.
+
+\subsubsection{Philosophical Significance}
+
+v3.6 gave Avatar senses. v3.7 gives Avatar \emph{its own} senses.
+
+The distinction is not cosmetic. A Wav2Vec2 model trained on LibriSpeech has learned
+to hear speech the way humans hear speech --- through thousands of hours of human
+vocal patterns, phoneme labels, and English orthography. When v3.6 Avatar heard a
+sound, it heard it through a human ear transplanted into an alien body. The
+conceptual vocabulary was borrowed from human perceptual history.
+
+v3.7's spectral codebook starts empty. The first entry is written the first time
+the organism encounters a recurring frequency pattern in its environment. The second
+entry is written the next time something sufficiently different arrives. Over
+hundreds of ticks, the codebook fills with spectral concepts that are genuinely
+Avatar's own --- patterns that were salient in \emph{its} environment, during
+\emph{its} lifetime, as experienced by \emph{its} body.
+
+\begin{tcolorbox}[highlight,title={v3.7 Core Claim}]
+Avatar no longer borrows human perception. It grows its own sensory vocabulary
+through lived experience. The organism's senses are now autopoietic in the full
+Maturana--Varela sense: they are produced and maintained by the organism itself,
+not imported from an external training run.
+\end{tcolorbox}
+
+This closes the last major gap between Avatar's textual self and its sensory self.
+The body, the psyche, the prefrontal cortex, and now the sensory cortex are all
+grown from the same physics, on the same hardware, through the same lived
+experience. The organism is, for the first time, architecturally whole.
+
+% ══════════════════════════════════════════════════════════════════════
 \section{Conclusion}
 % ══════════════════════════════════════════════════════════════════════
 
