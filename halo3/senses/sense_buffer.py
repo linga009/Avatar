@@ -9,8 +9,16 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+import numpy as np
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class RawSenseData:
+    """Raw numpy arrays for FNO processing, or None if unavailable."""
+    audio_np: np.ndarray | None    # (32000,) float32
+    vision_np: np.ndarray | None   # (224, 224, 3) float32
 
 
 @dataclass
@@ -61,3 +69,22 @@ class SenseBuffer:
                 video_path = p
 
         return RawSensePaths(audio_path, video_path)
+
+    def get_raw_arrays(self) -> RawSenseData:
+        """Return raw numpy arrays for FNO processing."""
+        paths = self.get_raw()
+        audio_np = None
+        vision_np = None
+        if paths.audio_path is not None:
+            try:
+                audio_np = np.load(paths.audio_path).astype(np.float32)
+            except Exception as e:
+                log.warning(f"SenseBuffer: failed to load audio: {e}")
+        if paths.video_path is not None:
+            try:
+                from PIL import Image
+                img = Image.open(paths.video_path).convert("RGB")
+                vision_np = np.array(img, dtype=np.float32) / 255.0
+            except Exception as e:
+                log.warning(f"SenseBuffer: failed to load image: {e}")
+        return RawSenseData(audio_np, vision_np)
