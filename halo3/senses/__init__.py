@@ -1,1 +1,1 @@
-"""Avatar senses — hearing and vision perception modules."""
+"""Avatar senses — spectral perception via Fourier Neural Operators."""
