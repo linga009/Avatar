@@ -21,7 +21,7 @@ MOTION_THRESHOLD = 30     # pixel diff threshold for motion capture
 
 def _write_meta(has_audio: bool, has_video: bool) -> None:
     meta = {"has_audio": has_audio, "has_video": has_video, "timestamp": time.time()}
-    tmp = os.path.join(SENSES_DIR, "meta.json.tmp")
+    tmp = os.path.join(SENSES_DIR, "meta_tmp.json")
     final = os.path.join(SENSES_DIR, "meta.json")
     with open(tmp, "w") as f:
         json.dump(meta, f)
@@ -49,8 +49,9 @@ def audio_loop(stop_event: threading.Event) -> None:
             )
             sd.wait()
             audio_mono = chunk[:, 0]  # (32000,)
-            np.save(audio_path + ".tmp", audio_mono)
-            os.replace(audio_path + ".tmp", audio_path)
+            tmp_path = audio_path.replace(".npy", "_tmp")
+            np.save(tmp_path, audio_mono)  # np.save appends .npy automatically
+            os.replace(tmp_path + ".npy", audio_path)
         except Exception as e:
             print(f"Audio capture error: {e}")
             time.sleep(2)
@@ -93,7 +94,7 @@ def vision_loop(stop_event: threading.Event) -> None:
             resized = cv2.resize(frame, (224, 224))
             # Convert BGR -> RGB then back for imwrite
             rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-            tmp = frame_path + ".tmp"
+            tmp = frame_path.replace(".jpg", "_tmp.jpg")
             cv2.imwrite(tmp, cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
             os.replace(tmp, frame_path)
             last_capture = now

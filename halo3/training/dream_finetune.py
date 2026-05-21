@@ -63,7 +63,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling curiosity, synchronization 0.50\n"
+                f"\nState: feeling curiosity, resonance 0.50\n"
                 f"Current topic: {strengths[0]}\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 "\nSearch query:"
@@ -76,7 +76,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling boredom, synchronization 0.20\n"
+                f"\nState: feeling boredom, resonance 0.20\n"
                 f"Current topic: {strengths[0]}\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 "\nSearch query:"
@@ -88,7 +88,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling anxiety, synchronization 0.15\n"
+                f"\nState: feeling anxiety, resonance 0.15\n"
                 f"Current topic: unknown complex topic\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 "\nSearch query:"
@@ -100,7 +100,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling pride, synchronization 0.65\n"
+                f"\nState: feeling pride, resonance 0.65\n"
                 f"Current topic: {strengths[0]}\n"
                 f"Recent findings: exciting new results in the field\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
@@ -113,7 +113,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling frustration, synchronization 0.30\n"
+                f"\nState: feeling frustration, resonance 0.30\n"
                 f"Current topic: amentoflavone ginkg 5281600\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 f"\nWARNING: The last 5 searches returned ZERO results. "
@@ -128,7 +128,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling frustration, synchronization 0.25\n"
+                f"\nState: feeling frustration, resonance 0.25\n"
                 f"Current topic: __________\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 f"\nWARNING: The last 7 searches returned ZERO results. "
@@ -145,7 +145,7 @@ def _format_training_data(
             examples.append({
                 "instruction": (
                     "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                    f"\nState: feeling curiosity, synchronization 0.40\n"
+                    f"\nState: feeling curiosity, resonance 0.40\n"
                     f"Current topic: {dq}\n"
                     f"Interests: {', '.join(strengths[:3]) if strengths else 'general research'}\n"
                     f"\nAvoid these dead-end topics: {', '.join(dead_queries[:3])}\n"
@@ -204,7 +204,7 @@ def _format_training_data(
             examples.append({
                 "instruction": (
                     "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                    f"\nState: feeling curiosity, synchronization 0.55\n"
+                    f"\nState: feeling curiosity, resonance 0.55\n"
                     f"Current topic: {topic}\n"
                     f"Interests: {topic}, {', '.join(strengths[:2]) if strengths else 'research'}\n"
                     "\nSearch query:"
@@ -214,7 +214,7 @@ def _format_training_data(
             examples.append({
                 "instruction": (
                     "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                    f"\nState: feeling pride, synchronization 0.68\n"
+                    f"\nState: feeling pride, resonance 0.68\n"
                     f"Current topic: {topic}\n"
                     f"Recent findings: strong pattern detected\n"
                     f"Interests: {topic}, {', '.join(strengths[:2]) if strengths else 'research'}\n"
@@ -360,7 +360,7 @@ def _validate_adapter(model, tokenizer) -> bool:
     import torch
 
     test_prompts = [
-        "### Instruction:\nOutput ONLY a web search query of 5-8 words.\n\nState: feeling curiosity, synchronization 0.45\nCurrent topic: artificial intelligence\nInterests: AI, machine learning, neural networks\n\nSearch query:\n\n### Response:\n",
+        "### Instruction:\nOutput ONLY a web search query of 5-8 words.\n\nState: feeling curiosity, resonance 0.45\nCurrent topic: artificial intelligence\nInterests: AI, machine learning, neural networks\n\nSearch query:\n\n### Response:\n",
         "### Instruction:\nWho are you?\n\n### Response:\n",
     ]
 

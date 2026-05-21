@@ -469,7 +469,7 @@ class PrefrontalCortex:
 
         prompt_parts = [
             f"{instr}",
-            f"\nState: feeling {emotion}, synchronization {r_mean:.2f}",
+            f"\nState: feeling {emotion}, resonance {r_mean:.2f}",
             f"Current topic: {current_query}",
         ]
         if context:

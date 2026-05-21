@@ -171,6 +171,18 @@ class VolatilitySurface:
             satiation_discount = 1.0 - min(1.0, (S - K) / 0.3)
             return bs_value * satiation_discount + time_value
 
+        # Exploration exhaustion: many observations but r stuck in narrow band
+        # means high sigma is noise, not discovery potential — apply decay
+        n_obs = len(self._history.get(topic, []))
+        if n_obs > 20:
+            hist = self._history.get(topic, [])
+            r_values = [r for r, _ in hist[-self._window:]]
+            r_range = max(r_values) - min(r_values) if len(r_values) > 1 else 0.0
+            if r_range < 0.15:
+                # Value halves every 20 observations beyond the first 20
+                exhaustion = 0.5 ** ((n_obs - 20) / 20.0)
+                bs_value *= exhaustion
+
         return bs_value
 
     def rank_topics(self, candidates: list[str]) -> list[tuple[str, float]]:

@@ -28,6 +28,20 @@ from halo3.psyche.meditation import MeditationState
 
 log = logging.getLogger(__name__)
 
+# Stop words excluded from canonical topic keys — semantically empty in search context
+_TOPIC_STOP_WORDS = frozenset([
+    "search", "find", "what", "best", "latest", "recent", "about",
+    "with", "that", "this", "from", "your", "more", "than", "into",
+    "also", "some", "only", "most", "make", "will", "when", "were",
+    "they", "then", "these", "time", "other", "look", "each", "like",
+    "know", "data", "show", "help", "take", "uses", "work", "list",
+    "next", "year", "ways", "type", "form", "news", "tool", "site",
+    "page", "just", "does", "used", "info", "tips", "free", "using",
+    "based", "guide", "review", "2026", "2025", "2024", "2023",
+    "current", "state", "research", "study", "results", "analysis",
+    "query", "topic", "terms", "please", "answer", "provide", "given",
+])
+
 
 class Organism:
     """The living psyche that inhabits the HoloBiont physics body."""
@@ -177,6 +191,22 @@ class Organism:
         # 4. Update self-model
         self.self_model.update(topic_key, r_mean, emotion, finding)
 
+        # 4a. Auto-saturation: topics visited many times without r progress
+        # are stuck — mark dead so PFC/BS avoid them, then force escape.
+        # Only fires for FineWeb mode (where perception_failed is rarely True
+        # and dead_query tracking would never trigger otherwise).
+        _exp = self.self_model.experience.get(topic_key, 0)
+        _comp = self.self_model.competence.get(topic_key, 0.5)
+        if (_exp >= 50
+                and abs(_comp - 0.5) < 0.06
+                and topic_key not in self.self_model.dead_queries):
+            self.self_model.record_dead_query(topic_key)
+            log.info(
+                f"  ⊗ AUTO-SATURATED: '{topic_key}' "
+                f"(exp={_exp}, c={_comp:.3f}) — marking exhausted"
+            )
+            self._consecutive_zero_results = 3  # trigger frustration escape next tick
+
         # 5. Record whether PFC's last query worked
         self.prefrontal.record_query_result(had_results=not perception_failed)
 
@@ -311,9 +341,11 @@ class Organism:
 
         elif emotion == "pride":
             self._exploit_streak += 1
-            if texts:
-                refinement = " ".join(texts[0].split()[:4])
-                return current_query + " " + refinement
+            if self._exploit_streak > 3:
+                return self._next_seed_topic()
+            # Stay on topic — ParquetSource rotation delivers fresh documents
+            # without compounding the query with document text (which caused
+            # topic fragmentation: 50+ amentoflavone/wearable variants)
             return current_query
 
         elif emotion == "curiosity":
@@ -409,8 +441,22 @@ class Organism:
         return least_explored or self.seed_topics[0]
 
     def _extract_topic(self, query: str) -> str:
-        words = [w for w in query.lower().split() if len(w) > 3][:3]
-        return " ".join(words) if words else query[:30]
+        """Canonical topic key: alpha-only words, stop-word-filtered, sorted.
+
+        Order-independent and punctuation-free so all variants of the same
+        concept collapse to the same key:
+          "amentoflavone ginkg search," → "amentoflavone ginkg"
+          "search amentoflavone ginkg"  → "amentoflavone ginkg"
+          "ginkg amentoflavone 5281600" → "amentoflavone ginkg"
+        """
+        import re
+        words = re.findall(r'[a-z]{4,}', query.lower())  # alpha-only, no digits/punct
+        content = [w for w in words if w not in _TOPIC_STOP_WORDS]
+        if not content:
+            content = words  # fallback: any alpha words
+        # Longest words first (most specific), then sort for order-independence
+        content.sort(key=len, reverse=True)
+        return " ".join(sorted(content[:3])) if content else query[:30]
 
     def _higher_order_reflect(self, temporal: dict, self_surprise: float) -> str | None:
         """Higher-Order Thought: think ABOUT what I'm experiencing.

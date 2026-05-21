@@ -36,6 +36,7 @@ class ParquetSource:
         self._urls: list[str] = []
         self._cursor: int = 0
         self._index: dict[str, list[int]] = defaultdict(list)
+        self._query_offsets: dict[str, int] = {}  # per-topic cursor for rotation
 
         files = sorted(glob.glob(
             os.path.join(parquet_dir, "**/*.parquet"), recursive=True
@@ -81,7 +82,12 @@ class ParquetSource:
         log.info(f"ParquetSource: index ready ({len(self._index):,} unique words)")
 
     def search(self, query: str, n: int = 5) -> list[SearchResult]:
-        """Find rows matching query keywords. Falls back to sequential cursor."""
+        """Find rows matching query keywords. Falls back to sequential cursor.
+
+        Uses a rotating window over the full ranked match set so the same
+        query returns different documents on successive calls — Avatar sees
+        the entire matching corpus rather than the same top-5 forever.
+        """
         words = re.findall(rf"[a-z]{{{_MIN_WORD_LEN},}}", query.lower())
 
         if words:
@@ -90,8 +96,20 @@ class ParquetSource:
                 for idx in self._index.get(word, []):
                     scores[idx] += 1
             if scores:
-                top = sorted(scores, key=lambda i: scores[i], reverse=True)[:n]
-                return [self._make_result(i) for i in top]
+                # Rank ALL matches, not just top-n
+                all_ranked = sorted(scores, key=lambda i: scores[i], reverse=True)
+
+                if len(all_ranked) <= n:
+                    return [self._make_result(i) for i in all_ranked]
+
+                # Canonical key: sorted unique words so query variants share a cursor
+                q_key = " ".join(sorted(set(words[:8])))
+                offset = self._query_offsets.get(q_key, 0)
+                # Advance cursor by n each call so next call sees fresh documents
+                self._query_offsets[q_key] = (offset + n) % len(all_ranked)
+
+                indices = [all_ranked[(offset + j) % len(all_ranked)] for j in range(n)]
+                return [self._make_result(i) for i in indices]
 
         # Sequential cursor fallback
         log.debug(f"ParquetSource: no keyword match for '{query[:30]}' — sequential cursor")

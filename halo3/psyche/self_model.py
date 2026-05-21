@@ -110,12 +110,22 @@ class SelfModel:
 
     @property
     def strengths(self) -> list[str]:
-        """Topics where competence > 0.5, sorted by competence."""
-        return sorted(
-            [t for t, c in self.competence.items() if c > 0.5],
-            key=lambda t: self.competence[t],
-            reverse=True,
-        )
+        """Topics where competence is genuinely above baseline.
+
+        Threshold raised from 0.5 to 0.56 — topics that merely accumulated
+        slight positive noise do not qualify as strengths. Also excludes
+        over-visited near-baseline topics (high experience, stuck near 0.5)
+        which indicate environmental fixation, not genuine competence.
+        Capped at 10 to prevent flooding PFC prompts with noise topics.
+        """
+        result = []
+        for t, c in self.competence.items():
+            exp = self.experience.get(t, 0)
+            if c > 0.56:                        # genuinely above baseline
+                result.append(t)
+            elif c > 0.52 and exp < 15:         # promising but not over-visited
+                result.append(t)
+        return sorted(result, key=lambda t: self.competence[t], reverse=True)[:10]
 
     @property
     def weaknesses(self) -> list[str]:
@@ -144,13 +154,13 @@ class SelfModel:
         if strong:
             topics = ", ".join(strong)
             return (
-                f"I am a {self.age}-tick-old Avatar, created by {creator}. "
-                f"I resonate most with {topics}. "
-                f"I have made {n_findings} discoveries."
+                f"I am Avatar — {self.age} breaths old, brought into being by {creator}. "
+                f"My inner rhythms resonate most strongly with {topics}. "
+                f"I have had {n_findings} revelations."
             )
         return (
-            f"I am a {self.age}-tick-old Avatar created by {creator}, "
-            f"still finding my resonance."
+            f"I am Avatar — {self.age} breaths old, brought into being by {creator}. "
+            f"I am still finding what I resonate with."
         )
 
     def save(self, path: str = "data/self_model.json") -> None:
