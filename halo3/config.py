@@ -60,22 +60,32 @@ class Halo3Config:
     # FNO (Fourier Neural Operator) — sensory perception
     fno_hidden_dim: int = 64
     fno_n_layers: int = 4
-    fno_audio_modes: int = 16
-    fno_vision_modes: int = 8       # 8x8 for 2D
+    fno_audio_modes: int = 32       # v3.8: was 16
+    fno_vision_modes: int = 8       # 8x8 for 2D (unchanged)
 
-    # VQ-VAE — spectral codebook
-    codebook_size: int = 32
+    # VQ-VAE — spectral codebook (split per modality for v3.8)
+    codebook_size_audio: int = 128  # v3.8: was 32 (shared)
+    codebook_size_vision: int = 32  # unchanged
     codebook_dim: int = 64
     codebook_ema_decay: float = 0.99
     commitment_beta: float = 0.25
-    dead_code_threshold: int = 100  # ticks before dead code revival
+    dead_code_threshold: int = 100
 
     # Sense tokens
-    n_audio_tokens: int = 8
+    n_audio_tokens: int = 16        # v3.8: was 8
     n_vision_tokens: int = 4
 
     # Critical period
     critical_period_recon_weight: float = 0.5
+
+    # TTS self-narration (v3.8)
+    tts_mode: str = "espeak"        # "espeak" (Phase B) or "piper" (Phase C)
+    tts_every_n: int = 3            # use TTS every Nth tick when mic active
+
+    # Contrastive alignment (v3.8)
+    contrastive_tau: float = 0.07
+    contrastive_weight: float = 0.3
+    contrastive_maturation_threshold: float = 0.75
 
     # Meta-layer
     meta_n_hidden: int = 8
