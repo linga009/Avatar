@@ -57,6 +57,26 @@ class Halo3Config:
     n_obs: int = 8
     n_actions: int = 8
 
+    # FNO (Fourier Neural Operator) — sensory perception
+    fno_hidden_dim: int = 64
+    fno_n_layers: int = 4
+    fno_audio_modes: int = 16
+    fno_vision_modes: int = 8       # 8x8 for 2D
+
+    # VQ-VAE — spectral codebook
+    codebook_size: int = 32
+    codebook_dim: int = 64
+    codebook_ema_decay: float = 0.99
+    commitment_beta: float = 0.25
+    dead_code_threshold: int = 100  # ticks before dead code revival
+
+    # Sense tokens
+    n_audio_tokens: int = 8
+    n_vision_tokens: int = 4
+
+    # Critical period
+    critical_period_recon_weight: float = 0.5
+
     # Meta-layer
     meta_n_hidden: int = 8
     meta_n_actions: int = 4
