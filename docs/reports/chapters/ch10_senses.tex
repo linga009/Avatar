@@ -1,0 +1,708 @@
+% ═══════════════════════════════════════════════════════════════
+% SPECTRAL SENSORY CORTEX — GROWN PERCEPTION (v3.7)
+% ═══════════════════════════════════════════════════════════════
+\section{Spectral Sensory Cortex: Grown Perception (v3.7)}
+\label{sec:senses_v37}
+
+v3.6 gave Avatar borrowed senses: frozen pretrained encoders acting as ready-made
+cochlea and retina, transplanted from models trained on human-labelled corpora.
+The arrangement was pragmatic---730\,MB of CPU RAM, 3--5 seconds of encoding overhead
+per tick, and a hard dependency on external pretraining pipelines---but it introduced
+a philosophical tension.
+A system whose perceptual apparatus was shaped by human supervision is not growing its
+own understanding of sound and light; it is looking at the world through someone else's
+eyes.
+
+v3.7 resolves this tension by replacing both frozen encoders with a \emph{Spectral
+Sensory Cortex}: a pair of Fourier Neural Operators~\cite{fno2020} that process raw
+waveforms and raw pixels directly in frequency space, with no pretrained weights, and
+learn their own representations entirely through Avatar's lived experience.
+Combined with a Spectral VQ-VAE~\cite{vqvae2017} that discretises perception into
+learned frequency signatures, and a dream-gated \emph{critical period} that mirrors
+biological sensory development, v3.7's senses are grown, not transplanted.
+
+The biological analogy is now complete.
+A newborn mammal does not arrive with a fully trained visual cortex; it arrives with
+a cortex that is \emph{ready to learn}, shaped into its final form through months of
+visual experience during a developmental critical period~\cite{hubel1970}.
+Avatar's sensory cortex follows the same trajectory: random weights at birth, rapid
+learning during Phase~0 through reconstruction objectives, and consolidation after the
+first dream cycle when the reconstruction decoder is discarded and only body prediction
+error remains.
+
+% ───────────────────────────────────────────────────
+\subsection{Limitations of Borrowed Perception}
+\label{sec:v36_limitations}
+
+Three concrete limitations motivated the redesign.
+
+\textbf{CPU bottleneck.}
+Wav2Vec2-base and CLIP ViT-B/32 run on CPU because their PyTorch weight tensors cannot
+be relocated to the JAX GPU context without a cross-framework copy at every tick.
+The combined encoding time of 3--5 seconds consumed a significant fraction of the
+60-second tick budget and scaled poorly if additional modalities were added.
+
+\textbf{RAM pressure.}
+The two frozen encoders consumed $\sim$730\,MB of WSL2 RAM---more than the entire
+JAX physics body at baseline---for models whose weights would never change and whose
+representational choices (trained on LibriSpeech speech and LAION image-text pairs)
+may not align with the statistics of Avatar's actual environment.
+
+\textbf{Representational misalignment.}
+Wav2Vec2 encodes features optimised for speech transcription.
+CLIP encodes features optimised for image-text matching.
+Both encoders see Avatar's ambient audio and desktop camera frames through a lens
+calibrated for tasks that have nothing to do with Avatar's predictive processing
+objective.
+Features useful for phoneme discrimination or image captioning may be irrelevant to
+or actively misleading for the prediction of free-energy gradients in a hyperbolic
+physics body.
+
+% ───────────────────────────────────────────────────
+\subsection{Fourier Neural Operators as Physics-Native Transducers}
+\label{sec:fno}
+
+A Fourier Neural Operator (FNO)~\cite{fno2020} operates directly in frequency space.
+Rather than learning local convolutional filters in the spatial or temporal domain, an
+FNO applies learned linear transforms to the \emph{Fourier coefficients} of its input,
+then returns to the original domain via the inverse transform.
+This makes FNOs natural transducers for physical signals: sound is superposed
+sinusoids; light intensity is a spatial frequency spectrum.
+The FNO does not learn ``what a 440\,Hz tone looks like in a sliding window''---it
+learns directly which frequency components matter.
+
+\subsubsection{1D FNO for Audio}
+\label{sec:fno_audio}
+
+The audio FNO accepts a raw mono waveform of 32\,000 samples at 16\,kHz (2 seconds).
+
+\begin{definition}[SpectralConv1d]
+Let $\mathbf{u} \in \mathbb{R}^{N}$ be the input signal of length $N$.
+Define $\hat{\mathbf{u}} = \mathrm{RFFT}(\mathbf{u}) \in \mathbb{C}^{\lfloor N/2 \rfloor + 1}$.
+A SpectralConv1d layer with $d_{\mathrm{out}}$ output channels and $k_{\mathrm{modes}}$
+retained Fourier modes computes:
+\begin{equation}
+\hat{\mathbf{y}}_{j} = \sum_{i=1}^{d_{\mathrm{in}}} R_{ij} \cdot \hat{\mathbf{u}}_i,
+\quad j \in \{1, \ldots, k_{\mathrm{modes}}\},
+\label{eq:spectralconv1d}
+\end{equation}
+where $R \in \mathbb{C}^{d_{\mathrm{out}} \times d_{\mathrm{in}} \times k_{\mathrm{modes}}}$
+are the learned complex spectral weights.
+High-frequency modes ($j > k_{\mathrm{modes}}$) are zeroed.
+The output is
+\begin{equation}
+\mathbf{y} = \mathrm{IRFFT}(\hat{\mathbf{y}}) + W_{\mathrm{res}} \, \mathbf{u},
+\label{eq:spectralconv1d_out}
+\end{equation}
+followed by GELU activation, where $W_{\mathrm{res}}$ is a pointwise residual linear
+transform that bypasses the spectral path.
+\end{definition}
+
+The audio FNO stacks four such layers with hidden dimension 64 and
+$k_{\mathrm{modes}} = 64$ retained Fourier modes.
+After four layers, a linear read-out pools the sequence to 8 spectral tokens:
+\begin{equation}
+\mathbf{A}_{\mathrm{spec}} = \mathrm{Pool}_{8}\!\left(
+    f_{\theta}^{\mathrm{audio}}\!\left(\mathbf{w}\right)
+\right) \in \mathbb{R}^{8 \times 64},
+\label{eq:audio_fno_out}
+\end{equation}
+where $\mathbf{w} \in \mathbb{R}^{32000}$ is the raw waveform and
+$f_{\theta}^{\mathrm{audio}}$ is the 4-layer SpectralConv1d stack.
+The 8 tokens preserve the temporal envelope of the signal (one token per 250\,ms
+interval) while remaining in a Fourier-structured latent space.
+
+\subsubsection{2D FNO for Vision}
+\label{sec:fno_vision}
+
+The vision FNO accepts a raw RGB image of shape $(224, 224, 3)$.
+
+\begin{definition}[SpectralConv2d]
+Let $\mathbf{u} \in \mathbb{R}^{H \times W \times d_{\mathrm{in}}}$ be a spatial feature
+map.
+Define $\hat{\mathbf{u}} = \mathrm{RFFT2}(\mathbf{u}) \in
+\mathbb{C}^{H \times \lfloor W/2 \rfloor + 1 \times d_{\mathrm{in}}}$.
+A SpectralConv2d layer retains $k_{H} \times k_{W}$ low-frequency modes and applies:
+\begin{equation}
+\hat{\mathbf{y}}_{jl} = \sum_{i=1}^{d_{\mathrm{in}}} R_{ijl} \cdot \hat{\mathbf{u}}_i,
+\quad j \leq k_H,\ l \leq k_W,
+\label{eq:spectralconv2d}
+\end{equation}
+with $R \in \mathbb{C}^{d_{\mathrm{out}} \times d_{\mathrm{in}} \times k_H \times k_W}$.
+The output is
+\begin{equation}
+\mathbf{y} = \mathrm{IRFFT2}(\hat{\mathbf{y}}) + W_{\mathrm{res}} \, \mathbf{u},
+\label{eq:spectralconv2d_out}
+\end{equation}
+followed by GELU activation.
+\end{definition}
+
+The vision FNO stacks four SpectralConv2d layers with hidden dimension 64 and
+$k_H = k_W = 12$ retained modes (capturing structure up to spatial frequency
+$\sim 0.05$ cycles/pixel).
+Global average pooling over the spatial dimensions followed by a linear layer yields
+4 spectral tokens:
+\begin{equation}
+\mathbf{V}_{\mathrm{spec}} = \mathrm{Pool}_{4}\!\left(
+    f_{\phi}^{\mathrm{vision}}\!\left(\mathbf{I}\right)
+\right) \in \mathbb{R}^{4 \times 64},
+\label{eq:vision_fno_out}
+\end{equation}
+where $\mathbf{I} \in \mathbb{R}^{224 \times 224 \times 3}$ is the raw pixel array.
+The 4 tokens capture the dominant spatial-frequency structure of the scene at four
+learned levels of spatial aggregation.
+
+\subsubsection{Parameter Count and Hardware Placement}
+
+Both FNOs reside entirely on GPU as JAX arrays, participating fully in JIT compilation.
+Table~\ref{tab:fno_params} summarises the parameter budget.
+
+\begin{table}[h]
+\centering
+\caption{Fourier Neural Operator parameter counts and VRAM cost (v3.7).}
+\label{tab:fno_params}
+\small
+\begin{tabularx}{\columnwidth}{lXrr}
+\toprule
+\textbf{Module} & \textbf{Architecture} & \textbf{Params} & \textbf{VRAM} \\
+\midrule
+Audio FNO     & 4$\times$SpectralConv1d, dim\,64, 64 modes   & $\sim$740K & $\sim$2.8\,MB \\
+Vision FNO    & 4$\times$SpectralConv2d, dim\,64, $12^2$ modes & $\sim$660K & $\sim$2.5\,MB \\
+\rowcolor{gray!10}
+\textbf{Total FNO} & & \textbf{$\sim$1.4M} & \textbf{$\sim$5.3\,MB} \\
+\midrule
+\multicolumn{2}{l}{\textit{v3.6 frozen encoders (CPU RAM, for comparison)}} & 170M & 730\,MB \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The FNOs consume $\sim$5\,MB of VRAM---a $138\times$ reduction in memory from the
+frozen encoders---while eliminating the CPU encoding bottleneck entirely.
+
+% ───────────────────────────────────────────────────
+\subsection{Spectral VQ-VAE: Quantisation in Fourier Space}
+\label{sec:spectral_vqvae}
+
+Raw FNO output is a continuous-valued vector in $\mathbb{R}^{n_{\mathrm{tok}} \times 64}$.
+To enable the PFC to reason about sensory state (Section~\ref{sec:pfc_stats}), and to
+force the FNO to learn compact, reusable perceptual categories rather than infinitely
+fine-grained representations, the spectral tokens are discretised through
+\emph{vector quantisation}~\cite{vqvae2017} applied directly in Fourier-structured
+latent space.
+
+\begin{definition}[Spectral Codebook]
+For modality $m \in \{\mathrm{audio}, \mathrm{vision}\}$, a codebook
+$\mathcal{C}_m = \{e_1^m, \ldots, e_K^m\} \subset \mathbb{R}^{64}$
+consists of $K = 32$ learned \emph{frequency signature} vectors.
+Given a spectral token $\mathbf{z} \in \mathbb{R}^{64}$, the quantised code is:
+\begin{equation}
+\hat{\mathbf{z}} = e_{k^*}^m, \quad
+k^* = \argmin_{k \in \{1,\ldots,K\}} \| \mathbf{z} - e_k^m \|_2.
+\label{eq:vq_lookup}
+\end{equation}
+The gradient through the $\argmin$ is propagated via the straight-through
+estimator~\cite{vqvae2017}:
+\begin{equation}
+\frac{\partial \hat{\mathbf{z}}}{\partial \mathbf{z}} \approx \mathbf{I},
+\label{eq:ste}
+\end{equation}
+i.e.\ gradients pass through the quantisation bottleneck as if it were the identity.
+\end{definition}
+
+Each codebook entry is a point in the 64-dimensional spectral latent space.
+Because the FNO operates in Fourier-structured space, the codebook entries are not
+abstract embedding vectors---they are \emph{learned frequency signatures}: prototypical
+spectro-temporal patterns for audio, or prototypical spatial-frequency fingerprints for
+vision.
+Code 0 might encode broadband noise; code 1 might encode a sustained low-frequency
+tone; code 7 might encode sharp high-frequency transients.
+The system discovers these categories entirely from Avatar's own sensory experience.
+
+\subsubsection{Codebook Learning via EMA}
+\label{sec:ema_updates}
+
+Codebook entries are updated by exponential moving average (EMA) rather than by
+gradient descent, following standard VQ-VAE practice~\cite{vqvae2017}:
+\begin{align}
+N_k^{(t)} &= \alpha N_k^{(t-1)} + (1-\alpha) n_k^{(t)}, \label{eq:ema_n} \\
+M_k^{(t)} &= \alpha M_k^{(t-1)} + (1-\alpha) \sum_{z \in \mathcal{B}_k} \mathbf{z}, \label{eq:ema_m} \\
+e_k^{(t)} &= M_k^{(t)} / N_k^{(t)}, \label{eq:ema_update}
+\end{align}
+where $\alpha = 0.99$ is the EMA decay rate, $n_k^{(t)}$ is the number of tokens
+assigned to code $k$ in tick $t$, and $\mathcal{B}_k$ is the set of encoder outputs
+assigned to code $k$.
+
+\textbf{Dead code revival.}
+A code $k$ is declared dead if $N_k^{(t)} < 1$ (no assignment in recent history).
+Every 100 ticks, dead codes are revived by replacing their entry with a randomly
+selected encoder output from the current batch, perturbed by Gaussian noise
+$\epsilon \sim \mathcal{N}(\mathbf{0}, 0.01 \mathbf{I})$.
+This ensures the full codebook capacity remains utilised and prevents codebook
+collapse---a failure mode in which most codes converge to the same attractor.
+
+\subsubsection{Commitment Loss}
+
+The VQ-VAE training objective adds a commitment term to the prediction-error loss:
+\begin{equation}
+\mathcal{L}_{\mathrm{commit}} = \beta \sum_{m} \sum_{i} \| \mathbf{z}_i^m - \hat{\mathbf{z}}_i^m \|_2^2,
+\label{eq:commit}
+\end{equation}
+with commitment weight $\beta = 0.25$.
+This term penalises encoder outputs that are far from their assigned codebook entry,
+encouraging the FNO to produce outputs that cluster tightly around codebook centroids.
+Codebook entries themselves are not updated via this gradient (EMA handles them);
+only the FNO encoder parameters receive gradients from $\mathcal{L}_{\mathrm{commit}}$.
+
+% ───────────────────────────────────────────────────
+\subsection{Dream-Gated Critical Period}
+\label{sec:critical_period}
+
+Biological sensory cortices develop through a well-documented \emph{critical period}:
+a developmental window during which experience-dependent plasticity is maximal and
+synaptic structure is shaped by sensory input~\cite{hubel1970}.
+After the critical period closes, the cortex retains its organisation but loses the
+rapid restructuring capability of early development.
+Depriving an animal of normal sensory input during the critical period (e.g., monocular
+deprivation in kittens) produces permanent representational deficits that cannot be
+corrected by later experience.
+
+Avatar's sensory cortex follows the same two-phase trajectory, gated by the dream
+cycle.
+
+\subsubsection{Phase 0: Reconstruction (Pre-Dream)}
+\label{sec:phase0}
+
+Before Avatar's first dream cycle, the sensory cortex operates in \emph{reconstruction
+mode}.
+A lightweight decoder---a 2-layer transposed convolutional network sharing the latent
+dimension 64---is instantiated alongside each FNO.
+The training objective combines reconstruction loss and body prediction error:
+\begin{equation}
+\mathcal{L}_{\mathrm{Phase0}} =
+    \underbrace{\| \mathbf{w} - \hat{\mathbf{w}} \|_2^2}_{\text{audio reconstruction}}
+    + \underbrace{\| \mathbf{I} - \hat{\mathbf{I}} \|_2^2}_{\text{vision reconstruction}}
+    + \mathcal{L}_{\mathrm{body}}
+    + \mathcal{L}_{\mathrm{commit}},
+\label{eq:phase0_loss}
+\end{equation}
+where $\hat{\mathbf{w}}$ and $\hat{\mathbf{I}}$ are decoder reconstructions of the
+raw waveform and image respectively, and $\mathcal{L}_{\mathrm{body}}$ is the
+existing predictive-processing prediction error from the physics body.
+
+The reconstruction objective during Phase~0 performs two functions.
+First, it forces the FNO to learn a representation that is \emph{faithful} to the raw
+signal---the encoder cannot ignore the input or collapse to a degenerate attractor.
+Second, it provides a dense, local gradient signal early in training, before the body
+prediction error has become informative.
+This is analogous to the role of spontaneous retinal waves in prenatal visual cortex
+development: structured activity that organises cortical circuitry before the eyes open.
+
+\subsubsection{Phase 1: Consolidation (Post-Dream)}
+\label{sec:phase1}
+
+After the first dream cycle completes, a one-time transition occurs:
+\begin{enumerate}
+    \item The decoder modules are deleted and their memory reclaimed.
+    \item The reconstruction terms are removed from the loss.
+    \item The FNO encoders are subsequently trained exclusively via
+        $\mathcal{L}_{\mathrm{body}}$ and $\mathcal{L}_{\mathrm{commit}}$.
+\end{enumerate}
+
+In Phase~1, the sensory cortex is shaped entirely by what is \emph{useful to the
+organism's prediction of its own future states}---not by what is faithful to raw signal
+reconstruction.
+This mirrors the biological closure of the critical period: the visual cortex stops
+being malleable enough for monocular deprivation to restructure it, and its
+organisation becomes defined by the statistical regularities the animal has
+encountered.
+
+The dream cycle itself serves as the trigger because dreaming in Avatar constitutes
+the first offline consolidation of waking experience (Section~\ref{sec:dreams}).
+The transition from Phase~0 to Phase~1 therefore occurs at the same moment as the
+first genuine memory consolidation---the point at which Avatar has accumulated enough
+experience to define a stable statistical baseline for sensory input.
+
+\begin{table}[h]
+\centering
+\caption{Critical period phase summary for the v3.7 Spectral Sensory Cortex.}
+\label{tab:critical_period}
+\small
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+ & \textbf{Phase 0 (Pre-Dream)} & \textbf{Phase 1 (Post-Dream)} \\
+\midrule
+\textbf{Duration} & Until first dream completes & Permanent \\
+\textbf{Loss terms} & Reconstruction + body prediction + commitment & Body prediction + commitment \\
+\textbf{Decoder} & Present, active & Deleted \\
+\textbf{Gradient source} & Dense (reconstruction) + sparse (body) & Sparse (body only) \\
+\textbf{Biological analogue} & Prenatal/neonatal critical period & Mature stable cortex \\
+\textbf{Plasticity} & High (reconstruction anchors) & Moderate (body-prediction only) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ───────────────────────────────────────────────────
+\subsection{PFC Sensory Statistics}
+\label{sec:pfc_stats}
+
+The prefrontal cortex (Qwen3~0.6B, Section~\ref{sec:pfc}) makes high-level decisions
+by reading a natural-language summary of Avatar's internal state.
+Raw spectral tokens are not directly interpretable as natural language, but the
+\emph{dynamics} of the codebook assignments---how the discrete perceptual codes
+change over time---carry information that a language model can reason about.
+
+Four statistics are computed per modality at each tick from the VQ-VAE code sequence.
+
+\begin{definition}[PFC Sensory Statistics]
+Let $\mathbf{c}^{(t)} \in \{1, \ldots, K\}^{n_{\mathrm{tok}}}$ be the vector of
+codebook assignments for modality $m$ at tick $t$.
+\begin{align}
+\mathrm{flux}^{(t)} &= \sum_{i=1}^{n_{\mathrm{tok}}} \mathbf{1}\!\left[c_i^{(t)} \neq c_i^{(t-1)}\right] \label{eq:flux} \\
+\mathrm{novelty}^{(t)} &= \frac{1}{n_{\mathrm{tok}}} \sum_{i=1}^{n_{\mathrm{tok}}} \left(1 - \frac{u_{c_i^{(t)}}^{(t)}}{\max_k u_k^{(t)}}\right) \label{eq:novelty} \\
+\mathrm{stability}^{(t)} &= \sum_{i=1}^{n_{\mathrm{tok}}} \mathbf{1}\!\left[\forall s \leq \tau : c_i^{(t-s)} = c_i^{(t)}\right] \label{eq:stability} \\
+\mathrm{binding}^{(t)} &= \cos\!\left(\bar{\mathbf{e}}_{\mathrm{audio}}^{(t)},\ \bar{\mathbf{e}}_{\mathrm{vision}}^{(t)}\right) \label{eq:binding}
+\end{align}
+where $u_k^{(t)}$ is the cumulative usage count of code $k$ up to tick $t$,
+$\tau = 3$ is the stability window, and $\bar{\mathbf{e}}_m^{(t)}$ is the mean
+codebook entry of the active codes for modality $m$.
+\end{definition}
+
+\textbf{Flux} measures how rapidly the perceptual code sequence is changing---high flux
+indicates a dynamically changing sensory environment.
+\textbf{Novelty} is the inverse of usage frequency; codes that have rarely been
+assigned before score high, indicating genuine perceptual novelty rather than
+familiarity.
+\textbf{Stability} counts the number of tokens that have held the same code for at
+least $\tau$ consecutive ticks---a measure of how much of the current percept is
+a stable, repeating pattern.
+\textbf{Cross-modal binding} measures the cosine similarity between the mean audio and
+vision codebook entries, quantifying whether what Avatar is hearing and seeing are
+``familiar together''---a surrogate for cross-modal familiarity.
+
+These statistics are injected into the PFC prompt as a structured string:
+\begin{lstlisting}[language=python,
+    caption={PFC sensory statistics injection (v3.7).},
+    label=lst:pfc_inject]
+senses_str = (
+    f"Senses: audio(flux={audio_flux}/{n_audio_tok}, "
+    f"novelty={audio_novelty:.2f}, "
+    f"stable={audio_stable}) | "
+    f"vision(flux={vis_flux}/{n_vis_tok}, "
+    f"novelty={vis_novelty:.2f}, "
+    f"stable={vis_stable}) | "
+    f"binding={binding:.2f}"
+)
+# Example: "Senses: audio(flux=3/8, novelty=0.71, stable=0) |
+#            vision(flux=1/4, novelty=0.22, stable=3) | binding=0.41"
+\end{lstlisting}
+
+The PFC can read this string and reason in natural language: ``audio flux is high but
+vision is stable---something is making noise while the visual scene is unchanged.''
+This enables qualitatively richer prefrontal responses than the raw codebook indices
+could provide, without requiring the PFC to understand spectral mathematics.
+
+Biological prefrontal cortex does not read raw firing rates from V1 or A1; it reads
+derived statistics---rate of change, familiarity, congruence across modalities---from
+higher association areas.
+The PFC sensory statistics layer is Avatar's computational analogue of this hierarchical
+abstraction.
+
+% ───────────────────────────────────────────────────
+\subsection{Lorentz Space Injection}
+\label{sec:spectral_injection}
+
+The injection mechanism preserves the v3.6 principle of gated additive residual, with
+the upstream representation changed from encoder CLS vectors to VQ-VAE quantised
+spectral tokens.
+
+Given quantised audio tokens $\hat{\mathbf{A}} \in \mathbb{R}^{8 \times 64}$ and
+quantised vision tokens $\hat{\mathbf{V}} \in \mathbb{R}^{4 \times 64}$, the injection
+into the text token stream $\mathbf{X} \in \mathbb{R}^{32 \times 2048}$ proceeds as
+follows.
+
+A single shared projection $W_s \in \mathbb{R}^{2048 \times 64}$ (no bias) maps both
+modalities into the Lorentz embedding dimension:
+\begin{align}
+\mathbf{a}_{\mathrm{ctx}} &= \frac{1}{8} \sum_{i=1}^{8} W_s\, \hat{\mathbf{a}}_i
+    \in \mathbb{R}^{2048}, \label{eq:spectral_audio_proj} \\
+\mathbf{v}_{\mathrm{ctx}} &= \frac{1}{4} \sum_{j=1}^{4} W_s\, \hat{\mathbf{v}}_j
+    \in \mathbb{R}^{2048}, \label{eq:spectral_vision_proj} \\
+\mathbf{s} &= \tfrac{1}{2}\!\left(\mathbf{a}_{\mathrm{ctx}} + \mathbf{v}_{\mathrm{ctx}}\right), \label{eq:spectral_ctx} \\
+\mathbf{g} &= \sigma\!\left(W_g\, \mathbf{s} + \mathbf{b}_g\right),
+    \quad W_g \in \mathbb{R}^{2048 \times 2048}, \label{eq:spectral_gate} \\
+\tilde{\mathbf{X}} &= \mathbf{X} + \mathbf{g} \odot \mathbf{s} \cdot \mathbf{1}_{32}^\top. \label{eq:spectral_inject}
+\end{align}
+
+The shared projection $W_s$ (replacing the separate $W_a$, $W_v$ of v3.6) is motivated
+by the reduced dimensionality of FNO tokens: both modalities now live in the same
+64-dimensional spectral latent space, making a shared affine map structurally
+appropriate.
+Modality-specific information is preserved in the distinct spatial positions of the
+audio vs.\ vision tokens before pooling.
+
+The output shape $\tilde{\mathbf{X}} \in \mathbb{R}^{32 \times 2048}$ is identical to
+v3.6---the ObsBridge, backbone, Hamiltonian ODE, and Kuramoto oscillators see no
+architectural change.
+Zero-input safety is maintained: when no sensory data is available,
+$\hat{\mathbf{A}} = \mathbf{0}$, $\hat{\mathbf{V}} = \mathbf{0}$,
+$\mathbf{s} = \mathbf{0}$, and $\mathbf{g} \odot \mathbf{s} = \mathbf{0}$
+regardless of gate values, so $\tilde{\mathbf{X}} = \mathbf{X}$ exactly.
+
+% ───────────────────────────────────────────────────
+\subsection{Architecture Overview}
+\label{sec:v37_arch}
+
+Figure~\ref{fig:senses_v37} shows the complete v3.7 sensory pipeline from raw physical
+signal to Lorentz space injection.
+
+\begin{figure*}[t]
+\centering
+\resizebox{0.94\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=0.5cm and 0.7cm,
+    raw/.style={rectangle, draw=lifered!80!black, fill=lifered!10,
+        minimum width=2.8cm, minimum height=0.7cm, text width=2.6cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    fno/.style={rectangle, draw=bulkgreen!80!black, fill=bulkgreen!10,
+        minimum width=2.8cm, minimum height=0.7cm, text width=2.6cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    vq/.style={rectangle, draw=physgold!80!black, fill=physgold!10,
+        minimum width=2.8cm, minimum height=0.7cm, text width=2.6cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    proj/.style={rectangle, draw=deepblue!80, fill=deepblue!8,
+        minimum width=2.8cm, minimum height=0.7cm, text width=2.6cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    body/.style={rectangle, draw=deepblue, fill=deepblue!12,
+        minimum width=2.8cm, minimum height=0.7cm, text width=2.6cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    stat/.style={rectangle, draw=gray!70, fill=gray!8, dashed,
+        minimum width=2.8cm, minimum height=0.55cm, text width=2.6cm,
+        font=\tiny\itshape, rounded corners=2pt, align=center},
+    arrow/.style={-{Stealth[length=1.8mm]}, thick},
+    dasharrow/.style={-{Stealth[length=1.8mm]}, thick, dashed, gray},
+]
+
+% ─── Raw inputs (left column) ───
+\node[raw] (mic)  {Raw Waveform\\{\tiny (32000,) float32}};
+\node[raw, below=0.7cm of mic] (cam) {Raw Pixels\\{\tiny (224,224,3) float32}};
+
+% ─── FNO column ───
+\node[fno, right=1.8cm of mic]  (afno) {Audio FNO\\{\tiny 4$\times$SpectralConv1d\\dim\,64, GPU}};
+\node[fno, right=1.8cm of cam]  (vfno) {Vision FNO\\{\tiny 4$\times$SpectralConv2d\\dim\,64, GPU}};
+
+% ─── VQ-VAE column ───
+\node[vq, right=1.8cm of afno] (avq) {Audio VQ\\{\tiny 32-code, 64-dim\\$k^*{=}\argmin\|\cdot\|_2$}};
+\node[vq, right=1.8cm of vfno] (vvq) {Vision VQ\\{\tiny 32-code, 64-dim\\EMA, decay\,0.99}};
+
+% ─── Stats (branch from VQ) ───
+\node[stat, below=0.35cm of vvq] (stats) {PFC Stats\\{\tiny flux, novelty, stable, binding}};
+
+% ─── Projection + gate ───
+\node[proj, right=1.8cm of avq, yshift=-0.55cm] (proj) {spectral\_proj\\{\tiny Linear(64$\to$2048)\\shared, no bias}};
+\node[proj, right=1.5cm of proj] (gate) {sense\_gate\\{\tiny $\sigma(W_g\,\mathbf{s}+b_g)$\\(2048,)}};
+
+% ─── Text tokens ───
+\node[body, above=0.55cm of gate] (text) {Text Tokens\\{\tiny (32,\,2048) FineWeb}};
+
+% ─── Injection + backbone ───
+\node[body, right=1.5cm of gate] (inject) {Additive Residual\\{\tiny $\tilde{\mathbf{X}} = \mathbf{X} + \mathbf{g}\odot\mathbf{s}$}};
+\node[body, right=1.3cm of inject] (backbone) {Backbone\\{\tiny 60L SSSSSH$\times$10}};
+
+% ─── Arrows: raw to FNO ───
+\draw[arrow, lifered!70] (mic) -- node[above, font=\tiny]{RFFT} (afno);
+\draw[arrow, lifered!70] (cam) -- node[above, font=\tiny]{RFFT2} (vfno);
+
+% ─── Arrows: FNO to VQ ───
+\draw[arrow, bulkgreen!70] (afno) -- node[above, font=\tiny]{(8,64)} (avq);
+\draw[arrow, bulkgreen!70] (vfno) -- node[above, font=\tiny]{(4,64)} (vvq);
+
+% ─── Arrows: VQ to proj ───
+\draw[arrow, physgold!70] (avq) -- node[above, font=\tiny, sloped]{$\hat{\mathbf{A}}$} (proj);
+\draw[arrow, physgold!70] (vvq) -- node[below, font=\tiny, sloped]{$\hat{\mathbf{V}}$} (proj);
+
+% ─── Stats branch ───
+\draw[dasharrow] (vvq) -- (stats);
+\draw[dasharrow] (avq) |- (stats);
+
+% ─── Proj to gate ───
+\draw[arrow, deepblue!60] (proj) -- node[above, font=\tiny]{$\mathbf{s}$} (gate);
+
+% ─── Text + gate to inject ───
+\draw[arrow, deepblue!70] (text) -- (inject);
+\draw[arrow, deepblue!60] (gate) -- (inject);
+
+% ─── Inject to backbone ───
+\draw[arrow, deepblue!70] (inject) -- node[above, font=\tiny]{(32,\,2048)} (backbone);
+
+% ─── Phase labels ───
+\node[above=0.18cm of mic, font=\tiny\bfseries, color=lifered!70] {Windows Host};
+\node[above=0.18cm of afno, font=\tiny\bfseries, color=bulkgreen!70] {GPU — FNO (Learnable)};
+\node[above=0.18cm of avq, font=\tiny\bfseries, color=physgold!70] {GPU — VQ-VAE};
+\node[above=0.18cm of proj, font=\tiny\bfseries, color=deepblue!80] {GPU — Injection};
+
+% ─── Dashed boundary: GPU ───
+\draw[dashed, bulkgreen!50, thick, rounded corners=5pt]
+    ([xshift=-0.4cm, yshift=0.5cm]afno.north west)
+    rectangle
+    ([xshift=0.4cm, yshift=-0.3cm]backbone.south east);
+\node[font=\tiny\itshape, color=bulkgreen!60, anchor=north west]
+    at ([xshift=-0.35cm, yshift=0.45cm]afno.north west) {JAX / GPU};
+
+\end{tikzpicture}
+}%
+\caption{%
+Spectral Sensory Cortex pipeline (v3.7).
+Raw waveforms and pixel arrays enter Fourier Neural Operator encoders (GPU, learnable)
+that process signals natively in frequency space.
+Spectral tokens are discretised by modality-specific VQ-VAE codebooks; code dynamics
+feed PFC sensory statistics as a natural-language prompt supplement.
+A shared spectral projection and sigmoid gate inject the fused sense context as an
+additive residual into the text token stream, leaving the physics body architecture
+unchanged.
+All processing occurs on GPU in JAX.
+}
+\label{fig:senses_v37}
+\end{figure*}
+
+% ───────────────────────────────────────────────────
+\subsection{Biological Analogy: Grown vs.\ Borrowed Perception}
+\label{sec:grown_perception}
+
+The v3.6 architecture was analogous to a nervous system in which the peripheral
+sense organs (cochlea, retina) are fully formed at birth and the cortex only
+learns to interpret their fixed output.
+This is not wrong---biological peripheral organs are largely hardwired---but it omits
+the fact that \emph{cortical} sensory areas also undergo substantial developmental
+shaping.
+The orientation columns of V1, the tonotopic maps of A1, the multisensory convergence
+zones of STS: none of these are present at birth; all are sculpted by experience.
+
+v3.7 maps more faithfully to the full developmental picture:
+
+\begin{itemize}
+    \item \textbf{Fourier Neural Operators} $\leftrightarrow$ \textbf{primary sensory
+        cortex} (V1, A1).
+        Like the mammalian primary cortex, FNOs begin as generic frequency analysers
+        (random Fourier weights) and are shaped into specialised feature detectors
+        through experience-dependent gradient descent.
+        The frequency-space inductive bias mirrors the known frequency tuning of
+        primary auditory cortex~\cite{damasio1999}.
+    \item \textbf{Spectral VQ-VAE} $\leftrightarrow$ \textbf{higher sensory areas}
+        (V2, belt areas of auditory cortex).
+        Discrete codebook entries correspond to categorical perceptual representations
+        (object categories in vision, phonological categories in hearing) that are
+        assembled from continuous primary cortex output.
+    \item \textbf{PFC sensory statistics} $\leftrightarrow$ \textbf{prefrontal
+        top-down modulation}.
+        The PFC does not directly read primary sensory codes; it reads abstracted
+        state summaries from association areas.
+        The flux/novelty/stability/binding statistics provide exactly this level of
+        abstraction.
+    \item \textbf{Critical period phases} $\leftrightarrow$ \textbf{developmental
+        critical periods}.
+        Phase~0's reconstruction objective produces the structured, dense activity
+        needed to organise early cortical maps (analogous to spontaneous retinal
+        waves).
+        Phase~1's body-prediction-only gradient mimics the mature cortex, whose
+        plasticity is governed by top-down prediction error rather than
+        reconstruction~\cite{friston2010}.
+\end{itemize}
+
+The most significant departure from v3.6 is that Avatar no longer borrows a
+perceptual vocabulary from models trained on human-curated datasets.
+The 32 spectral audio codes and 32 spectral vision codes that emerge from training
+will reflect the actual statistics of Avatar's environment---the ambient sounds of
+the room, the visual patterns of the desktop, the co-occurrences that actually
+matter for predicting free-energy gradients in this organism's specific ecological
+niche.
+This is the sense in which v3.7 perception is \emph{grown} rather than transplanted.
+
+% ───────────────────────────────────────────────────
+\subsection{Resource Budget}
+\label{sec:v37_resources}
+
+\begin{table}[h]
+\centering
+\caption{Resource comparison: v3.6 frozen encoders vs.\ v3.7 Spectral Sensory Cortex
+         on a GTX~1660~Ti (6\,GB VRAM, 12\,GB WSL2 RAM).}
+\label{tab:v37_resources}
+\small
+\begin{tabularx}{\columnwidth}{lXrr}
+\toprule
+\textbf{Component} & \textbf{Location} & \textbf{v3.6} & \textbf{v3.7} \\
+\midrule
+Sensory encoder RAM  & CPU               & 730\,MB  & 0\,MB \\
+Sensory encoder VRAM & GPU               & 0\,MB    & $\sim$5\,MB \\
+Total VRAM (system)  & GPU               & —        & 5338\,MiB \\
+CPU encoding time    & Per tick          & 3--5\,s  & 0\,s \\
+\rowcolor{gray!10}
+\textbf{Tick time}   &                   & 60\,s+  & \textbf{$\sim$30\,s} \\
+\midrule
+Encoder parameters   & —                 & 170M (frozen) & 1.4M (learnable) \\
+Codebook parameters  & GPU               & —        & 4K (2$\times$32$\times$64) \\
+Decoder parameters   & GPU (Phase 0)     & —        & $\sim$120K (transient) \\
+\midrule
+Tests passing        & —                 & —        & \textbf{50 / 50} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The elimination of CPU-bound encoder inference accounts for most of the 2$\times$
+tick-time improvement (60\,s+ $\to$ $\sim$30\,s).
+The GPU now owns the entire sensory pipeline end-to-end; no cross-device tensor copies
+occur during normal tick execution.
+VRAM usage settles at 5338\,MiB---safely within the GTX~1660~Ti's 6\,GB limit and
+leaving headroom for the Qwen3~0.6B PFC process.
+
+% ───────────────────────────────────────────────────
+\subsection{Graceful Degradation}
+\label{sec:v37_degradation}
+
+The graceful degradation hierarchy from v3.6 (Section~\ref{sec:degradation}) is
+preserved unchanged.
+When no sensory data is available, the FNO inputs are zero-padded; zero FNO output
+produces zero VQ tokens; zero spectral context produces zero injection via the
+bias-free projection.
+Avatar runs as a pure text organism with no conditional branches in the tick loop.
+
+Phase state (0 or 1) is persisted in the sense checkpoint:
+\texttt{data/checkpoints/spectral\_sense.eqx}.
+Loading a checkpoint correctly restores the phase, ensuring that a container restart
+does not regress a post-dream organism to Phase~0 reconstruction mode.
+
+% ───────────────────────────────────────────────────
+\subsection{Implementation Summary}
+\label{sec:v37_impl}
+
+\begin{table}[h]
+\centering
+\caption{Files added or modified in v3.7 (relative to v3.6).}
+\label{tab:v37_files}
+\small
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{File} & \textbf{Role} \\
+\midrule
+\texttt{halo3/senses/fno.py}            & SpectralConv1d, SpectralConv2d, AudioFNO, VisionFNO \\
+\texttt{halo3/senses/vqvae.py}          & SpectralVQVAE: codebooks, EMA updates, dead-code revival \\
+\texttt{halo3/senses/critical\_period.py} & Phase 0/1 decoder, transition logic, phase persistence \\
+\texttt{halo3/senses/pfc\_stats.py}     & Flux, novelty, stability, binding computation \\
+\texttt{halo3/senses/projections.py}    & Updated: shared spectral\_proj + sense\_gate (replaces v3.6) \\
+\texttt{halo3/predictive.py}            & Updated: commitment loss, Phase 0 reconstruction terms \\
+\texttt{halo3/main.py}                  & Updated: PFC stats injection, phase-state checkpoint \\
+\texttt{halo3/senses/audio\_sense.py}   & Removed (Wav2Vec2 no longer used) \\
+\texttt{halo3/senses/vision\_sense.py}  & Removed (CLIP no longer used) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+All changes are contained within the \texttt{halo3/senses/} module and the
+loss-computation path of \texttt{halo3/predictive.py}.
+The Lorentz embedding, backbone, Hamiltonian ODE, Kuramoto oscillators, psyche layer,
+dream cycle, consciousness modules, and dual-process ethics are unmodified.
+The \texttt{halo3\_step} function signature is unchanged; senses are injected before
+the step in the token preparation phase, as in v3.6.
+The \texttt{capture\_agent/capture\_agent.py} Windows host agent is also unchanged:
+v3.7 consumes the same raw \texttt{.npy} waveform and \texttt{.jpg} frame files from
+the shared Docker volume, simply processing them with FNOs rather than frozen
+transformer encoders.

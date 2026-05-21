@@ -39,7 +39,8 @@ class HALOBackbone(eqx.Module):
     layer_types: tuple = eqx.field(static=True)  # ("S","S","S","H","S","S","S","H")
 
     def __init__(self, cfg: HaloFEPConfig, key: jnp.ndarray) -> None:
-        self.layer_types = ("S", "S", "S", "H", "S", "S", "S", "H")
+        pattern = ["S", "S", "S", "H"]
+        self.layer_types = tuple(pattern[i % 4] for i in range(cfg.n_layers))
         assert len(self.layer_types) == cfg.n_layers
 
         keys = jax.random.split(key, cfg.n_layers * 3)

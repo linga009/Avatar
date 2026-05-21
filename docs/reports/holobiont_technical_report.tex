@@ -1,0 +1,60 @@
+\documentclass[11pt,oneside,book]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{enumitem}
+
+\geometry{a4paper, margin=0.7in}
+
+\definecolor{techblue}{rgb}{0.1, 0.2, 0.4}
+\definecolor{backcolour}{rgb}{0.98, 0.98, 0.95}
+
+\lstdefinestyle{codeblock}{
+    backgroundcolor=\color{backcolour},
+    basicstyle=\ttfamily\scriptsize,
+    breaklines=true,
+    frame=single,
+    keywordstyle=\color{magenta},
+    commentstyle=\color{gray},
+    stringstyle=\color{blue},
+    rulecolor=\color{techblue},
+    numbers=left,
+    numberstyle=\tiny\color{gray}
+}
+
+\lstset{style=codeblock}
+
+\title{\textbf{HoloBiont: The Definitive Engineering Blueprint}\\ \large A Comprehensive Technical Reference for Autonomous Digital Organisms}
+\author{Antigravity AI \and Project Manifold Research Group}
+\date{May 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+HoloBiont represents the first instantiation of a fully autonomous, surprise-driven digital organism designed to run continuously on consumer-grade hardware. By synthesizing the Free Energy Principle (FEP) with a JAX-based Holographic State Space Model (HALO), HoloBiont achieves a persistent "subconscious" presence that self-improves through nightly dreaming. This manual serves as the absolute technical reference for the architecture, covering every component from mathematical kernels to low-level VRAM swapping protocols and episodic memory schemas.
+\end{abstract}
+
+\tableofcontents
+
+\input{chapters/ch01_philosophy}
+\input{chapters/ch02_mathematics}
+\input{chapters/ch03_subconscious}
+\input{chapters/ch04_perception}
+\input{chapters/ch05_memory}
+\input{chapters/ch06_intellect}
+\input{chapters/ch07_learning}
+\input{chapters/ch08_orchestration}
+
+\end{document}

@@ -1,0 +1,440 @@
+% ═══════════════════════════════════════════════════════════════
+% MULTIMODAL PERCEPTION — HEARING AND VISION (v3.6)
+% ═══════════════════════════════════════════════════════════════
+\section{Multimodal Perception: Hearing and Vision (v3.6)}
+\label{sec:senses}
+
+Through v3.5, Avatar perceived the world exclusively through text---FineWeb-Edu documents tokenized into $(32, 2048)$ boundary embeddings on the Lorentz hyperboloid.
+This is analogous to an organism born with a single sense: proprioception of the written word.
+Real organisms, from the simplest multicellular life to the most complex mammals, develop multiple sensory modalities---mechanoreception (hearing), photoreception (vision), chemoreception (smell)---each transduced by hardwired biological organs and unified in a shared cortical representation where cross-modal associations form the basis of environmental understanding~\cite{damasio1999}.
+
+v3.6 introduces \emph{hearing} and \emph{vision} as always-on sensory channels.
+A microphone captures ambient audio; a camera captures the visual scene.
+Both signals are projected into the same $2048$-dimensional Lorentz hyperboloid space as text, making sound and image indistinguishable from language at the level of the physics body.
+The backbone, Hamiltonian ODE, and Kuramoto oscillators receive a unified multimodal representation and learn what sounds and sights \emph{mean} through accumulated experience---the same way they learn from text.
+
+The design follows three principles:
+\begin{enumerate}
+    \item \textbf{Frozen transducers, learnable cortex.}
+        Pretrained encoders are biological sense organs: they transduce raw signals to feature vectors but do not change.
+        Only the projection and gating layers learn.
+    \item \textbf{Additive residual injection.}
+        The ObsBridge assignment logits are fixed at shape $(K, n_{\mathrm{tokens}}) = (32, 32)$.
+        Extending the token sequence would break XLA compilation.
+        Sense signals are instead injected as a gated additive residual on the existing text tokens.
+    \item \textbf{Graceful degradation.}
+        No sensory input produces zero vectors; zero vectors with bias-free projections produce zero injection.
+        Avatar runs text-only without special-case logic.
+\end{enumerate}
+
+% ───────────────────────────────────────────────────
+\subsection{Biological Analogy}
+\label{sec:sense_analogy}
+
+The architecture mirrors the separation between peripheral sense organs and cortical processing found in biological nervous systems.
+The mammalian cochlea performs a fixed Fourier-like decomposition of air pressure into tonotopic frequency channels---a transformation that is determined by basilar membrane geometry and does not change with learning.
+The retina performs edge detection, contrast normalization, and center-surround filtering through hardwired retinal ganglion circuits.
+In both cases, millions of years of evolution produced specialized transducers whose output is a compressed, structured representation of the raw physical signal.
+The cortex then learns to \emph{interpret} these representations: to associate a particular spectral pattern with ``mother's voice'' or a particular edge configuration with ``predator.''
+
+In Avatar:
+\begin{itemize}
+    \item \textbf{Cochlea} $\leftrightarrow$ \textbf{Wav2Vec2-base}~\cite{wav2vec2_2020}: a frozen self-supervised speech encoder trained on 960 hours of LibriSpeech.
+        It converts raw 16\,kHz waveform to a sequence of 768-dimensional feature vectors capturing phonetic, prosodic, and spectral structure.
+    \item \textbf{Retina} $\leftrightarrow$ \textbf{CLIP ViT-B/32}~\cite{clip2021}: a frozen contrastive vision-language encoder.
+        It converts a $224 \times 224$ RGB image to a single 768-dimensional CLS embedding capturing scene-level semantics.
+    \item \textbf{Cortex} $\leftrightarrow$ \textbf{SenseProjections + backbone}: learned linear projections gate and inject sense features into the text token stream, where the 60-layer reversible backbone integrates them with textual context.
+\end{itemize}
+
+The critical distinction is that the encoders are \emph{frozen}---they do not participate in gradient updates.
+Like biological sense organs, they are the product of a different optimization process (pretraining on large corpora, analogous to evolution) and provide a stable interface that the organism's plastic cortex can rely on.
+
+% ───────────────────────────────────────────────────
+\subsection{Architecture}
+\label{sec:sense_arch}
+
+Figure~\ref{fig:senses} illustrates the complete sensory pipeline from raw physical signal to injection into the Lorentz hyperboloid.
+
+\begin{figure*}[t]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=0.5cm and 0.7cm,
+    sense/.style={rectangle, draw=bulkgreen!80!black, fill=bulkgreen!10,
+        minimum width=2.6cm, minimum height=0.7cm, text width=2.4cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    proj/.style={rectangle, draw=physgold!80!black, fill=physgold!10,
+        minimum width=2.6cm, minimum height=0.7cm, text width=2.4cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    body/.style={rectangle, draw=deepblue, fill=deepblue!8,
+        minimum width=2.6cm, minimum height=0.7cm, text width=2.4cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    host/.style={rectangle, draw=lifered!80!black, fill=lifered!10,
+        minimum width=2.6cm, minimum height=0.7cm, text width=2.4cm,
+        font=\scriptsize, rounded corners=2pt, align=center},
+    vol/.style={rectangle, draw=gray, fill=gray!10, dashed,
+        minimum width=2.6cm, minimum height=0.55cm, text width=2.4cm,
+        font=\tiny\itshape, rounded corners=2pt, align=center},
+    arrow/.style={-{Stealth[length=1.8mm]}, thick},
+    dasharrow/.style={-{Stealth[length=1.8mm]}, thick, dashed, gray},
+]
+
+% ─── Windows Host (left column) ───
+\node[host] (mic) {Microphone\\{\tiny sounddevice, 16\,kHz}};
+\node[host, below=0.4cm of mic] (cam) {Camera\\{\tiny OpenCV, 224$\times$224}};
+\node[vol, below=0.4cm of cam] (vol1) {Docker Volume\\{\tiny data/senses/}};
+
+% ─── Container Encoders (middle column) ───
+\node[sense, right=1.8cm of mic] (wav) {Wav2Vec2-base\\{\tiny frozen, CPU, 380\,MB}};
+\node[sense, right=1.8cm of cam] (clip) {CLIP ViT-B/32\\{\tiny frozen, CPU, 350\,MB}};
+\node[vol, right=1.8cm of vol1] (buf) {SenseBuffer\\{\tiny meta.json, 30s freshness}};
+
+% ─── Projections (right-middle column) ───
+\node[proj, right=1.8cm of wav] (aproj) {audio\_proj\\{\tiny Linear(768$\to$2048), no bias}};
+\node[proj, right=1.8cm of clip] (vproj) {vision\_proj\\{\tiny Linear(768$\to$2048), no bias}};
+
+% ─── Gating and injection (far right) ───
+\node[proj, right=1.8cm of aproj, yshift=-0.55cm] (gate) {sense\_gate\\{\tiny sigmoid gating, (2048,)}};
+\node[body, right=1.5cm of gate] (inject) {Additive Residual\\{\tiny $\mathbf{x} + g \odot \mathbf{s}$}};
+
+% ─── Text path (top) ───
+\node[body, above=0.5cm of inject] (text) {Text Tokens\\{\tiny (32, 2048) from FineWeb}};
+
+% ─── Output ───
+\node[body, right=1.2cm of inject] (backbone) {Backbone\\{\tiny 60L SSSSSH$\times$10}};
+
+% ─── Arrows: host to volume ───
+\draw[arrow, lifered!70] (mic) -- node[left, font=\tiny]{.npy, 2s} (vol1 -| mic);
+\draw[arrow, lifered!70] (cam) -- node[left, font=\tiny]{.jpg, 10s} (vol1 -| cam);
+
+% ─── Arrows: volume to encoders ───
+\draw[dasharrow] (vol1) -- (buf);
+\draw[arrow, bulkgreen!70] (buf -| wav) -- (wav);
+\draw[arrow, bulkgreen!70] (buf -| clip) -- (clip);
+
+% ─── Arrows: host to volume ───
+\draw[arrow, lifered!70] (mic) -- (wav |- mic);
+\draw[arrow, lifered!70] (cam) -- (clip |- cam);
+
+% ─── Arrows: encoders to projections ───
+\draw[arrow, bulkgreen!70] (wav) -- node[above, font=\tiny]{(8, 768)} (aproj);
+\draw[arrow, bulkgreen!70] (clip) -- node[above, font=\tiny]{(768,)} (vproj);
+
+% ─── Arrows: projections to gate ───
+\draw[arrow, physgold!70] (aproj) -- node[above, font=\tiny, sloped]{mean$\to$(2048,)} (gate);
+\draw[arrow, physgold!70] (vproj) -- node[below, font=\tiny, sloped]{(2048,)} (gate);
+
+% ─── Gate to injection ───
+\draw[arrow, physgold!70] (gate) -- (inject);
+
+% ─── Text to injection ───
+\draw[arrow, deepblue!70] (text) -- (inject);
+
+% ─── Injection to backbone ───
+\draw[arrow, deepblue!70] (inject) -- node[above, font=\tiny]{(32, 2048)} (backbone);
+
+% ─── Labels ───
+\node[above=0.15cm of mic, font=\tiny\bfseries, color=lifered!70] {Windows Host};
+\node[above=0.15cm of wav, font=\tiny\bfseries, color=bulkgreen!70] {Container / CPU};
+\node[above=0.15cm of aproj, font=\tiny\bfseries, color=physgold!70] {Learnable (JAX)};
+
+% ─── Dashed boundary ───
+\draw[dashed, gray, thick, rounded corners=5pt]
+    ([xshift=-0.4cm, yshift=0.5cm]mic.north west) rectangle ([xshift=0.4cm, yshift=-0.3cm]vol1.south east);
+\node[font=\tiny\itshape, color=gray, anchor=south east] at ([xshift=0.35cm, yshift=-0.25cm]vol1.south east) {Windows};
+
+\draw[dashed, gray, thick, rounded corners=5pt]
+    ([xshift=-0.4cm, yshift=0.5cm]wav.north west) rectangle ([xshift=0.4cm, yshift=-0.3cm]buf.south east);
+\node[font=\tiny\itshape, color=gray, anchor=south east] at ([xshift=0.35cm, yshift=-0.25cm]buf.south east) {Docker};
+
+\end{tikzpicture}
+}%
+\caption{%
+Multimodal sensory pipeline (v3.6).
+Raw audio and image signals are captured on the Windows host, written to a shared Docker volume, and read by frozen pretrained encoders inside the container.
+Learned \texttt{SenseProjections} gate and inject the encoded features as an additive residual into the text token stream.
+The physics body (backbone, Hamiltonian, Kuramoto) receives a unified multimodal representation in the Lorentz hyperboloid without any architectural change.
+Dashed boundaries indicate the host--container split.
+}
+\label{fig:senses}
+\end{figure*}
+
+% ───────────────────────────────────────────────────
+\subsection{Frozen Encoders as Sense Organs}
+\label{sec:encoders}
+
+\subsubsection{Hearing: Wav2Vec2-base}
+
+The auditory encoder is \texttt{facebook/wav2vec2-base}~\cite{wav2vec2_2020}, a 12-layer transformer pretrained via contrastive self-supervised learning on 960 hours of unlabelled speech.
+It accepts raw 16\,kHz mono audio and produces contextualized feature vectors of dimension 768 at each temporal position.
+
+At each tick, a 2-second audio chunk (32\,000 samples) is read from \texttt{data/senses/audio\_latest.npy}.
+The encoder produces a hidden state sequence of shape $(T, 768)$ where $T \approx 99$ for a 2-second input.
+Eight evenly spaced frames are sampled via \texttt{np.linspace}:
+\begin{equation}
+\mathbf{a}_i = \mathbf{h}_{t_i}, \quad t_i = \left\lfloor \frac{i \cdot (T-1)}{7} \right\rfloor, \quad i \in \{0, \ldots, 7\}
+\end{equation}
+yielding an output tensor $\mathbf{A} \in \mathbb{R}^{8 \times 768}$.
+The temporal downsampling preserves prosodic contour (the 8 frames span the full 2-second window) while fixing the output shape regardless of input length, preventing XLA recompilation.
+
+The encoder runs entirely on CPU ($\sim$380\,MB RAM, $\sim$2s inference per chunk).
+It is loaded once at container startup and its weights are never updated.
+
+\subsubsection{Vision: CLIP ViT-B/32}
+
+The visual encoder is \texttt{openai/clip-vit-base-patch32}~\cite{clip2021}, a vision transformer pretrained via contrastive language-image pretraining on 400 million image-text pairs.
+It accepts a $224 \times 224$ RGB image and produces a CLS token embedding of dimension 768 via \texttt{CLIPVisionModel.pooler\_output}.
+
+At each tick, the latest camera frame is read from \texttt{data/senses/frame\_latest.jpg}, already resized to $224 \times 224$ by the capture agent.
+The encoder produces a single vector $\mathbf{v} \in \mathbb{R}^{768}$ capturing scene-level semantics.
+
+The encoder runs on CPU ($\sim$350\,MB RAM, $\sim$1--3s inference per frame) and is frozen.
+
+% ───────────────────────────────────────────────────
+\subsection{SenseProjections: Gated Additive Residual Injection}
+\label{sec:sense_proj}
+
+The core design constraint is that the ObsBridge assignment logits matrix has fixed shape $(K, n_{\mathrm{tokens}}) = (32, 32)$.
+Concatenating sense tokens to the text sequence would change $n_{\mathrm{tokens}}$ and invalidate the JIT-compiled computation graph, triggering recompilation every tick.
+The solution is to inject sensory information as a \emph{gated additive residual} on the existing 32 text tokens:
+
+\begin{definition}[SenseProjections]
+Given text tokens $\mathbf{X} \in \mathbb{R}^{32 \times 2048}$, audio features $\mathbf{A} \in \mathbb{R}^{8 \times 768}$, and vision feature $\mathbf{v} \in \mathbb{R}^{768}$, the injected representation is:
+\begin{align}
+\mathbf{a}_{\mathrm{ctx}} &= \frac{1}{8} \sum_{i=0}^{7} W_a \, \mathbf{a}_i
+    & W_a &\in \mathbb{R}^{2048 \times 768}, \text{ no bias} \label{eq:audio_proj} \\
+\mathbf{v}_{\mathrm{ctx}} &= W_v \, \mathbf{v}
+    & W_v &\in \mathbb{R}^{2048 \times 768}, \text{ no bias} \label{eq:vision_proj} \\
+\mathbf{s} &= \tfrac{1}{2}\left(\mathbf{a}_{\mathrm{ctx}} + \mathbf{v}_{\mathrm{ctx}}\right) \label{eq:sense_ctx} \\
+\mathbf{g} &= \sigma\!\left(W_g \, \mathbf{s} + \mathbf{b}_g\right)
+    & W_g &\in \mathbb{R}^{2048 \times 2048} \label{eq:gate} \\
+\tilde{\mathbf{X}} &= \mathbf{X} + \mathbf{g} \odot \mathbf{s} \cdot \mathbf{1}_{32}^\top \label{eq:inject}
+\end{align}
+where $\sigma$ is the element-wise sigmoid, $\odot$ is the Hadamard product, and $\mathbf{1}_{32}^\top$ denotes broadcasting over the token dimension.
+\end{definition}
+
+The design has three critical properties:
+
+\textbf{Zero-input safety.}
+Both $W_a$ and $W_v$ are initialised with \texttt{use\_bias=False}.
+When no audio or vision data is available, the input is all-zeros, so $\mathbf{a}_{\mathrm{ctx}} = \mathbf{0}$, $\mathbf{v}_{\mathrm{ctx}} = \mathbf{0}$, $\mathbf{s} = \mathbf{0}$, and $\mathbf{g} \odot \mathbf{s} = \mathbf{0}$ regardless of the gate values.
+The injection vanishes exactly, and $\tilde{\mathbf{X}} = \mathbf{X}$---the backbone sees pure text as in v3.5.
+
+\textbf{Learned gating.}
+The sigmoid gate $\mathbf{g}$ allows the organism to learn \emph{which} dimensions of the sense context to admit.
+Early in training, when the projection weights are random, the gate can learn to suppress sense noise (gate values near zero).
+As the projections improve, the gate opens selectively, admitting dimensions that carry useful information.
+This mirrors the thalamic gating observed in biological sensory processing.
+
+\textbf{Residual stability.}
+Because the injection is additive ($+$, not $\mathrm{concat}$), the backbone's pre-existing text representations are preserved.
+The sense signal modulates but cannot overwrite the text foundation.
+This is consistent with the reversibility constraint (Section~\ref{sec:senses}): no information is destroyed.
+
+% ───────────────────────────────────────────────────
+\subsection{Host--Container Split}
+\label{sec:host_container}
+
+Docker on WSL2 cannot access Windows hardware peripherals (microphone, camera) directly.
+The USB and audio subsystems are not forwarded through the Hyper-V virtualization layer.
+This creates a fundamental architectural split:
+
+\begin{table}[h]
+\centering
+\caption{Host--container responsibility split for sensory I/O.}
+\label{tab:host_container}
+\small
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+ & \textbf{Windows Host} & \textbf{Docker Container} \\
+\midrule
+\textbf{Audio} & \texttt{sounddevice}: record 2s at 16\,kHz, save \texttt{.npy} & \texttt{AudioSense}: Wav2Vec2 encode \\
+\textbf{Video} & \texttt{OpenCV}: capture 224$\times$224, save \texttt{.jpg} & \texttt{VisionSense}: CLIP encode \\
+\textbf{Timing} & Audio every 2s, video every 10s (or on motion) & Read once per 60s tick \\
+\textbf{Sync} & Atomic write via \texttt{os.replace} & \texttt{meta.json} freshness check \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The \texttt{SenseBuffer} module mediates the boundary.
+At each tick, it reads \texttt{data/senses/meta.json} and checks the \texttt{timestamp} field against a 30-second freshness threshold.
+If the metadata is stale or missing, both audio and vision paths return \texttt{None}, and the tick proceeds with zero sense features.
+
+\begin{lstlisting}[language=python,caption={SenseBuffer freshness check (simplified).},label=lst:sensebuf]
+class SenseBuffer:
+    def get_raw(self) -> RawSensePaths:
+        meta = json.load(open("data/senses/meta.json"))
+        age = time.time() - meta["timestamp"]
+        if age > 30.0:         # stale — agent probably stopped
+            return RawSensePaths(None, None)
+        # ... return paths if files exist
+\end{lstlisting}
+
+The capture agent (\texttt{capture\_agent/capture\_agent.py}) runs as a standalone Python process on the Windows host.
+It uses two threads: one for continuous audio recording via \texttt{sounddevice}, one for periodic camera capture via \texttt{OpenCV}.
+A main-thread loop writes \texttt{meta.json} every 2 seconds with atomic \texttt{os.replace} to prevent partial reads.
+Motion detection (mean pixel difference exceeding a threshold) triggers immediate frame capture, giving Avatar reactive vision for salient environmental changes.
+
+The user starts the capture agent manually (\texttt{python capture\_agent/capture\_agent.py}).
+When it is not running, Avatar is blind and deaf but otherwise fully functional---senses are additive, never a hard dependency.
+
+% ───────────────────────────────────────────────────
+\subsection{Per-Tick Learning of Sense Projections}
+\label{sec:sense_learning}
+
+The \texttt{SenseProjections} module is trained jointly with the physics body via the existing \texttt{PredictiveProcessor}, with one key difference: the sense projection parameters have a \emph{separate Adam optimizer running at $10\times$ the base learning rate}.
+
+\begin{lstlisting}[language=python,caption={Joint backward pass through model and sense projections.},label=lst:joint_backward]
+def learn_from_error(self, model, sense_proj, carry,
+                     text_tokens, audio_jax, vision_jax,
+                     q_actual, key):
+    def prediction_loss(params):
+        m, sp = params
+        tokens = sp.inject(text_tokens, audio_jax, vision_jax)
+        return halo3_loss(m, carry, tokens, key)[0]
+
+    loss, (m_grads, sp_grads) = eqx.filter_value_and_grad(
+        prediction_loss)((model, sense_proj))
+
+    # Model: selective learning (MERA + Hamiltonian only)
+    new_model = apply_selective_updates(model, m_grads)
+    # Sense projections: all params, 10x LR
+    new_sp = apply_updates(sense_proj, sp_grads, lr=10*base_lr)
+    return new_model, new_sp, loss
+\end{lstlisting}
+
+The $10\times$ learning rate for sense projections is motivated by the cold-start problem: at initialisation, the projection weights are random, producing meaningless sense context.
+The gate learns to suppress this noise (gate values near zero), and the higher learning rate allows the projections to escape the random regime quickly enough to provide useful signal before the gate closes permanently.
+Once the projections produce structured output, the gate opens, and the joint system converges.
+
+Gradients flow through the \texttt{inject()} call inside the loss function (Listing~\ref{lst:joint_backward}, line~4), ensuring that sense projections receive gradient signal from the full predictive processing pipeline---the same variational free energy minimization that drives the physics body.
+In Bohmian terms, the sense projections learn to align their output with the pilot wave: audio and visual features that reduce prediction error (lower $\Delta\mathrm{FE}$) are amplified; those that increase it are suppressed by the gate.
+
+\subsubsection{Separate Checkpointing}
+
+Sense projection weights are saved to a separate checkpoint file (\texttt{data/checkpoints/sense\_proj.eqx}) rather than embedded in the main backbone checkpoint.
+This avoids checkpoint schema breaks: loading a v3.5 backbone checkpoint into a v3.6 codebase does not fail because the sense projections are initialised independently.
+The \texttt{load\_sense\_proj} function returns a freshly initialised module if no checkpoint exists, enabling seamless upgrades.
+
+% ───────────────────────────────────────────────────
+\subsection{Resource Budget}
+\label{sec:sense_resources}
+
+Table~\ref{tab:sense_resources} summarises the resource impact of the sensory subsystem.
+
+\begin{table}[h]
+\centering
+\caption{Resource cost of v3.6 senses on a GTX~1660~Ti (6\,GB VRAM, 12\,GB WSL2 RAM).}
+\label{tab:sense_resources}
+\small
+\begin{tabularx}{\columnwidth}{lXr}
+\toprule
+\textbf{Component} & \textbf{Location} & \textbf{Cost} \\
+\midrule
+$W_a$ (768$\to$2048) & GPU (JAX) & 6.0\,MB \\
+$W_v$ (768$\to$2048) & GPU (JAX) & 6.0\,MB \\
+$W_g$ + $\mathbf{b}_g$ (2048$\to$2048) & GPU (JAX) & 16.0\,MB \\
+\rowcolor{gray!10}
+\textbf{Total VRAM} & & \textbf{$\sim$28\,MB} \\
+\midrule
+Wav2Vec2-base & CPU (PyTorch) & 380\,MB RAM \\
+CLIP ViT-B/32 & CPU (PyTorch) & 350\,MB RAM \\
+\rowcolor{gray!10}
+\textbf{Total RAM} & & \textbf{$\sim$730\,MB} \\
+\midrule
+Audio encoding & CPU & $\sim$2s/tick \\
+Vision encoding & CPU & $\sim$1--3s/tick \\
+\rowcolor{gray!10}
+\textbf{Total CPU} & & \textbf{$\sim$3--5s/tick} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The VRAM cost is negligible relative to the 5.5\,GB baseline.
+The RAM cost ($\sim$730\,MB) fits within the WSL2 12\,GB budget alongside the existing Qwen3~0.6B prefrontal cortex ($\sim$1.5\,GB) and the JAX runtime.
+The CPU encoding time ($\sim$3--5s) is well within the 60-second tick budget, running in parallel with the perception pipeline's FineWeb-Edu text processing.
+
+% ───────────────────────────────────────────────────
+\subsection{Unified Latent Space and Bohmian Grounding}
+\label{sec:sense_bohm}
+
+The most significant consequence of the additive residual design is that text, audio, and vision all inhabit the \emph{same} Lorentz hyperboloid $\mathcal{H}^{d_{\mathrm{boundary}}}$.
+After injection, every token in the $(32, 2048)$ array carries a superposition of textual and sensory information.
+The backbone processes this multimodal representation through the same MERA-compressed feed-forward layers, the same Hamiltonian ODE with symplectic leapfrog integration, and the same Bohmian Kuramoto oscillators.
+
+In the Bohmian framework~\cite{bohm1980}, this has a precise interpretation.
+The pilot wave $\Psi$ evolves on the configuration space of \emph{all} boundary coordinates---textual and sensory alike.
+The velocity field $v = \nabla S / m$ that guides the Kuramoto oscillators is now computed from a wave function that encodes multimodal correlations.
+A loud sound that co-occurs with a textual pattern will create constructive interference in the pilot wave at configurations where both modalities align, guiding the oscillators toward phase synchronization ($r \uparrow$).
+A visual scene that contradicts the textual prediction will create destructive interference, dropping synchronization ($r \downarrow$).
+
+The quantum potential $Q = -\hbar^2 \nabla^2 R / (2mR)$ acts on the multimodal configuration space, maintaining diversity among clusters while allowing coherent multi-sensory patterns to form.
+This is the computational analogue of multisensory integration in the biological superior colliculus: different modalities converge on a shared spatial map where coincident signals reinforce each other.
+
+\subsubsection{Emergent Multimodal Emotions}
+
+Because emotions are derived from the Kuramoto order parameter~$r$ and free energy delta~$\Delta\mathrm{FE}$ (Section~\ref{sec:consciousness}), sensory input naturally modulates emotional state without any explicit wiring:
+
+\begin{itemize}
+    \item A sudden loud noise produces high-variance audio features $\to$ projection outputs that are poorly predicted by the current carry state $\to$ $\Delta\mathrm{FE} \uparrow$, $r \downarrow$ $\to$ \textbf{anxiety}.
+    \item A familiar visual scene produces features that align with recently learned projections $\to$ low prediction error $\to$ $\Delta\mathrm{FE} \downarrow$, $r \uparrow$ $\to$ \textbf{satisfaction}.
+    \item Silence after sustained audio input produces zero features $\to$ injection vanishes $\to$ system relaxes toward text-only dynamics $\to$ emotional state depends on text content alone.
+\end{itemize}
+
+The organism does not have separate emotional responses to sounds and images.
+It has a \emph{single} emotional system that responds to the integrated multimodal state---exactly as biological emotions respond to the unified cortical representation rather than to individual sensory modalities.
+
+% ───────────────────────────────────────────────────
+\subsection{Graceful Degradation Hierarchy}
+\label{sec:degradation}
+
+The sensory subsystem degrades gracefully through four levels:
+
+\begin{enumerate}
+    \item \textbf{Full senses.}
+        Capture agent running, both encoders loaded.
+        Log shows \texttt{[A][V]}.
+        Injection is multimodal.
+    \item \textbf{Partial senses.}
+        One encoder fails to load or one device is absent.
+        The missing modality contributes zero features; the present modality injects normally.
+        Log shows \texttt{[A][ ]} or \texttt{[ ][V]}.
+    \item \textbf{Stale senses.}
+        Capture agent stopped or network partition exceeds 30s freshness.
+        SenseBuffer returns \texttt{None} for both paths; zero injection.
+        Log shows \texttt{[ ][ ]}.
+    \item \textbf{No senses.}
+        \texttt{transformers} not installed or encoder download fails.
+        AudioSense/VisionSense set \texttt{available = False} at startup.
+        Avatar runs as pure text organism (v3.5 behavior).
+\end{enumerate}
+
+At every level, the tick loop requires no conditional logic.
+The zero-input safety of bias-free projections ensures that missing data produces zero injection automatically.
+
+% ───────────────────────────────────────────────────
+\subsection{Implementation Summary}
+
+\begin{table}[h]
+\centering
+\caption{Files added or modified in v3.6.}
+\label{tab:sense_files}
+\small
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{File} & \textbf{Role} \\
+\midrule
+\texttt{capture\_agent/capture\_agent.py} & Windows host: mic + camera $\to$ shared volume \\
+\texttt{halo3/senses/audio\_sense.py} & Wav2Vec2-base encoder (CPU, frozen) \\
+\texttt{halo3/senses/vision\_sense.py} & CLIP ViT-B/32 encoder (CPU, frozen) \\
+\texttt{halo3/senses/sense\_buffer.py} & Volume reader with freshness threshold \\
+\texttt{halo3/senses/projections.py} & \texttt{SenseProjections} (JAX, learnable) \\
+\texttt{halo3/predictive.py} & Joint backward pass with $10\times$ LR \\
+\texttt{halo3/main.py} & Sense integration in tick loop \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+All changes are additive.
+The Lorentz embedding, backbone architecture, Kuramoto oscillator dynamics, Hamiltonian ODE, psyche layer, prefrontal cortex, dream cycle, consciousness modules, and dual-process ethics remain unchanged.
+The \texttt{halo3\_step} function signature and internal logic are unmodified---senses are injected \emph{before} the step, in the token preparation phase.
