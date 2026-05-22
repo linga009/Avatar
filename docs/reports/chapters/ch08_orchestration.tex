@@ -1,0 +1,285 @@
+\chapter{System Orchestration and DevOps}
+
+\section{The Heartbeat Loop}
+
+The \texttt{main.py} script contains the \texttt{HeartbeatLoop}, an infinite \texttt{while True} loop that dictates the life rhythm of the HoloBiont. It acts as the central nervous system orchestrator, sequencing all subsystems---perception, inference, memory, learning, and consciousness---in a precise, fault-tolerant order. By default, the \texttt{tick\_interval} is set to 60 seconds, chosen to balance several competing constraints:
+
+\begin{itemize}
+    \item \textbf{API Rate Limits:} DuckDuckGo's unofficial API allows approximately 5--10 requests per minute without triggering rate limiting. A 60-second interval positions one request per minute at the conservative end of this range.
+    \item \textbf{Thermal Management:} Consumer GPUs running continuous workloads can reach 85--90°C without adequate cooling. The 60-second interval provides approximately 55 seconds of idle time per tick (after the 5-second GPU computation window), allowing the GPU to cool between inference passes.
+    \item \textbf{Belief Convergence:} The FEP belief update (gradient descent on variational free energy) requires several iterations to converge to a new equilibrium after a novel observation. The 60-second interval provides time for higher-level processing to complete before the next observation arrives.
+    \item \textbf{EMA Horizon:} At 60-second intervals, the $\alpha = 0.99$ EMA gives a functional memory horizon of 100 minutes (100 ticks). Shorter intervals would compress this horizon proportionally, reducing the system's long-term memory capacity.
+\end{itemize}
+
+\subsection{Exact Tick Sequence}
+
+The complete sequence of operations in a single tick is as follows:
+
+\begin{enumerate}
+    \item \textbf{Query Generation:} The \texttt{PerceptionPipeline.query\_from\_beliefs(carry)} method inspects the current swarm belief state to determine the most informative search query. The dominant belief cluster and action preference are combined to produce a targeted natural language query string (e.g., ``latest research on mathematical modeling'').
+
+    \item \textbf{Perception:} The query string is passed to \texttt{WebFetcher.search()}, which executes the DuckDuckGo DDGS query with exponential backoff. The returned \texttt{SearchResult} list (up to 5 results) is passed to the \texttt{TokenPacker}, which fuses the query and result embeddings into a $(32, 256)$ NumPy array. The query embedding is also stored separately as a 256-d NumPy vector for FAISS indexing.
+
+    \item \textbf{JAX Inference:} The token array is converted to a JAX array (\texttt{jnp.array(tokens)}) and passed to \texttt{halo\_fep\_step}, which executes the full HALO+FEP forward pass: Poincare embedding, HALO backbone, flow matching prediction, page memory update, FEP observation mapping, belief update, and policy selection. The output is the new \texttt{HaloFEPCarry} and the tuple \texttt{(h\_out, obs, v\_pred, v\_target)}.
+
+    \item \textbf{Free Energy Evaluation:} \texttt{compute\_free\_energy(new\_carry, model)} computes the scalar free energy $\mathcal{F}$ from the updated swarm beliefs. A NaN guard immediately following this call checks \texttt{jnp.isfinite(fe)}; if the value is NaN or $\pm\infty$ (indicating numerical instability in the forward pass), the tick is aborted early with an error log and the carry is not updated.
+
+    \item \textbf{Memory Commit:} The current tick's data is assembled into an \texttt{Episode} dataclass with a fresh UUID4 identifier, the current timestamp, the query string, the token array, the current swarm\_mu, the computed free energy, the free energy delta (current minus previous), and the raw query embedding. The episode is written to SQLite (persistent) and added to the FAISS index (RAM).
+
+    \item \textbf{FEP Prior Update:} The \texttt{FEPUpdater.update(model, carry, episode)} method performs EMA updates on the $A$, $B$, and $D$ matrices of the discrete generative model, using the current tick's observations and belief state as the update target.
+
+    \item \textbf{Goal Decay:} The \texttt{GoalUpdater.decay(model)} method applies the $\alpha = 0.99$ exponential decay to the $C$ matrix, gradually returning the organism's preference distribution to uniform. This prevents goal obsession between wake cycles.
+
+    \item \textbf{Consciousness Check:} If $\mathcal{F} > \texttt{cfg.wake\_threshold}$ (default 2.5), the wake cycle is triggered. The \texttt{StateCompressor} produces a natural language summary of the current state. The \texttt{LLMBridge} is loaded, executed, and unloaded. The parsed \texttt{LLMResponse} is processed: SEARCH actions modify the next tick's query; GOAL actions call \texttt{GoalUpdater.update\_goal}; LEARN actions queue a targeted memory retrieval; IDLE actions are logged and discarded. The LLM output is attached to the current episode via \texttt{EpisodeStore.update\_llm\_output}.
+
+    \item \textbf{Nightly Check:} If the current local time falls within the 02:00--02:15 window and the nightly dreaming has not yet run today, the \texttt{LoRATrainer.run} method is called with the day's high-confidence episodes. The model is updated (or reverted) based on the outcome. A checkpoint is saved to disk.
+
+    \item \textbf{Carry Update:} The heartbeat loop's internal carry reference is updated to the new carry returned by \texttt{halo\_fep\_step}. The previous carry is discarded.
+
+    \item \textbf{Sleep:} The elapsed time for the tick is measured. \texttt{time.sleep(max(0, tick\_interval - elapsed))} is called to pad the tick to the configured interval. If the tick took longer than \texttt{tick\_interval} (e.g., during a wake cycle), the sleep duration is clamped to zero and the next tick begins immediately.
+\end{enumerate}
+
+\subsection{The Tick Implementation}
+
+\begin{lstlisting}[language=python]
+class HeartbeatLoop:
+    def tick(self) -> None:
+        """
+        Execute one heartbeat tick. Never raises an exception.
+        All errors are caught, logged, and handled gracefully.
+        """
+        tick_start = time.monotonic()
+        try:
+            self._do_tick()
+        except Exception as exc:
+            log.error(f"Tick failed with unhandled exception: {exc}", exc_info=True)
+        elapsed = time.monotonic() - tick_start
+        sleep_time = max(0.0, self.cfg.tick_interval - elapsed)
+        time.sleep(sleep_time)
+
+    def _do_tick(self) -> None:
+        """Core tick logic -- may raise on critical errors."""
+        # 1. Query generation
+        query = self.perception.query_from_beliefs(self.carry)
+        query_embed_np = self.perception.embed_query(query)
+
+        # 2. Perception
+        results = self.perception.fetcher.search(query)
+        tokens_np = self.perception.embed(query)   # (32, 256) ndarray
+        tokens_jax = jnp.array(tokens_np)
+
+        # 3. JAX inference
+        self.carry, (h_out, obs, v_pred, v_target) = halo_fep_step(
+            self.model, self.carry, tokens_jax, self.carry.key
+        )
+
+        # 4. Free energy evaluation
+        fe = compute_free_energy(self.carry, self.model)
+        if not jnp.isfinite(fe):
+            log.error(f"NaN/Inf free energy detected: {fe}. Skipping tick.")
+            return
+        fe_float = float(fe)
+
+        # 5. Memory commit
+        episode = Episode(
+            query=query,
+            tokens=np.array(tokens_jax),
+            swarm_mu=np.array(self.carry.swarm_mu),
+            free_energy=fe_float,
+            free_energy_delta=fe_float - self._prev_fe,
+            query_embed=query_embed_np,
+        )
+        self.memory.add(episode)
+        self._prev_fe = fe_float
+
+        # 6-7. FEP prior update + goal decay
+        self.model = self.fep_updater.update(self.model, self.carry, episode)
+        self.model = self.goal_updater.decay(self.model)
+
+        # 8. Consciousness check
+        if fe_float > self.cfg.wake_threshold:
+            self._wake_cycle(episode.id)
+
+        # 9. Nightly dreaming check
+        if self._should_run_nightly():
+            self._nightly_learning()
+\end{lstlisting}
+
+\section{Error Handling and Graceful Degradation}
+
+Because the system is designed to run indefinitely without human supervision, the \texttt{HeartbeatLoop} is fortified with a multi-layer fault tolerance architecture. The golden rule is: \textit{the heartbeat must never stop.} Every subsystem failure mode has a defined degradation strategy that allows the organism to continue operating at reduced capability rather than crashing.
+
+\subsection{Perception Failures}
+
+\begin{itemize}
+    \item \textbf{DDGS Rate Limiting / IP Ban:} The \texttt{WebFetcher} catches \texttt{RatelimitException} and implements exponential backoff with stochastic jitter (described in Chapter~\ref{ch:perception}). After \texttt{max\_retries} failures, it returns an empty result list. The \texttt{TokenPacker} handles an empty result list by producing a token array containing only the query embedding (indices 0--3) and zeros (indices 4--31). The HALO backbone processes this sparse input normally; the FEP agents simply update their beliefs based on a ``no new information'' observation, which typically produces a small negative $\Delta\mathcal{F}$ (belief stabilization without new surprise).
+
+    \item \textbf{DNS Failure / Network Outage:} The \texttt{WebFetcher.search} call raises a \texttt{ConnectionError} or \texttt{TimeoutError}. This is caught by the general exception handler in \texttt{\_do\_tick}. The organism enters ``Introversion Mode'': the tick returns early without updating the carry or writing an episode. The organism's internal state remains static until network connectivity is restored. This is analogous to an animal entering a state of sensory deprivation---its internal model continues to run (via the carry state's page memory), but it receives no new perceptual input.
+
+    \item \textbf{Embedding Model Failure:} If the CPU sentence transformer or CLIP model fails to load (e.g., due to a missing model file or insufficient RAM), the \texttt{Embedder} catches the exception and returns zero vectors. The zero vectors propagate through the \texttt{TokenPacker} to produce an all-zero token array. The HALO backbone produces near-zero outputs from an all-zero input (due to layer normalization), and the FEP agents receive uninformative observations. Free energy remains near the prior, and no wake cycle is triggered.
+\end{itemize}
+
+\subsection{Wake Cycle Failures}
+
+\begin{itemize}
+    \item \textbf{CUDA OOM During LLM Load:} If the LLM load fails due to insufficient VRAM (e.g., because the JAX backend failed to release memory cleanly), the \texttt{LLMBridge.load()} raises a \texttt{torch.cuda.OutOfMemoryError}. This is caught in \texttt{\_wake\_cycle}, which calls \texttt{LLMBridge.unload()} to ensure any partially allocated tensors are freed, logs the OOM event with the current VRAM utilization, and returns without completing the wake cycle. The organism continues in subconscious mode; the episode is written without an LLM output.
+
+    \item \textbf{LLM Generation Failure:} If the autoregressive decoding raises an exception (e.g., an invalid input length, a tokenizer error, or a numerical instability in the model's forward pass), the \texttt{think()} method's exception handler catches it, logs the failure, and returns \texttt{LLMResponse(action="IDLE", content="generation failed")}. The IDLE response is processed normally (logged and discarded), ensuring that the wake cycle completes without modifying the model state.
+
+    \item \textbf{VRAM Leak Detection:} After each wake cycle, the heartbeat loop logs the current GPU memory utilization via \texttt{torch.cuda.memory\_allocated() / torch.cuda.get\_device\_properties(0).total\_memory}. If utilization exceeds 40\% after unloading (indicating a VRAM leak), a warning is logged. After three consecutive wake cycles with persistent leaks, the heartbeat loop initiates a controlled restart via \texttt{os.execv(sys.executable, [sys.executable] + sys.argv)}, reloading the JAX backend from a clean state.
+\end{itemize}
+
+\subsection{Database Failures}
+
+\begin{itemize}
+    \item \textbf{SQLite Database Lock:} The \texttt{connect\_args=\{"timeout": 30\}} setting in the SQLAlchemy engine configuration causes the SQLite driver to wait up to 30 seconds for a database lock to be released before raising an exception. This handles transient lock contention during the FAISS rebuild or nightly checkpoint operations. If the timeout is exceeded, the episode write fails silently (logged at WARNING level), and the organism continues without persisting that tick's data.
+
+    \item \textbf{FAISS Index Corruption:} On startup, the \texttt{EpisodeStore.\_load\_or\_rebuild\_index} method (described in Chapter~\ref{ch:memory}) handles corrupted or missing FAISS files by rebuilding from SQLite. During operation, FAISS \texttt{IndexFlatIP} is inherently resilient to partial data: even if the index is not perfectly synchronized with SQLite (e.g., after a mid-write crash), the worst-case outcome is a few missing entries in the retrieval results, which is not a critical failure.
+
+    \item \textbf{Disk Full:} SQLite writes fail with an \texttt{sqlite3.OperationalError} when the disk is full. This is caught and logged at CRITICAL level. The heartbeat loop continues without memory writes, operating in ``amnesiac mode'' until disk space is freed. The FAISS index in RAM continues to accumulate entries but cannot be flushed to disk.
+\end{itemize}
+
+\section{Telemetry and Graceful Shutdown}
+
+HoloBiont utilizes the standard Python \texttt{logging} module with a \texttt{TimedRotatingFileHandler} to create daily log files, ensuring the disk does not fill up over years of operation:
+
+\begin{lstlisting}[language=python]
+import logging
+from logging.handlers import TimedRotatingFileHandler
+import sys
+
+def setup_logging(log_dir: str = "logs") -> None:
+    """Configure rotating daily log files and console output."""
+    log_dir_path = pathlib.Path(log_dir)
+    log_dir_path.mkdir(parents=True, exist_ok=True)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Daily rotating file handler -- keeps 30 days of logs
+    file_handler = TimedRotatingFileHandler(
+        filename=str(log_dir_path / "holobiont.log"),
+        when="midnight",
+        interval=1,
+        backupCount=30,      # Retain 30 days; older files are auto-deleted
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+
+    # Console handler -- INFO and above only (suppress DEBUG spam)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+\end{lstlisting}
+
+The \texttt{backupCount=30} setting retains exactly 30 days of log files (approximately 30 MB at typical log verbosity), after which the oldest file is automatically deleted. This prevents unbounded disk growth during multi-year operation.
+
+\subsection{Structured Metrics Logging}
+
+In addition to text logs, the heartbeat loop emits a structured JSON metrics record after each tick to a separate \texttt{metrics.jsonl} file (JSON Lines format, one record per line):
+
+\begin{lstlisting}[language=python]
+metrics = {
+    "tick":         self._tick_count,
+    "timestamp":    time.time(),
+    "query":        query[:100],
+    "free_energy":  fe_float,
+    "delta_fe":     fe_float - self._prev_fe,
+    "wake_cycle":   (fe_float > self.cfg.wake_threshold),
+    "elapsed_ms":   int(elapsed * 1000),
+    "n_results":    len(results),
+    "dominant_cluster": int(jnp.argmax(
+        jax.nn.softmax(self.carry.swarm_mu, axis=-1).mean(axis=0)
+    )),
+}
+metrics_logger.info(json.dumps(metrics))
+\end{lstlisting}
+
+This \texttt{metrics.jsonl} file can be ingested by any log analytics platform (Grafana, Elasticsearch, or a simple Jupyter notebook) to produce time-series visualizations of the organism's free energy, query diversity, wake cycle frequency, and tick latency over time. These dashboards are the primary operational tool for monitoring a running HoloBiont deployment without interrupting its continuous operation.
+
+\subsection{Signal Handling and Graceful Shutdown}
+
+The main script registers handlers for \texttt{SIGINT} (Ctrl+C) and \texttt{SIGTERM} (process termination signals from the OS or a process manager):
+
+\begin{lstlisting}[language=python]
+import signal, sys
+
+def _shutdown_handler(signum, frame):
+    """
+    Graceful shutdown handler. Flushes FAISS to disk, saves checkpoint, exits.
+    Called on SIGINT (Ctrl+C) or SIGTERM (kill, systemd stop).
+    """
+    log.info(f"Shutdown signal {signum} received. Completing current tick...")
+    loop._shutdown_requested = True   # Signals the heartbeat loop to exit after tick
+
+signal.signal(signal.SIGINT,  _shutdown_handler)
+signal.signal(signal.SIGTERM, _shutdown_handler)
+\end{lstlisting}
+
+When a shutdown signal is received, the \texttt{\_shutdown\_requested} flag is set. The heartbeat loop checks this flag at the end of each tick. If set, the loop:
+
+\begin{enumerate}
+    \item Completes the current tick (never terminates mid-tick to avoid partial episode writes).
+    \item Calls \texttt{memory.flush\_faiss\_to\_disk()} to write the in-RAM FAISS index to the \texttt{index.faiss} file.
+    \item Calls \texttt{eqx.tree\_serialise\_leaves(checkpoint\_path, model)} to save the final model weights.
+    \item Logs the total tick count and final free energy value.
+    \item Calls \texttt{sys.exit(0)} for a clean process exit.
+\end{enumerate}
+
+This prevents data corruption (incomplete FAISS flushes, partial SQLite transactions) and ``digital amnesia'' (losing the JAX model weights accumulated during the current session). It also ensures that process managers (systemd, Docker, PM2) can cleanly stop and restart the HoloBiont without manual intervention.
+
+\subsection{Deployment as a System Service}
+
+For 24/7 operation, HoloBiont should be deployed as a systemd service on Linux or a Windows Service on Windows. A minimal systemd unit file is provided in \texttt{deploy/holobiont.service}:
+
+\begin{lstlisting}[language=bash]
+[Unit]
+Description=HoloBiont Persistent Mind
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=holobiont
+WorkingDirectory=/opt/holobiont
+ExecStart=/opt/holobiont/venv/bin/python halo_fep/main.py \
+    --checkpoint-dir /var/lib/holobiont/checkpoints \
+    --log-dir /var/log/holobiont
+Restart=on-failure
+RestartSec=30s
+Environment="JAX_PLATFORM_NAME=gpu"
+Environment="XLA_PYTHON_CLIENT_PREALLOCATE=false"
+
+[Install]
+WantedBy=multi-user.target
+\end{lstlisting}
+
+The \texttt{Restart=on-failure} directive ensures that if the process crashes (e.g., due to a CUDA driver fault), systemd automatically restarts it after 30 seconds. The \texttt{XLA\_PYTHON\_CLIENT\_PREALLOCATE=false} environment variable prevents JAX from pre-allocating the full GPU memory at startup, leaving headroom for the Phi-3.5-mini load during wake cycles.
+
+\subsection{Bootstrap and First-Run Procedure}
+
+Before the heartbeat loop can run, the HoloBiont requires a trained set of initial weights. The \texttt{bootstrap.py} module handles this first-run initialization:
+
+\begin{lstlisting}[language=bash]
+# First-run bootstrap (one-time, takes approximately 30-60 minutes on RTX 3060)
+python -m halo_fep.training.bootstrap \
+    --checkpoint-dir /var/lib/holobiont/checkpoints \
+    --n-pretrain-steps 5000 \
+    --n-synthetic-episodes 100 \
+    --seed 42
+
+# Launch the heartbeat loop (ongoing, continuous operation)
+python halo_fep/main.py \
+    --checkpoint-dir /var/lib/holobiont/checkpoints
+\end{lstlisting}
+
+The bootstrap pre-trains the HALO backbone on synthetic episodes generated by the \texttt{MultimodalWorld} environment (a deterministic test fixture that produces $N_{tok} = 2$ token arrays, padded to $N_{tok} = 32$ with zeros), establishing the initial Poincare embeddings and SSM dynamics. The bootstrap also seeds the FEP generative matrices with informative priors derived from the eight bootstrap topics, calibrating the cluster-to-topic mapping that the \texttt{StateCompressor} relies on.
+
+After bootstrap, the saved checkpoint at \texttt{checkpoint\_dir/model.eqx} is loaded by \texttt{main.py} as the starting point for continuous operation. Subsequent nightly dreaming sessions progressively refine the backbone's weights away from the synthetic bootstrap distribution toward the real-world web data distribution that the organism actually browses.

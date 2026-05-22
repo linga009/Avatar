@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: avatar-applications.aux
+Reallocating 'name_of_file' (item size: 1) to 9 items.
+The style file: unsrtnat.bst
+Reallocating 'name_of_file' (item size: 1) to 20 items.
+Database file #1: avatar-applications.bib
+You've used 14 entries,
+            2481 wiz_defined-function locations,
+            637 strings with 7756 characters,
+and the built_in function-call counts, 6202 in all, are:
+= -- 422
+> -- 530
+< -- 7
++ -- 194
+- -- 166
+* -- 551
+:= -- 1107
+add.period$ -- 51
+call.type$ -- 14
+change.case$ -- 26
+chr.to.int$ -- 14
+cite$ -- 14
+duplicate$ -- 256
+empty$ -- 458
+format.name$ -- 184
+if$ -- 1227
+int.to.chr$ -- 1
+int.to.str$ -- 15
+missing$ -- 15
+newline$ -- 87
+num.names$ -- 42
+pop$ -- 113
+preamble$ -- 1
+purify$ -- 14
+quote$ -- 0
+skip$ -- 148
+stack$ -- 0
+substring$ -- 184
+swap$ -- 28
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 92
+warning$ -- 0
+while$ -- 40
+width$ -- 0
+write$ -- 201

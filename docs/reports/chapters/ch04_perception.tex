@@ -1,0 +1,221 @@
+\chapter{The Perception Pipeline}
+
+\section{Connecting to the Environment}
+
+HoloBiont interacts with the world almost entirely via the Internet. Its primary sensory organ is the \texttt{WebFetcher}, a robust Python wrapper around the DuckDuckGo Search (DDGS) API provided by the \texttt{duckduckgo\_search} library. DuckDuckGo is preferred over Google Search for three reasons: it does not require an API key (enabling zero-configuration deployment), it offers a privacy-preserving search interface with minimal rate-limiting under reasonable autonomous use patterns, and its result format is stable and well-documented.
+
+\subsection{Query Generation from Beliefs}
+
+The first step in every perception tick is not fetching data---it is deciding \textit{what} to fetch. The \texttt{PerceptionPipeline.query\_from\_beliefs} method inspects the current \texttt{HaloFEPCarry} to construct a natural language search query that reflects the organism's current cognitive focus:
+
+\begin{lstlisting}[language=python]
+def query_from_beliefs(self, carry: HaloFEPCarry) -> str:
+    """Derive a search query string from the current swarm belief state."""
+    # Identify the dominant belief cluster (argmax of mean swarm belief)
+    q_mean = jax.nn.softmax(carry.swarm_mu, axis=-1).mean(axis=0)  # (n_hidden,)
+    dominant_cluster = int(jnp.argmax(q_mean))
+
+    # Map cluster index to a canonical search topic
+    topic = CLUSTER_TOPICS.get(dominant_cluster, "autonomous AI systems")
+
+    # Modulate by the dominant action preference
+    action_mean = carry.swarm_action.mean(axis=0)   # (n_actions,)
+    dominant_action = int(jnp.argmax(action_mean))
+    prefix = ACTION_PREFIXES.get(dominant_action, "")
+
+    return f"{prefix} {topic}".strip()
+\end{lstlisting}
+
+The \texttt{CLUSTER\_TOPICS} dictionary maps hidden state indices to topic strings established during bootstrap training. The \texttt{ACTION\_PREFIXES} dictionary maps action indices to search modifiers such as ``latest research on'', ``technical tutorial for'', or ``historical context of''. This produces queries like ``latest research on mathematical modeling'' or ``technical tutorial for code synthesis'' --- goal-directed, self-generated queries that reflect the organism's current epistemic needs.
+
+\subsection{Graceful Degradation and Backoff}
+
+Because the organism runs continuously and autonomously, it must gracefully handle rate limits, IP bans, and general network failures without human intervention. The \texttt{WebFetcher} implements a ``Stochastic Jitter'' exponential backoff mechanism. If a search fails, the agent does not crash; it simply returns an empty observation tensor and allows the heartbeat loop to continue with static internal state (``Introversion Mode'').
+
+\begin{lstlisting}[language=python]
+def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
+    """
+    Execute a DuckDuckGo search with exponential backoff and stochastic jitter.
+
+    Returns a list of SearchResult dataclasses (possibly empty on failure).
+    HTML entities in snippets are automatically unescaped.
+    """
+    import html, random, time
+    from duckduckgo_search import DDGS
+    from duckduckgo_search.exceptions import RatelimitException
+
+    base_wait = 2.0
+    for attempt in range(self.max_retries):
+        try:
+            with DDGS() as ddgs:
+                raw = ddgs.text(query, max_results=max_results) or []
+            return [
+                SearchResult(
+                    title=html.unescape(r.get("title", "")),
+                    url=r.get("href", ""),
+                    snippet=html.unescape(r.get("body", "")),
+                )
+                for r in raw
+            ]
+        except RatelimitException:
+            jitter = random.uniform(0.5, 1.5)
+            wait = base_wait * (2 ** attempt) * jitter
+            time.sleep(wait)
+        except Exception:
+            return []
+    return []
+\end{lstlisting}
+
+The \texttt{html.unescape} calls are critical: DuckDuckGo's API frequently returns HTML-encoded entities such as \texttt{\&amp;}, \texttt{\&lt;}, and \texttt{\&quot;} in both titles and snippets. Without unescaping, these entities propagate into the embedding space, causing the sentence transformer to produce semantically shifted vectors (``AT\&amp;T'' and ``AT\&T'' embed to different points despite being identical strings). The \texttt{SearchResult} dataclass provides a typed, structured representation of each result with fields for title, URL, and snippet.
+
+The context manager form \texttt{with DDGS() as ddgs} is required by the library's internal session management. Using the bare class constructor without the context manager can leave HTTP sessions open, eventually exhausting the system's connection pool over days of continuous operation.
+
+\section{Multimodal Embedding Offloading}
+
+Raw text (HTML snippets) and images are computationally incompatible with the numerical JAX arrays of the HALO backbone. They must first be projected into a shared continuous semantic space via neural embedding models. These models are themselves large neural networks (the sentence transformer is approximately 23 MB; CLIP is approximately 350 MB), and their inference is serial Python code that cannot be JIT-compiled by JAX.
+
+Crucially, all embedding operations are explicitly forced to execute on the CPU (\texttt{device='cpu'}). This is a hard architectural requirement designed to preserve the strictly limited 6 GB of GPU VRAM for the conscious LLM layer during wake cycles. The JAX backend occupies approximately 1.5--2 GB of VRAM for the HALO model weights and activation buffers; the remaining 4 GB must be held in reserve for the Phi-3.5-mini load. CPU inference for the 23 MB sentence transformer typically completes in 8--12 ms per batch on a modern x86 processor---well within the 60-second tick budget.
+
+\subsection{Text Embedding: SentenceTransformer}
+
+Text content (query strings, result titles, snippets) is processed via \texttt{sentence-transformers/all-MiniLM-L6-v2}, a 6-layer distilled MiniLM model that produces 384-dimensional L2-normalized embedding vectors. The model is loaded lazily on first call (\texttt{\_load\_text\_model}) to avoid occupying CPU RAM at startup before it is needed:
+
+\begin{lstlisting}[language=python]
+def _load_text_model(self):
+    if self._text_model is None:
+        from sentence_transformers import SentenceTransformer
+        self._text_model = SentenceTransformer(
+            "sentence-transformers/all-MiniLM-L6-v2",
+            device="cpu"
+        )
+
+def embed_text(self, text: str) -> np.ndarray:
+    """Embed a single text string. Returns (384,) L2-normalized float32."""
+    self._load_text_model()
+    embedding = self._text_model.encode(
+        text,
+        normalize_embeddings=True,   # Enforces L2 = 1 for cosine similarity
+        show_progress_bar=False,
+        batch_size=1,
+    )
+    return embedding.astype(np.float32)
+\end{lstlisting}
+
+The \texttt{normalize\_embeddings=True} flag is essential: it ensures that all text embeddings lie on the unit hypersphere in $\mathbb{R}^{384}$, which is a prerequisite for the FAISS inner-product index to compute cosine similarities correctly. Without normalization, the FAISS search would be biased toward longer, higher-magnitude embeddings rather than more semantically similar ones.
+
+\subsection{Image Embedding: CLIP}
+
+Images referenced by search result URLs are optionally fetched and embedded via the \texttt{openai/clip-vit-base-patch32} CLIP model, producing 512-dimensional vectors. Images are resized to $224 \times 224$ pixels using bilinear interpolation and normalized with ImageNet statistics before entering the visual transformer. The CLIP model is also loaded lazily and CPU-pinned:
+
+\begin{lstlisting}[language=python]
+def embed_image(self, image_path_or_url: str | None) -> np.ndarray:
+    """
+    Embed an image. Returns (512,) L2-normalized float32.
+    Returns a zero vector if image is None, URL is unreachable, or decode fails.
+    """
+    if image_path_or_url is None:
+        return np.zeros(512, dtype=np.float32)
+    try:
+        self._load_clip()
+        from PIL import Image
+        import requests
+        from io import BytesIO
+        response = requests.get(image_path_or_url, timeout=3.0)
+        img = Image.open(BytesIO(response.content)).convert("RGB")
+        inputs = self._clip_processor(images=img, return_tensors="pt")
+        with torch.no_grad():
+            features = self._clip_model.get_image_features(**inputs)
+            features = features / features.norm(dim=-1, keepdim=True)
+        return features.squeeze(0).numpy().astype(np.float32)
+    except Exception:
+        return np.zeros(512, dtype=np.float32)
+\end{lstlisting}
+
+The 3-second timeout on the HTTP request prevents individual slow image URLs from blocking the entire tick. The zero-vector fallback for failed image fetches ensures that the downstream \texttt{TokenPacker} always receives a valid numpy array of the correct shape, regardless of network conditions.
+
+\subsection{Fixed Projection to Shared Dimensionality}
+
+The text (384-d) and image (512-d) embeddings must be projected to the common model dimension $d_{model} = 256$ before they can be concatenated into the token array. This projection is performed by fixed random linear maps $W_{\text{text}} \in \mathbb{R}^{256 \times 384}$ and $W_{\text{image}} \in \mathbb{R}^{256 \times 512}$ initialized at \texttt{Embedder} construction time with a fixed seed and never updated:
+
+\begin{equation}
+\hat{e}_{\text{text}} = \frac{W_{\text{text}} e_{\text{text}}}{\|W_{\text{text}} e_{\text{text}}\|_2}, \quad
+\hat{e}_{\text{image}} = \frac{W_{\text{image}} e_{\text{image}}}{\|W_{\text{image}} e_{\text{image}}\|_2}
+\end{equation}
+
+The L2-normalization after projection ensures that the projected embeddings remain on the unit hypersphere in $\mathbb{R}^{256}$, preserving the geometric properties (cosine similarities, angular distances) of the original embedding spaces. Fixed random projections are a well-established dimensionality reduction technique (the Johnson-Lindenstrauss lemma guarantees near-isometric embedding with high probability for random matrices), and they are preferred over learned projections here because: (a) they require no training data, (b) they do not introduce additional optimization complexity, and (c) they are consistent across process restarts, ensuring that FAISS index vectors remain comparable across sessions.
+
+\section{The Token Packer Algorithm}
+
+The \texttt{TokenPacker} is responsible for fusing the disparate 256-d projected embeddings from all search results and the query into a single, fixed-size JAX array of shape $(32, 256)$. This constant shape is an absolute necessity for static JAX compilation (\texttt{jax.jit}). Dynamic shapes would trigger recompilations on every tick where the number of results differs, destroying the real-time performance of the heartbeat loop and negating the primary benefit of using JAX in the first place.
+
+\subsection{Spatial Layout}
+
+The array is packed according to a strict spatial layout that mirrors the information hierarchy of a web search result page:
+
+\begin{enumerate}
+    \item \textbf{Indices 0--3 (The Intent, 4 slots):} The search query's text embedding is projected to 256-d, L2-normalized, and then \textit{tiled} 4 times across the first four token slots. Tiling (rather than placing it once and zero-padding the other three) ensures that the HALO backbone's self-attention mechanism has multiple opportunities to reference the query intent when computing cross-token associations with result tokens. The redundancy is intentional: attention is computed pairwise, so having 4 query tokens instead of 1 increases the number of query-to-result attention edges from $5 \times 4 = 20$ to $5 \times 4 \times 4 = 80$ per result, dramatically strengthening the semantic anchoring of result interpretations to the original query.
+
+    \item \textbf{Indices 4--23 (The World, 20 slots, 5 results $\times$ 4 tokens):} The top 5 search results. Each result occupies exactly 4 tokens in a fixed sub-layout:
+    \begin{itemize}
+        \item \textit{Token 0 (Title):} The DDG result title text embedding. Short, high-information-density strings that typically identify the source domain and topic.
+        \item \textit{Token 1 (Snippet):} The DDG result body/snippet text embedding. The most semantically rich component, containing 1--3 sentences of actual content.
+        \item \textit{Token 2 (Image):} The CLIP image embedding for any image associated with the result. If no valid image URL is found or the fetch times out, this slot is filled with explicit zeros.
+        \item \textit{Token 3 (Separator):} A learnable separator token initialized to zero during bootstrap and updated during training. This token serves as a ``punctuation mark'' for the attention mechanism, providing a consistent structural signal that the backbone can use to identify the boundaries between results.
+    \end{itemize}
+
+    \item \textbf{Indices 24--31 (The Void, 8 slots):} Overflow padding. Explicit zero vectors fill out the remainder of the $(32, 256)$ array when fewer than 5 results are returned (e.g., during rate limiting or for rare queries), or when future extensions add fewer than 8 additional slots. The zeros are not arbitrary: because the attention mechanism computes softmax-normalized scores, zero vectors produce near-uniform attention scores with all other tokens, effectively making the pad tokens attention-neutral.
+\end{enumerate}
+
+\subsection{The Packing Implementation}
+
+\begin{lstlisting}[language=python]
+def pack_results(
+    query_embed: np.ndarray,          # (256,) L2-normalized query embedding
+    results: list[SearchResult],      # up to 5 results
+    embedder: Embedder,
+    n_tokens: int = 32,
+    d_model: int = 256,
+) -> np.ndarray:
+    """
+    Pack a web search result set into a (n_tokens, d_model) float32 array.
+    Layout: [query x4] [result0 x4] ... [result4 x4] [padding x8]
+    """
+    tokens = np.zeros((n_tokens, d_model), dtype=np.float32)
+
+    # --- Indices 0-3: Query intent (tiled 4 times) ---
+    for i in range(4):
+        tokens[i] = query_embed
+
+    # --- Indices 4-23: Up to 5 search results, 4 tokens each ---
+    for result_idx, result in enumerate(results[:5]):
+        base = 4 + result_idx * 4
+        tokens[base + 0] = embedder.embed_text(result.title)
+        tokens[base + 1] = embedder.embed_text(result.snippet)
+        tokens[base + 2] = embedder.embed_image(getattr(result, "image_url", None))
+        # Token 3 (separator) remains zero -- learned during bootstrap
+
+    # Indices 24-31 remain zero (padding)
+    return tokens
+\end{lstlisting}
+
+By compressing the messy, variable-length reality of the web into a pristine geometric tensor, the HALO backbone can process the entirety of a web search result in a single, highly optimized forward pass. On a mid-range consumer GPU (e.g., RTX 3060), the full \texttt{halo\_fep\_step} completes in approximately 12--20 milliseconds per tick, leaving 59.98 seconds of the 60-second budget available for embedding, memory writes, FEP matrix updates, and sleep.
+
+\subsection{Embedding the Query for Memory}
+
+In addition to the packed token array used for the HALO forward pass, the \texttt{PerceptionPipeline} also returns the raw 256-d query embedding separately as a NumPy array for storage in the FAISS memory index:
+
+\begin{lstlisting}[language=python]
+def embed_query(self, query: str) -> np.ndarray:
+    """
+    Returns the raw (256,) L2-normalized query embedding as a CPU NumPy array.
+    Used for FAISS indexing (not for the HALO forward pass).
+    """
+    raw = self.embedder.embed_text(query)  # (384,) from sentence transformer
+    projected = self.embedder._text_proj @ raw  # (256,)
+    norm = np.linalg.norm(projected)
+    if norm < 1e-8:
+        return np.zeros(256, dtype=np.float32)
+    return (projected / norm).astype(np.float32)
+\end{lstlisting}
+
+This separation is critical: the FAISS index stores the query embedding (not the full token array) to enable semantic retrieval of similar past episodes by future ticks. Storing the full $(32, 256)$ token array in FAISS would be prohibitively large (32× the vector size) and would embed structural (layout) similarity rather than semantic (meaning) similarity. The 256-d query embedding is the correct level of semantic abstraction for retrieval.

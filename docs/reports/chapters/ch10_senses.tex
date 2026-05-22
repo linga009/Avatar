@@ -706,3 +706,32 @@ The \texttt{capture\_agent/capture\_agent.py} Windows host agent is also unchang
 v3.7 consumes the same raw \texttt{.npy} waveform and \texttt{.jpg} frame files from
 the shared Docker volume, simply processing them with FNOs rather than frozen
 transformer encoders.
+
+% ───────────────────────────────────────────────────
+\subsection{v3.8: Speech-Aware Hearing (Phase B)}
+\label{sec:speech_aware}
+
+v3.7 gave Avatar ears that hear frequency patterns. v3.8 teaches it that speech is structured sound.
+
+The upgrade scales the audio FNO from 16 to 32 Fourier modes, producing 16 spectral tokens per tick at ${\sim}125$\,ms resolution---diphone-level temporal granularity matching the biological auditory cortex's processing windows. The audio codebook expands from 32 to 128 entries, providing sufficient capacity for the phonemic inventory of English.
+
+\subsubsection{TTS Self-Narration}
+
+Avatar reads its own text aloud. Each tick, \texttt{espeak-ng} (a rule-based text-to-speech engine, $<$5\,MB) converts the first ${\sim}20$ words of the current FineWeb-Edu text snippet into a 2-second waveform at 16\,kHz. This synthesised audio is fed alongside the text tokens, creating perfectly paired speech--text experience---analogous to infant-directed speech (``motherese''), where exaggerated, consistent phonemes bootstrap categorical perception.
+
+When the capture agent is active, real microphone audio takes priority, with TTS narration interleaved every third tick to maintain the paired learning signal.
+
+\subsubsection{Contrastive Alignment}
+
+An InfoNCE contrastive loss~\cite{vqvae2017} pushes audio codebook embeddings toward their corresponding text token embeddings in Lorentz space:
+\begin{equation}
+\mathcal{L}_{\mathrm{contrast}} = -\frac{\cos(\mathbf{a}, \mathbf{t}^+)}{\tau} + \log \sum_{k} \exp\!\left(\frac{\cos(\mathbf{a}, \mathbf{t}_k^-)}{\tau}\right)
+\label{eq:infonce}
+\end{equation}
+where $\mathbf{a}$ is the mean projected audio embedding, $\mathbf{t}^+$ the matching text embedding, $\mathbf{t}_k^-$ are negative text embeddings from a ring buffer of the 16 most recent ticks, and $\tau = 0.07$.
+
+\subsubsection{Maturation}
+
+Following the same developmental pattern as v3.7's decoder critical period, the contrastive loss is a scaffold. After each dream, the system checks audio codebook utilisation: when more than 75\% of 128 codes are actively used, the contrastive loss is dropped and the FNO trains only through body prediction error. Avatar's phoneme perception has matured.
+
+The PFC gains speech-aware context: \texttt{speech=yes/no} (whether structured speech is detected) and \texttt{speaking\_for=N} (consecutive ticks of speech), enabling query generation informed by auditory context.

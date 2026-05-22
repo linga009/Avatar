@@ -1,0 +1,243 @@
+\chapter{Mathematical Foundations}
+
+\section{Information-Theoretic Surprisal}
+
+The core drive of the system is the minimization of Variational Free Energy ($\mathcal{F}$). To understand why, we begin from first principles in information theory and Bayesian inference.
+
+\subsection{The Evidence Lower Bound}
+
+Given a generative model $P(o, \eta) = P(o | \eta) P(\eta)$ where $o$ are observations and $\eta$ are hidden states, the agent's goal is to compute the posterior $P(\eta | o)$. By Bayes' theorem:
+\begin{equation}
+P(\eta | o) = \frac{P(o | \eta) P(\eta)}{P(o)}
+\end{equation}
+
+The marginal likelihood $P(o) = \int P(o | \eta) P(\eta) d\eta$ is generally intractable for high-dimensional state spaces. Active inference replaces exact inference with variational inference, introducing an approximate posterior $Q(\eta)$ from a tractable family (in our case, a categorical distribution parameterized by the softmax of \texttt{swarm\_mu}). The Variational Free Energy is then defined as:
+
+\begin{align}
+\mathcal{F} &= \mathbb{E}_{Q(\eta)}\left[\ln Q(\eta) - \ln P(o, \eta)\right] \\
+&= \underbrace{\text{KL}\left[Q(\eta) \| P(\eta)\right]}_{\text{Complexity}} - \underbrace{\mathbb{E}_{Q(\eta)}\left[\ln P(o | \eta)\right]}_{\text{Accuracy}}
+\end{align}
+
+This decomposition reveals the fundamental tension at the heart of all learning: the \textbf{complexity} term penalizes the posterior for deviating from the prior $P(\eta)$, while the \textbf{accuracy} term rewards the posterior for explaining the observations. Minimizing $\mathcal{F}$ finds the Occam-optimal explanation of the data: the simplest model that is still accurate. This is the mathematical formalization of Occam's Razor.
+
+Because $\mathcal{F}$ is an upper bound on $-\ln P(o)$ (the negative log evidence, or surprisal), minimizing free energy is equivalent to maximizing the evidence that the generative model assigns to observed data:
+
+\begin{equation}
+\mathcal{F} = -\ln P(o) + \text{KL}\left[Q(\eta) \| P(\eta | o)\right] \geq -\ln P(o)
+\end{equation}
+
+The KL divergence term vanishes when $Q(\eta) = P(\eta | o)$, at which point $\mathcal{F}$ becomes exactly the surprisal. This is why minimizing $\mathcal{F}$ is called an Evidence Lower BOund (ELBO) maximization in the variational autoencoder literature.
+
+\subsection{The Swarm Free Energy Implementation}
+
+In the FEP Swarm, the agent's approximate posterior $Q(\eta)$ is factored over $N_{agents}$ independent agents, each maintaining its own unnormalized log-belief vector $\mu_i \in \mathbb{R}^{n_{hidden}}$:
+
+\begin{equation}
+Q(\eta) = \prod_{i=1}^{N_{agents}} \text{softmax}(\mu_i)
+\end{equation}
+
+In our JAX implementation (\texttt{halo\_fep/utils.py}), the \textit{global} free energy is computed as the mean KL divergence across the swarm, treating the generative prior $D$ (the $D$ matrix of the discrete generative model) as the reference distribution for each agent:
+
+\begin{lstlisting}[language=python]
+def compute_free_energy(carry: HaloFEPCarry, model: HaloFEPModel) -> jnp.ndarray:
+    """
+    Computes Variational Free Energy from current swarm beliefs vs prior D.
+
+    carry.swarm_mu shape: (N_agents, n_hidden)
+    model.gm.D shape: (n_hidden,) -- the generative prior (log-normalized)
+
+    Returns a scalar float32.
+    """
+    # Q(eta) is the softmax of the current unnormalized beliefs
+    q_eta = jax.nn.softmax(carry.swarm_mu, axis=-1)  # (N_agents, n_hidden)
+    log_q = jnp.log(q_eta + 1e-8)
+
+    # D is the generative prior -- a probability vector over hidden states
+    log_d = jnp.log(model.gm.D + 1e-8)              # (n_hidden,)
+
+    # KL[Q||D] = sum_k Q_k * (log Q_k - log D_k), summed over states
+    # log_d[None, :] broadcasts to (N_agents, n_hidden)
+    kl_per_agent = jnp.sum(q_eta * (log_q - log_d[None, :]), axis=-1)  # (N_agents,)
+
+    # Global organism free energy is the mean across the swarm
+    return jnp.mean(kl_per_agent)  # scalar
+\end{lstlisting}
+
+The numerical constant $\epsilon = 10^{-8}$ in the log-stabilization terms prevents $\log(0) = -\infty$ from producing NaN gradients, which would otherwise corrupt the JAX computation graph silently. The NaN guard in the \texttt{HeartbeatLoop} (\texttt{jnp.isfinite(fe)}) serves as the final safety net against any residual numerical instability.
+
+\subsection{Interpreting the Free Energy Signal}
+
+The scalar $\mathcal{F}$ returned by \texttt{compute\_free\_energy} serves as the organism's primary affect signal---its numerical experience of distress or comfort. Table~\ref{tab:fe_levels} provides the operational interpretation of free energy magnitudes used throughout the codebase:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+$\mathcal{F}$ Range & Surprise Label & System Response \\
+\midrule
+$[0.0, 0.5)$   & Low       & Normal subconscious operation, EMA update \\
+$[0.5, 1.5)$   & Medium    & Heightened search diversity, increased $\beta$ \\
+$[1.5, 2.5)$   & High      & Memory retrieval prioritized, goal decay suspended \\
+$[2.5, \infty)$ & Very High & Wake cycle triggered, LLM invoked \\
+\midrule
+$< 0$ (impossible) & NaN guard & Loop exits tick early with error log \\
+\bottomrule
+\end{tabular}
+\caption{Operational interpretation of instantaneous free energy values.}
+\label{tab:fe_levels}
+\end{table}
+
+The KL divergence is always non-negative (by Gibbs' inequality), guaranteeing that $\mathcal{F} \geq 0$. A value of zero would mean the swarm's beliefs are already identical to the generative prior---a state of complete certainty that never occurs in practice when processing novel internet data.
+
+\section{Recursive Bayesian EMA Updates}
+
+To physically ``learn'' the structure of the web over time, the Generative Model matrices ($A$, $B$, $D$) must be updated continuously. Full Bayesian inference---maintaining a full Dirichlet distribution over every entry of every matrix and computing the posterior analytically---is theoretically ideal but computationally prohibitive and can lead to memory saturation for a system running indefinitely.
+
+Full Dirichlet inference for the $A$ matrix alone would require maintaining a $(n_{obs}, n_{hidden})$ matrix of Dirichlet concentration parameters, each of which must be updated for every observation. With $n_{obs} = 4$ and $n_{hidden} = 8$, this is manageable; but scaling to richer state spaces rapidly becomes intractable. More importantly, the Dirichlet posterior never forgets: concentration parameters only grow, and old evidence can only be removed by explicit decay mechanisms.
+
+\subsection{Log-Space EMA as Approximate Dirichlet Posterior}
+
+HoloBiont approximates a Dirichlet posterior update using an Exponential Moving Average (EMA) in log-space. This acts as a forgetting mechanism that naturally decays obsolete priors and maintains a bounded memory footprint regardless of runtime duration.
+
+For a given log-probability matrix $\ln \mathbf{M}$ at time step $t$, the update rule is:
+\begin{equation}
+\ln \mathbf{M}_{t+1} = \alpha \ln \mathbf{M}_t + (1-\alpha) \ln \mathbf{M}_{\text{target}}
+\label{eq:ema}
+\end{equation}
+
+Where $\alpha \in (0, 1)$ acts as the memory retention rate. We set $\alpha = 0.99$. Because log-probability entries can be negative (and sum-to-zero after normalization), the EMA is computed in log-space rather than probability space to avoid collapsing probabilities to zero during rapid updates. After each EMA step, the result is re-normalized by subtracting the \texttt{logsumexp} to maintain a valid log-probability distribution.
+
+The functional memory horizon of the EMA is approximately:
+\begin{equation}
+T_{\text{memory}} = \frac{1}{1 - \alpha} \cdot T_{\text{tick}} = \frac{1}{0.01} \cdot 60\text{s} = 6000\text{s} \approx 100\text{ minutes}
+\end{equation}
+
+This means that a pattern observed 100 minutes ago contributes approximately $e^{-1} \approx 37\%$ of its original weight to the current prior---a biologically reasonable short-term memory horizon. Patterns older than 5 hours contribute less than 0.7\% and are effectively forgotten.
+
+\subsection{Updating the Prior ($D$ Matrix)}
+
+The $D$ matrix encodes the prior expectation over hidden states $\eta$ before any observations are made: $P(\eta) = \text{softmax}(D)$. The target for the EMA update is the mean belief of the swarm, reflecting the average hidden state occupancy during the current tick:
+
+\begin{lstlisting}[language=python]
+# Current swarm beliefs: (N_agents, n_hidden) -> mean over agents -> (n_hidden,)
+q_eta_mean = jnp.mean(jax.nn.softmax(carry.swarm_mu, axis=-1), axis=0)
+
+# EMA update in log-space
+new_log_D = alpha * log_D + (1.0 - alpha) * jnp.log(q_eta_mean + 1e-8)
+
+# Re-normalize to maintain a valid log-probability vector
+new_log_D = new_log_D - jax.scipy.special.logsumexp(new_log_D)
+\end{lstlisting}
+
+Intuitively, the $D$ matrix gradually shifts to reflect the states that the organism most frequently occupies. If the agent spends the majority of its time in ``technical deep-dive'' mode (cluster 1), $D$ will gradually acquire a higher prior for that state, making it the ``resting state'' of the organism---its default mode network analog.
+
+\subsection{Updating the Likelihood ($A$ Matrix)}
+
+The $A$ matrix encodes the observation likelihood: $P(o | \eta) = \text{softmax}(A)$, where the columns are indexed by hidden state. The target update uses the outer product of the current observation proxy and the mean hidden state belief:
+
+\begin{lstlisting}[language=python]
+# Observation proxy: mean action distribution across agents (N_agents, n_actions) -> (n_actions,)
+soft_obs_mean = jnp.mean(carry.swarm_action, axis=0)
+
+# Outer product: (n_obs,) x (n_hidden,) -> (n_obs, n_hidden)
+outer_target = jnp.outer(soft_obs_mean, q_eta_mean)
+
+# EMA update in log-space, then column-normalize (each column must be a valid dist.)
+new_log_A = alpha * log_A + (1.0 - alpha) * jnp.log(outer_target + 1e-8)
+new_log_A = new_log_A - jax.scipy.special.logsumexp(new_log_A, axis=0, keepdims=True)
+\end{lstlisting}
+
+The $A$ matrix update embodies Hebbian learning in the active inference framework: ``neurons that fire together wire together.'' When a specific observation pattern co-occurs reliably with a specific hidden state, the corresponding entry $A[o, \eta]$ grows relative to other entries in the same column, making that observation more diagnostic of that hidden state in future belief updates.
+
+\subsection{Updating the Transition Matrix ($B$ Matrix)}
+
+The $B$ matrix encodes the state transition dynamics: $P(\eta_{t+1} | \eta_t, a_t) = \text{softmax}(B[:, :, a_t])$, where the third dimension indexes the action taken. The update iterates over each action slice independently, preventing cross-action contamination:
+
+\begin{lstlisting}[language=python]
+def update_B_slice(log_B_slice, action_idx):
+    # Beliefs at t: (n_agents, n_hidden) -- the "from" states
+    q_from = jax.nn.softmax(carry.swarm_mu, axis=-1)
+    # Beliefs at t+1 approximated by the new mu after one belief update step
+    # Use the argmax action as the dominant policy this tick
+    dominant_action = jnp.argmax(jnp.mean(carry.swarm_action, axis=0))
+    mask = (action_idx == dominant_action).astype(jnp.float32)
+
+    # Target transition: outer product of consecutive beliefs, masked by action
+    q_from_mean = jnp.mean(q_from, axis=0)          # (n_hidden,)
+    # Target: (n_hidden, n_hidden) -- rows = "to" state, cols = "from" state
+    target = jnp.outer(q_from_mean, q_from_mean) * mask
+
+    new_log_B_slice = alpha * log_B_slice + (1.0 - alpha) * jnp.log(target + 1e-8)
+    return new_log_B_slice - jax.scipy.special.logsumexp(
+        new_log_B_slice, axis=0, keepdims=True)
+
+# Scan over all action slices: (n_hidden, n_hidden, n_actions)
+new_log_B = jax.lax.scan(
+    lambda carry_b, a: (update_B_slice(carry_b[:, :, a], a), None),
+    log_B,
+    jnp.arange(n_actions)
+)[0]
+\end{lstlisting}
+
+Over time, the $B$ matrix encodes the organism's model of how its own hidden states evolve as a function of the actions it takes---a learned model of its own internal dynamics, which is the active inference analog of a world model.
+
+\section{Expected Free Energy ($G$)}
+
+When selecting actions, the FEP Swarm agents evaluate the Expected Free Energy ($G$) of future policies ($\pi$), where a policy is a sequence of actions over a planning horizon $\tau$. The $G$ function elegantly unifies two fundamental drives:
+
+\begin{equation}
+G(\pi) = \underbrace{-\mathbb{E}_{Q(o_\tau, \eta_\tau | \pi)}\left[\ln P(o_\tau)\right]}_{\text{Pragmatic Value (Goal Seeking)}} + \underbrace{\mathbb{E}_{Q(\eta_\tau | \pi)}\left[\mathcal{H}\left[P(o_\tau | \eta_\tau)\right]\right]}_{\text{Epistemic Value (Information Seeking)}}
+\label{eq:efe}
+\end{equation}
+
+\subsection{Pragmatic Value: Acting on Preferences}
+
+The first term in Equation~\ref{eq:efe} is the negative log-probability of preferred outcomes under the policy rollout. The ``preferred outcomes'' distribution $P(o)$ is encoded in the $C$ matrix (not to be confused with the covariance matrix; in discrete active inference, $C$ is a log-preference vector over observations). This term drives the agent toward states it has been programmed to prefer---the exploitation component of the explore/exploit balance.
+
+When the conscious wake cycle injects a new goal via the \texttt{GoalUpdater}, it does so by modifying the $C$ matrix to assign higher log-probability mass to the observation cluster corresponding to the goal text embedding. This immediately biases all agents in the swarm toward selecting actions that are expected to produce those preferred observations.
+
+\subsection{Epistemic Value: Curiosity and Information Seeking}
+
+The second term is the expected entropy of the observation likelihood under the policy rollout. High entropy in $P(o | \eta)$ means that a particular hidden state $\eta$ is ambiguous---the agent doesn't know what observation it will generate from that state. By preferring policies that lead to low-entropy states (i.e., unambiguous situations), the agent is driven to resolve its own uncertainty. This is the mathematical engine of curiosity.
+
+Crucially, this epistemic drive is entirely intrinsic: it does not require any external reward signal or human labeling. The agent is compelled to seek out informative experiences simply by the structure of the $G$ functional. Unexplored regions of its state space are automatically assigned high epistemic value, and the agent will gravitate toward them under the softmax policy:
+
+\begin{equation}
+\pi^* = \text{softmax}(-\beta \cdot G(\pi))
+\label{eq:policy}
+\end{equation}
+
+Where $\beta$ (the inverse temperature, set to $\beta = 1.0$ by default) controls the sharpness of the policy distribution. High $\beta$ produces near-deterministic greedy selection of the lowest-$G$ policy; low $\beta$ produces more stochastic, exploratory behavior. In the implementation, the per-agent softmax over $G$ values yields the \texttt{swarm\_action} tensor that feeds into the \texttt{ActionBridge} on the next tick.
+
+\subsection{The Planning Horizon $\tau$}
+
+The planning horizon $\tau$ (set to $\tau = 3$ in the default configuration) determines how many future steps the agent simulates when evaluating each policy. Longer horizons allow for more sophisticated multi-step planning but require $O(\tau \cdot n_{actions}^{\tau})$ rollout computations, which is exponentially expensive. The $\tau = 3$ setting represents the empirically determined optimal balance between planning depth and real-time performance on consumer hardware.
+
+For each of the $n_{actions}$ possible one-hot policy sequences, the \texttt{expected\_free\_energy} function simulates $\tau$ forward steps through the $B$ matrix (state transitions), the $A$ matrix (observation likelihoods), and compares against the $C$ matrix (preferences) to compute the two-component $G$ value. The policy with the lowest $G$ wins; the full distribution over policies feeds the next \texttt{swarm\_action}.
+
+\section{The ELBO Loss for Neural Training}
+
+During both bootstrap pre-training and nightly LoRA recollidation, the HALO backbone is optimized using a composite loss that serves as the neural-network-level approximation to the FEP objective.
+
+\subsection{Flow Matching Loss}
+
+The flow matching component trains the HALO backbone to predict the vector field that transports a Gaussian noise distribution $p_0(x)$ to the target embedding distribution $p_1(x)$ (the true token embeddings). For a time-interpolated sample $x_t = (1-t) x_0 + t x_1$ where $t \sim \mathcal{U}(0, 1)$, the flow matching loss is:
+
+\begin{equation}
+\mathcal{L}_{\text{flow}} = \mathbb{E}_{t, x_0, x_1}\left[\| v_\theta(x_t, t) - (x_1 - x_0) \|_2^2\right]
+\end{equation}
+
+Where $v_\theta$ is the backbone's predicted velocity field and $(x_1 - x_0)$ is the target velocity (the straight-line interpolant from noise to data). This loss drives the backbone to learn a generative model of the web data distribution that can produce new semantic embeddings by integrating the learned velocity field from noise to signal.
+
+\subsection{KG Prior Regularization}
+
+The knowledge-graph prior from the ADS KG module (\texttt{ads\_kg\_prior}) provides an additional regularization signal derived from the Poincare embedding geometry. This prior penalizes flow predictions that would move embeddings into geometrically inconsistent regions of the hyperbolic disk, enforcing the hierarchical structure of knowledge implied by the Poincare metric.
+
+\subsection{Composite ELBO}
+
+The full ELBO loss used during training is:
+\begin{equation}
+\mathcal{L}_{\text{ELBO}} = \mathcal{L}_{\text{flow}} + \lambda_{\text{KG}} \mathcal{L}_{\text{KG}} + \lambda_{\text{FE}} \mathcal{F}
+\end{equation}
+
+Where $\lambda_{\text{KG}} = 0.1$ and $\lambda_{\text{FE}} = 0.01$ are regularization weights. The free energy term $\mathcal{F}$ acts as a consistency regularizer: it penalizes the backbone for producing outputs that cause the FEP swarm to become highly surprised, encouraging the neural and probabilistic components to co-adapt toward a shared understanding of the world.

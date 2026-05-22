@@ -1,0 +1,95 @@
+\chapter{Errata and Architectural Corrections}
+\label{ch:corrections}
+
+This chapter documents significant bugs, architectural oversights, and their corrections discovered during live deployment. Each entry records the diagnosis, the failed fix (if any), and the final resolution, so that future development avoids repeating these errors.
+
+\section{Training Divergence: Missing Residual Scaling}
+\label{sec:residual-scaling-fix}
+
+\subsection{Date}
+2026-05-13.
+
+\subsection{Symptoms}
+Language model training on TinyStories (781K stories, BPE tokenizer, 50K steps) exhibited catastrophic loss values:
+\begin{itemize}
+    \item Step 13000: loss $= 5.49 \times 10^{11}$
+    \item Step 14000: loss $= 2.54 \times 10^{11}$
+    \item Step 14500: loss $= 2.37 \times 10^{11}$
+\end{itemize}
+Expected initial cross-entropy for a random model over vocabulary $V = 8000$ is $\ln(V) \approx 8.97$. The observed loss exceeded this by a factor of $\sim 10^{10}$.
+
+The training container was also killed externally (Docker exit code 255) due to Docker Desktop instability, and a prior container was OOM-killed (exit code 137). Step throughput was declining: $27.8 \to 16.2 \to 11.8 \to 9.4$ steps/s, indicating increasing memory pressure.
+
+\subsection{Root Cause 1: Unbounded Residual Accumulation}
+
+The HoloBiont 3.0 backbone uses a reversible architecture with 60 layers arranged in an alternating coupling pattern:
+\begin{align}
+    \mathbf{f}^{(i+1)} &= \mathbf{f}^{(i)} + \text{Layer}_i(\mathbf{g}^{(i)}) & \text{(even layers)} \\
+    \mathbf{g}^{(i+1)} &= \mathbf{g}^{(i)} + \text{Layer}_i(\mathbf{f}^{(i+1)}) & \text{(odd layers)}
+\end{align}
+
+While each layer applies pre-norm (LayerNorm) to its \emph{input}, the residual additions accumulate without any magnitude control on the running streams $\mathbf{f}$ and $\mathbf{g}$. After 60 layers, the output magnitudes grow proportionally to the number of layers:
+\[
+    \|\mathbf{f}^{(60)}\| \approx 60 \cdot \|\text{Layer output}\|
+\]
+
+The language model head then computes logits as $\ell = \mathbf{h}_{\text{out}} \cdot \mathbf{W}_{\text{embed}}^\top$, producing logits with magnitudes in the billions. The resulting cross-entropy loss $\mathcal{L} = -\frac{1}{T}\sum_t \log p(y_t)$ becomes catastrophically large because the target token's log-probability is dominated by a few extreme logits via the softmax denominator.
+
+\subsection{Failed Fix: Final LayerNorm}
+
+The initial proposed fix was to add a \texttt{LayerNorm} after the merge projection, before the LM head:
+\begin{verbatim}
+h_out = vmap(merge_proj)(combined)
+return vmap(final_norm)(h_out)      # <-- proposed
+\end{verbatim}
+
+This was \textbf{rejected} because LayerNorm is a non-invertible operation: it maps all inputs with the same direction but different magnitudes to the same output, destroying the magnitude degree of freedom. This breaks the reversibility of the backbone, which is a core architectural property of the organism. The reversible coupling enables bidirectional information flow---signals can propagate backward through the network by undoing the residual additions:
+\begin{align}
+    \mathbf{f}^{(i)} &= \mathbf{f}^{(i+1)} - \text{Layer}_i(\mathbf{g}^{(i)}) \\
+    \mathbf{g}^{(i)} &= \mathbf{g}^{(i+1)} - \text{Layer}_i(\mathbf{f}^{(i)})
+\end{align}
+A non-invertible layer at the output would sever this backward path, reducing the organism to a feed-forward engine.
+
+\subsection{Accepted Fix: Homeostatic Residual Scaling}
+
+The accepted fix applies a constant scaling factor $\alpha = 1/\sqrt{N_{\text{layers}}}$ to each residual delta:
+\begin{align}
+    \mathbf{f}^{(i+1)} &= \mathbf{f}^{(i)} + \frac{1}{\sqrt{N}} \cdot \text{Layer}_i(\mathbf{g}^{(i)}) \\
+    \mathbf{g}^{(i+1)} &= \mathbf{g}^{(i)} + \frac{1}{\sqrt{N}} \cdot \text{Layer}_i(\mathbf{f}^{(i+1)})
+\end{align}
+
+This has the following properties:
+\begin{enumerate}
+    \item \textbf{Magnitude control}: After $N$ layers of independent residual additions, the expected squared magnitude grows as $N \cdot (1/\sqrt{N})^2 = 1$, keeping output norms bounded regardless of depth.
+    \item \textbf{Full invertibility}: The reverse operation is $\mathbf{f}^{(i)} = \mathbf{f}^{(i+1)} - \frac{1}{\sqrt{N}} \cdot \text{Layer}_i(\mathbf{g}^{(i)})$, which is exact.
+    \item \textbf{Biological analogy}: This is equivalent to homeostatic synaptic scaling, where each synapse's gain is regulated to prevent runaway excitation across deep cortical hierarchies.
+\end{enumerate}
+
+For $N = 60$, $\alpha \approx 0.129$.
+
+\subsection{Root Cause 2: Vocabulary Size Mismatch}
+
+A secondary issue was discovered: the BPE tokenizer (trained via SentencePiece) contained 8000 pieces, but \texttt{Halo3Config.vocab\_size} was set to 16000. This caused:
+\begin{itemize}
+    \item The embedding matrix $\mathbf{W}_{\text{embed}} \in \mathbb{R}^{16000 \times 2048}$ to contain 8000 rows of untrained Xavier noise.
+    \item The softmax denominator to include 8000 extra garbage logits, diluting probability mass.
+    \item Total parameter count inflated from 81.9M to 138.7M unnecessarily.
+\end{itemize}
+
+\textbf{Fix}: Set \texttt{vocab\_size = 8000} to match the existing tokenizer. The tokenizer was retained; stale checkpoints were deleted.
+
+\subsection{Resolution Summary}
+
+\begin{center}
+\begin{tabular}{lll}
+\hline
+\textbf{Issue} & \textbf{File} & \textbf{Fix} \\
+\hline
+Residual explosion & \texttt{backbone.py} & $\alpha = 1/\sqrt{N}$ scaling per delta \\
+Vocab mismatch & \texttt{config.py} & \texttt{vocab\_size} $16000 \to 8000$ \\
+Stale checkpoint & \texttt{docker-compose.lm.yml} & Removed \texttt{-{}-resume} flags \\
+\hline
+\end{tabular}
+\end{center}
+
+Training must restart from scratch. Expected initial loss: $\ln(8000) \approx 8.97$.

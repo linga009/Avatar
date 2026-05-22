@@ -39,6 +39,16 @@
 % ── Float control ──
 \usepackage{float}
 
+% ── Code listings ──
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  xleftmargin=1em,
+  framexleftmargin=0.5em
+}
+
 % ── Caption ──
 \usepackage[font=small,labelfont=bf]{caption}
 
@@ -1652,6 +1662,11 @@ does---by feeling the weight of its choices.
 \input{chapters/ch10_senses_v36}
 
 % ═══════════════════════════════════════════════════════════════
+% 12b. SPECTRAL SENSORY CORTEX — GROWN PERCEPTION (v3.7–v3.8)
+% ═══════════════════════════════════════════════════════════════
+\input{chapters/ch10_senses}
+
+% ═══════════════════════════════════════════════════════════════
 % 13. APPLICATIONS
 % ═══════════════════════════════════════════════════════════════
 \section{Applications}
@@ -1925,6 +1940,21 @@ wav2vec 2.0: A framework for self-supervised learning of speech representations.
 Radford, A., Kim, J.~W., Hallacy, C., et~al.
 Learning transferable visual models from natural language supervision.
 \emph{Proceedings of the International Conference on Machine Learning (ICML)}, 2021.
+
+\bibitem[Li et~al.(2020)]{fno2020}
+Li, Z., Kovachki, N., Azizzadenesheli, K., Liu, B., Bhatt, K., Stuart, A., \& Anandkumar, A.
+\newblock Fourier Neural Operator for Parametric Partial Differential Equations.
+\newblock \emph{arXiv preprint arXiv:2010.08895}, 2020.
+
+\bibitem[van~den~Oord et~al.(2017)]{vqvae2017}
+van~den~Oord, A., Vinyals, O., \& Kavukcuoglu, K.
+\newblock Neural Discrete Representation Learning.
+\newblock \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2017.
+
+\bibitem[Hubel \& Wiesel(1970)]{hubel1970}
+Hubel, D.~H. \& Wiesel, T.~N.
+\newblock The period of susceptibility to the physiological effects of unilateral eye closure in kittens.
+\newblock \emph{The Journal of Physiology}, 206(2):419--436, 1970.
 
 \end{thebibliography}
 
