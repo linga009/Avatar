@@ -61,7 +61,7 @@ class Halo3Config:
     fno_hidden_dim: int = 64
     fno_n_layers: int = 4
     fno_audio_modes: int = 32       # v3.8: was 16
-    fno_vision_modes: int = 8       # 8x8 for 2D (unchanged)
+    fno_vision_modes: int = 16      # v3.9: was 8 (doubled for richer spectral vision)
 
     # VQ-VAE — spectral codebook (split per modality for v3.8)
     codebook_size_audio: int = 128  # v3.8: was 32 (shared)
@@ -73,7 +73,7 @@ class Halo3Config:
 
     # Sense tokens
     n_audio_tokens: int = 16        # v3.8: was 8
-    n_vision_tokens: int = 4
+    n_vision_tokens: int = 8        # v3.9: was 4 (doubled for richer spectral vision)
 
     # Critical period
     critical_period_recon_weight: float = 0.5

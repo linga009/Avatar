@@ -7,7 +7,7 @@ def test_fno_config_defaults():
     assert cfg.fno_hidden_dim == 64
     assert cfg.fno_n_layers == 4
     assert cfg.fno_audio_modes == 32
-    assert cfg.fno_vision_modes == 8
+    assert cfg.fno_vision_modes == 16
     assert cfg.codebook_size_audio == 128
     assert cfg.codebook_size_vision == 32
     assert cfg.codebook_dim == 64
@@ -15,7 +15,7 @@ def test_fno_config_defaults():
     assert cfg.commitment_beta == 0.25
     assert cfg.dead_code_threshold == 100
     assert cfg.n_audio_tokens == 16
-    assert cfg.n_vision_tokens == 4
+    assert cfg.n_vision_tokens == 8
     assert cfg.critical_period_recon_weight == 0.5
 
 
