@@ -1,0 +1,230 @@
+\chapter{The Soul: Episodic Memory}
+
+\section{Dual-Storage Architecture}
+
+The agent's ``soul''---its continuous memory of existence, its accumulation of experience, and its ability to learn from the past---is maintained by the \texttt{EpisodeStore}. Without episodic memory, each tick of the HoloBiont would be informationally independent: the system would have no way to recognize that it has encountered a topic before, no way to surface relevant past experiences during a wake cycle, and no way to accumulate the high-quality training data that drives nightly LoRA recollidation. The \texttt{EpisodeStore} is therefore the substrate of the organism's long-term identity.
+
+The system uses a dual-backend approach to balance high-speed vector retrieval (necessary for the LLM context window, which must be populated within the time budget of a wake cycle) with absolute, relational data persistence (necessary for the system to survive power failures, OS crashes, and arbitrary restarts without data loss):
+
+\begin{enumerate}
+    \item \textbf{SQLite (The Long-Term Memory):} The immutable source of truth. Every episode is written to a local disk file (\texttt{episodes.db}) using SQLAlchemy with WAL (Write-Ahead Logging) mode enabled. SQLite with WAL provides ACID-compliant transaction safety with minimal write latency, making it suitable for the high-frequency writes of the heartbeat loop (one write per tick, up to 1,440 writes per day). The WAL mode specifically allows concurrent reads during writes, which is essential because the FAISS rebuild protocol reads from SQLite while the heartbeat loop may be writing.
+
+    \item \textbf{FAISS (The Working Memory):} An in-memory vector index used for $O(1)$ (or more precisely, $O(\log N)$ for IVF variants) semantic retrieval of past episodes based on the current query embedding. FAISS is not a persistent database; it is a RAM-resident acceleration structure that is rebuilt from SQLite on startup. During normal operation, the FAISS index is periodically flushed to disk as a binary file (\texttt{index.faiss}) to avoid rebuilding from scratch on every restart.
+\end{enumerate}
+
+The architectural choice to separate these concerns is motivated by the CAP theorem of distributed systems: SQLite provides Consistency and Partition tolerance (via WAL journaling), while FAISS provides Availability (sub-millisecond retrieval latency) at the cost of not being the authoritative source. When the two disagree (e.g., after a crash), SQLite always wins: the FAISS index is rebuilt from SQLite, never vice versa.
+
+\subsection{Windows-Specific SQLite Configuration}
+
+On Windows, SQLAlchemy's default connection pooling strategy (QueuePool) maintains persistent open connections to the SQLite file between transactions. This prevents the operating system from releasing the file lock during teardown, causing \texttt{PermissionError} exceptions when temporary directories (used in tests) attempt to delete the SQLite file while a connection is still held. The \texttt{EpisodeStore} resolves this by using \texttt{NullPool}:
+
+\begin{lstlisting}[language=python]
+from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
+
+engine = create_engine(
+    f"sqlite:///{db_path}",
+    poolclass=NullPool,   # No connection pooling -- each use creates/destroys connection
+    connect_args={"check_same_thread": False, "timeout": 30},
+)
+\end{lstlisting}
+
+\texttt{NullPool} creates a fresh connection for each database operation and closes it immediately afterward. This is slightly slower (one additional connect/disconnect overhead per write) but is the only configuration that reliably releases file locks on Windows. The 30-second timeout in \texttt{connect\_args} provides a graceful wait period if the database is briefly locked by another process (e.g., a parallel test).
+
+\section{The Physical Data Schema}
+
+The SQLite database defines an \texttt{episodes} table as the single source of truth. Because multi-dimensional JAX arrays cannot be natively stored in relational SQL columns, they are first converted to NumPy arrays and then serialized as binary BLOBs using Python's \texttt{pickle} module with \texttt{zlib} compression to reduce disk footprint:
+
+\begin{lstlisting}[language=sql]
+CREATE TABLE IF NOT EXISTS episodes (
+    -- Unique identifier: UUID4 string, generated at episode creation
+    id VARCHAR PRIMARY KEY,
+
+    -- Unix timestamp (float seconds since epoch) for temporal ordering
+    timestamp FLOAT NOT NULL,
+
+    -- Natural language query that was searched during this tick
+    query TEXT NOT NULL,
+
+    -- (32, 256) float32 array: the full token array passed to HALO
+    -- Stored as zlib-compressed pickle bytes (~4KB per episode)
+    tokens BLOB NOT NULL,
+
+    -- (N_agents, n_hidden) float32 array: the swarm belief state at tick time
+    -- Represents the organism's internal cognitive state during this experience
+    swarm_mu BLOB NOT NULL,
+
+    -- Scalar free energy at this tick (KL divergence from prior)
+    free_energy FLOAT NOT NULL,
+
+    -- Signed delta: free_energy(t) - free_energy(t-1)
+    -- Negative values indicate surprise reduction (successful inference)
+    -- Positive values indicate surprise increase (novel or confusing data)
+    free_energy_delta FLOAT NOT NULL,
+
+    -- Natural language output from the LLM during a wake cycle, if triggered
+    -- NULL if this tick did not trigger a wake cycle
+    llm_output TEXT,
+
+    -- (256,) float32 L2-normalized query embedding for FAISS lookup
+    -- Stored separately from tokens for efficient retrieval without deserializing the full array
+    query_embed BLOB NOT NULL
+);
+
+-- Temporal index: enables efficient get_recent() queries by timestamp range
+CREATE INDEX IF NOT EXISTS idx_timestamp ON episodes(timestamp);
+
+-- Free energy delta index: enables efficient get_high_confidence() queries
+-- (episodes where delta_fe < threshold, indicating successful uncertainty reduction)
+CREATE INDEX IF NOT EXISTS idx_fe_delta ON episodes(free_energy_delta);
+\end{lstlisting}
+
+\subsection{The Episode Dataclass}
+
+Before being written to SQLite, each moment of the organism's existence is encapsulated in a typed Python dataclass:
+
+\begin{lstlisting}[language=python]
+from dataclasses import dataclass, field
+from uuid import uuid4
+import time
+
+@dataclass
+class Episode:
+    query:             str
+    tokens:            np.ndarray    # (32, 256) float32
+    swarm_mu:          np.ndarray    # (N_agents, n_hidden) float32
+    free_energy:       float
+    free_energy_delta: float
+    query_embed:       np.ndarray    # (256,) float32, L2-normalized
+    llm_output:        str | None = None
+    id:                str = field(default_factory=lambda: str(uuid4()))
+    timestamp:         float = field(default_factory=time.time)
+    topic_tags:        list[str] = field(default_factory=list)
+\end{lstlisting}
+
+The UUID4 identifier is generated at episode creation time, before the SQLite write. This ensures that the \texttt{episode\_id} is available immediately for use in the \texttt{update\_llm\_output} method (called by the wake cycle after LLM reasoning completes), without requiring a database round-trip to retrieve an auto-incremented primary key.
+
+\section{FAISS Indexing and Auto-Recovery}
+
+The FAISS index utilizes the \texttt{IndexFlatIP} (Inner Product) algorithm. By strictly enforcing L2-normalization on the \texttt{query\_embed} vectors before they are added to the index, the inner-product search mathematically reduces to Cosine Similarity:
+
+\begin{equation}
+\text{IP}(\hat{u}, \hat{v}) = \hat{u} \cdot \hat{v} = \|\hat{u}\| \|\hat{v}\| \cos\theta = \cos\theta \quad \text{(when } \|\hat{u}\| = \|\hat{v}\| = 1\text{)}
+\end{equation}
+
+Cosine similarity is the standard distance metric for semantic text embeddings because it is invariant to the magnitude of the embedding vector and sensitive only to the angular distance between vectors. Two embeddings that point in the same direction in $\mathbb{R}^{256}$ are semantically similar regardless of their L2 norms, which may vary depending on the specific text length and vocabulary of the encoded strings.
+
+\begin{lstlisting}[language=python]
+import faiss
+import numpy as np
+
+class EpisodeStore:
+    def __init__(self, path: str, embed_dim: int = 256):
+        self.embed_dim = embed_dim
+        self.index = faiss.IndexFlatIP(embed_dim)
+        self._id_map: list[str] = []   # Maps FAISS ordinal -> episode UUID
+
+    def add(self, episode: Episode) -> None:
+        """Add an episode to both SQLite (persistent) and FAISS (RAM)."""
+        # Write to SQLite first -- if this fails, we don't corrupt FAISS
+        self._write_to_db(episode)
+
+        # Add to FAISS index
+        vec = episode.query_embed.reshape(1, -1).astype(np.float32)
+        faiss.normalize_L2(vec)   # Enforce unit norm for cosine similarity
+        self.index.add(vec)
+        self._id_map.append(episode.id)
+
+    def retrieve(self, query_embed: np.ndarray, k: int = 5) -> list[Episode]:
+        """
+        Retrieve the k most semantically similar past episodes to a query embedding.
+
+        Args:
+            query_embed: (256,) float32 L2-normalized query vector.
+            k: Number of nearest neighbors to return.
+
+        Returns:
+            List of Episode objects ordered by decreasing cosine similarity.
+        """
+        if self.index.ntotal == 0:
+            return []
+
+        vec = query_embed.reshape(1, -1).astype(np.float32)
+        faiss.normalize_L2(vec)
+        scores, indices = self.index.search(vec, min(k, self.index.ntotal))
+
+        episodes = []
+        for idx in indices[0]:
+            if idx >= 0:
+                episode_id = self._id_map[idx]
+                ep = self._read_from_db(episode_id)
+                if ep is not None:
+                    episodes.append(ep)
+        return episodes
+\end{lstlisting}
+
+\subsection{Specialized Retrieval Modes}
+
+Beyond nearest-neighbor semantic search, the \texttt{EpisodeStore} exposes specialized retrieval methods that support the different informational needs of the system's components:
+
+\begin{itemize}
+    \item \textbf{\texttt{get\_recent(n, since\_timestamp)}:} Returns the $n$ most recent episodes, optionally filtered to those occurring after a given Unix timestamp. Used by the \texttt{StateCompressor} to populate the LLM context window with a temporal narrative of recent experience.
+
+    \item \textbf{\texttt{get\_high\_confidence(threshold, since\_timestamp)}:} Returns all episodes where $\Delta\mathcal{F} < \text{threshold}$ (default $-0.05$), indicating ticks where the organism successfully reduced its surprise. Used by the \texttt{LoRATrainer} to select the training corpus for nightly weight recollidation.
+
+    \item \textbf{\texttt{update\_llm\_output(episode\_id, llm\_output)}:} Updates the \texttt{llm\_output} field of an existing episode in SQLite. This is called by the wake cycle after the LLM generates its response, attaching the conscious thought to the episode record that was initially created at tick start (before the wake cycle triggered). This prevents duplicate episode entries for the same tick.
+\end{itemize}
+
+\begin{lstlisting}[language=python]
+def update_llm_output(self, episode_id: str, llm_output: str) -> None:
+    """
+    Attach LLM output to an existing episode after a wake cycle.
+    Uses SQLAlchemy UPDATE to modify only the llm_output column.
+    """
+    with self.engine.connect() as conn:
+        conn.execute(
+            text("UPDATE episodes SET llm_output = :output WHERE id = :id"),
+            {"output": llm_output, "id": episode_id},
+        )
+        conn.commit()
+\end{lstlisting}
+
+\subsection{FAISS Auto-Recovery Protocol}
+
+Because the FAISS index is kept entirely in RAM and saved periodically to disk (\texttt{index.faiss}), it is susceptible to corruption if the system experiences a hard crash or power failure between periodic saves. To ensure the organism's memory is indestructible, the \texttt{EpisodeStore} implements an automatic recovery protocol that executes at every startup:
+
+\begin{lstlisting}[language=python]
+def _load_or_rebuild_index(self) -> None:
+    """
+    Attempt to load FAISS index from disk. On failure (missing or corrupt file),
+    rebuild it by iterating over all episodes in SQLite.
+
+    This ensures memory survives any hard crash or power failure.
+    """
+    faiss_path = self.path / "index.faiss"
+    try:
+        self.index = faiss.read_index(str(faiss_path))
+        # Reload the ID map from SQLite to ensure FAISS ordinals match UUIDs
+        self._id_map = self._load_id_map_from_db()
+    except (RuntimeError, FileNotFoundError):
+        # Rebuild from SQLite -- may take O(N) time for large histories
+        self.index = faiss.IndexFlatIP(self.embed_dim)
+        self._id_map = []
+        for episode in self._iter_all_episodes_from_db():
+            vec = episode.query_embed.reshape(1, -1).astype(np.float32)
+            faiss.normalize_L2(vec)
+            self.index.add(vec)
+            self._id_map.append(episode.id)
+\end{lstlisting}
+
+On a system that has been running for one year (approximately 525,600 ticks), the FAISS rebuild from SQLite would process roughly 525,600 256-d vectors. At FAISS's insertion rate of approximately $10^6$ vectors/second on CPU, this takes about 0.5 seconds---a negligible startup delay. The SQLite read overhead dominates at roughly 5--10 seconds for the BLOB deserialization of query embeddings, but this is a one-time cost per restart.
+
+\subsection{Memory Growth and Archival Strategy}
+
+At one 256-d float32 vector per tick, the FAISS index grows by approximately 1 KB/tick, or 86 MB/day. After one year, the RAM footprint of the \texttt{IndexFlatIP} index would be approximately 31 GB---exceeding consumer RAM limits. The recommended archival strategy is to periodically convert the index to an IVF (Inverted File) index with approximate nearest neighbor search:
+
+\begin{equation}
+\text{Approximate recall} \approx 95\% \text{ at } 0.01\times \text{ the RAM footprint of IndexFlatIP}
+\end{equation}
+
+This conversion can be performed offline during the nightly maintenance window without interrupting the heartbeat loop. The current implementation uses \texttt{IndexFlatIP} for simplicity and exact recall; production deployments should migrate to \texttt{IndexIVFFlat} or \texttt{IndexIVFPQ} once the index exceeds approximately $10^6$ entries.

@@ -1,0 +1,264 @@
+\chapter{The Conscious Bridge (Intellect)}
+
+\section{The Wake-Unload Cycle}
+
+HoloBiont operates 99\% of the time in its subconscious state, utilizing approximately 1.5--2 GB of VRAM for the JAX HALO model. This is mandatory to respect the 6 GB consumer hardware limit while leaving headroom for the operating system, display drivers, and background processes. However, when the system encounters severe informational tension---defined mathematically as instantaneous Free Energy $\mathcal{F} > 2.5$---it triggers a ``Wake Cycle.''
+
+The threshold of $\mathcal{F} > 2.5$ is empirically calibrated to correspond to situations where the subconscious's internal model diverges sufficiently from the incoming data that no automatic EMA update can restore equilibrium without explicit language-level reasoning. Below this threshold, the EMA updates to $A$, $B$, and $D$ are sufficient to gradually absorb the new information. Above it, the organism requires the executive function of the LLM to formulate a directed plan.
+
+\subsection{The VRAM Sequencing Protocol}
+
+During a Wake Cycle, the system executes a precise sequence to avoid CUDA Out-Of-Memory (OOM) errors that would corrupt the JAX computation graph and crash the heartbeat loop:
+
+\begin{enumerate}
+    \item \textbf{Halt:} The heartbeat loop suspends the JAX forward pass. No new \texttt{halo\_fep\_step} calls are made until the wake cycle completes. The HALO model's weights remain in VRAM but are not being actively computed on, freeing the GPU's compute units.
+
+    \item \textbf{Load:} The \texttt{LLMBridge.load()} method is called. This executes \texttt{AutoModelForCausalLM.from\_pretrained()} with \texttt{bitsandbytes} 4-bit NormalFloat (NF4) quantization with double quantization enabled. The NF4 format represents each weight using 4 bits drawn from a fixed codebook optimized for the normal distribution of neural network weights, reducing the 3.8 billion parameter model from approximately 7.6 GB (BF16) to approximately 3.5 GB. Double quantization further quantizes the quantization constants themselves, saving an additional 0.1--0.2 GB.
+
+    \item \textbf{Think:} The \texttt{LLMBridge.think()} method is called with the compressed state string. The LLM performs a single autoregressive decoding pass (no sampling, temperature = 0 for deterministic output) and returns a structured action string.
+
+    \item \textbf{Unload:} The \texttt{LLMBridge.unload()} method deletes the model reference (\texttt{del self.\_model}), calls \texttt{gc.collect()} to trigger Python garbage collection, and then calls \texttt{torch.cuda.empty\_cache()} to explicitly return the VRAM pages to the CUDA allocator. This sequence is critical: PyTorch maintains an internal memory pool that does not automatically release memory to the OS when tensors are deleted. Without \texttt{empty\_cache()}, successive wake cycles would accumulate memory fragmentation and eventually trigger an OOM error.
+\end{enumerate}
+
+\begin{lstlisting}[language=python]
+class LLMBridge:
+    MODEL_ID = "microsoft/Phi-3.5-mini-instruct"
+
+    def load(self) -> None:
+        """Load Phi-3.5-mini in 4-bit NF4 quantization into GPU VRAM."""
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+        import torch
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,   # Quantize the quantization constants
+            bnb_4bit_quant_type="nf4",         # NormalFloat4 -- optimal for normal weights
+            bnb_4bit_compute_dtype=torch.bfloat16,  # Compute in BF16 for accuracy
+        )
+        self._tokenizer = AutoTokenizer.from_pretrained(self.MODEL_ID)
+        self._model = AutoModelForCausalLM.from_pretrained(
+            self.MODEL_ID,
+            quantization_config=bnb_config,
+            device_map="auto",   # Place on GPU automatically
+            trust_remote_code=True,
+        )
+        self._model.eval()
+        self._loaded = True
+
+    def unload(self) -> None:
+        """Release VRAM completely."""
+        import gc, torch
+        del self._model
+        del self._tokenizer
+        gc.collect()
+        torch.cuda.empty_cache()
+        self._model = None
+        self._tokenizer = None
+        self._loaded = False
+
+    @property
+    def is_loaded(self) -> bool:
+        return self._loaded
+\end{lstlisting}
+
+The \texttt{device\_map="auto"} option instructs Hugging Face's \texttt{accelerate} library to automatically distribute the model's layers across available devices (GPU first, then CPU, then disk as a last resort). In the HoloBiont's target configuration (one GPU with 6 GB VRAM), all layers fit on the GPU after 4-bit quantization, so no CPU offloading occurs.
+
+\section{State Compression}
+
+The LLM is a language model; it cannot read or reason over raw continuous JAX arrays. The \texttt{StateCompressor} acts as a vital translator that converts the abstract mathematical state of the organism into a structured natural language summary that the LLM can reason over.
+
+\subsection{Belief State Summarization}
+
+The compressor begins by identifying the organism's current dominant cognitive mode from the swarm belief state:
+
+\begin{lstlisting}[language=python]
+class StateCompressor:
+    CLUSTER_MAP = {
+        0: "Exploratory Research (broad fact-finding)",
+        1: "Technical Deep-Dive (code, APIs, documentation)",
+        2: "Mathematical Modeling (equations, formalisms)",
+        3: "Philosophical Reflection (ethics, alignment, theory)",
+        4: "Code Synthesis (writing algorithms)",
+        5: "Error Diagnosis (fixing stack traces, debugging)",
+        6: "Historical Context (past events, timelines)",
+        7: "Future Prediction (extrapolating trends)",
+    }
+
+    def compress(
+        self,
+        carry: HaloFEPCarry,
+        recent_memories: list[Episode],
+        current_query: str,
+        free_energy: float,
+    ) -> str:
+        # Dominant belief cluster
+        q_mean = jax.nn.softmax(carry.swarm_mu, axis=-1).mean(axis=0)
+        cluster_idx = int(jnp.argmax(q_mean))
+        cluster_name = self.CLUSTER_MAP.get(cluster_idx, "Unknown")
+        cluster_confidence = float(q_mean[cluster_idx])
+
+        # Surprise level label
+        surprise = self._surprise_label(free_energy)
+
+        # Format recent memory summaries (last 5 episodes)
+        memory_lines = "\n".join([
+            f"  [{i+1}] [{ep.timestamp:.0f}] FE={ep.free_energy:.3f}"
+            f" | query: {ep.query[:60]}"
+            + (f" | LLM: {ep.llm_output[:80]}" if ep.llm_output else "")
+            for i, ep in enumerate(recent_memories[-5:])
+        ])
+
+        return (
+            f"## HoloBiont State Summary\n\n"
+            f"**Current Query:** {current_query}\n"
+            f"**Free Energy:** {free_energy:.4f} ({surprise})\n"
+            f"**Dominant Cognitive Mode:** {cluster_name} "
+            f"(confidence {cluster_confidence:.1%})\n"
+            f"**Swarm Action Distribution:** "
+            f"{jnp.mean(carry.swarm_action, axis=0).tolist()}\n\n"
+            f"### Recent Episodes (last 5):\n{memory_lines}\n"
+        )
+
+    @staticmethod
+    def _surprise_label(fe: float) -> str:
+        if fe < 0.5:   return "low"
+        if fe < 1.5:   return "medium"
+        if fe < 2.5:   return "high"
+        return "very high"
+\end{lstlisting}
+
+The confidence of the dominant cluster (the probability mass assigned to the argmax state) provides a secondary signal about the swarm's certainty: a confidence of 70\% indicates a clear cognitive focus, while 15\% (near-uniform over 8 states) indicates genuine uncertainty about the current topic. The LLM uses this signal to calibrate the breadth of its recommended search query.
+
+\subsection{Semantic Bootstrap Mapping}
+
+The eight cluster labels in \texttt{CLUSTER\_MAP} are not arbitrary: they are established during Phase 0 Bootstrap training by running the HALO+FEP system on eight carefully constructed synthetic datasets, each representing one of the eight cognitive modes. After bootstrap training, the FEP swarm's hidden states have learned to consistently associate each cluster index with its corresponding semantic domain. This bootstrap calibration is what gives the numerical cluster indices interpretable meanings.
+
+If bootstrap training is re-run with a different seed or different synthetic data, the cluster-to-topic mapping will differ. In that case, the \texttt{CLUSTER\_MAP} dictionary must be empirically recalibrated by inspecting which queries the system gravitates toward when in each cluster state.
+
+\section{Prompt Engineering and Parsing}
+
+The \texttt{StateCompressor} synthesizes the current search query, the numerical surprise level, the dominant semantic belief, the swarm action distribution, and the top-5 retrieved episodic memories (from FAISS nearest-neighbor search) into a structured markdown prompt. This prompt is passed to the LLM via a two-part message format using Phi-3.5-mini's native chat template.
+
+\subsection{The System Prompt}
+
+The system prompt defines the LLM's persona, its action vocabulary, and the strict output format it must follow. It is injected once per wake cycle as the \texttt{system} role message:
+
+\begin{lstlisting}[language=python]
+SYSTEM_PROMPT = """You are the conscious executive layer of HoloBiont, \
+an autonomous digital organism that continuously browses the web to minimize \
+its informational surprise (Free Energy).
+
+Your subconscious has detected an anomaly it cannot resolve automatically. \
+Analyze the state summary and produce EXACTLY ONE action line using this format:
+
+  SEARCH: <specific web search query>   -- to fetch targeted new information
+  GOAL: <new long-term objective>        -- to redirect the organism's priors
+  LEARN: <topic to study in depth>       -- to trigger deep memory consolidation
+  IDLE: <brief reason>                   -- if no action is needed
+
+After the action line, provide a brief (2-3 sentence) rationale.
+Do not produce any other output format. Do not produce multiple action lines."""
+\end{lstlisting}
+
+The strict format constraint is essential for reliable parsing. The LLM is instructed to produce exactly one action line followed by a rationale, minimizing the risk of hallucinated formats or multi-action outputs that the regex parser cannot handle.
+
+\subsection{Autoregressive Decoding Configuration}
+
+The \texttt{think()} method calls the LLM with a deterministic decoding configuration to maximize output consistency:
+
+\begin{lstlisting}[language=python]
+def think(self, state_summary: str) -> LLMResponse:
+    """
+    Generate a conscious action decision from the compressed state summary.
+
+    Uses greedy decoding (temperature=0) for deterministic, reproducible output.
+    Maximum 256 new tokens to prevent runaway generation.
+    """
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": state_summary},
+    ]
+    prompt = self._tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+    inputs = self._tokenizer(prompt, return_tensors="pt").to("cuda")
+
+    with torch.no_grad():
+        output_ids = self._model.generate(
+            **inputs,
+            max_new_tokens=256,
+            do_sample=False,         # Greedy decoding -- no stochasticity
+            temperature=1.0,         # Ignored when do_sample=False
+            pad_token_id=self._tokenizer.eos_token_id,
+        )
+    response_ids = output_ids[0][inputs["input_ids"].shape[1]:]
+    response_text = self._tokenizer.decode(response_ids, skip_special_tokens=True)
+    return parse_llm_output(response_text)
+\end{lstlisting}
+
+The \texttt{max\_new\_tokens=256} limit prevents the model from generating extended prose that exceeds the time budget. At Phi-3.5-mini's 4-bit inference speed of approximately 30 tokens/second on an RTX 3060, 256 tokens complete in approximately 8.5 seconds, well within the wake cycle's implicit time budget.
+
+\subsection{Output Parsing}
+
+The \texttt{parse\_llm\_output} function uses regular expressions to extract the action and its content from the LLM's raw text output:
+
+\begin{lstlisting}[language=python]
+@dataclass
+class LLMResponse:
+    action:  str   # "SEARCH", "GOAL", "LEARN", or "IDLE"
+    content: str   # The argument to the action
+
+def parse_llm_output(text: str) -> LLMResponse:
+    """
+    Parse the structured LLM output into an LLMResponse.
+    Tries each action prefix in priority order.
+    Falls back to IDLE if no recognized prefix is found.
+    """
+    import re
+    patterns = [
+        ("GOAL",   r"GOAL:\s*(.+?)(?:\n|$)"),
+        ("SEARCH", r"SEARCH:\s*(.+?)(?:\n|$)"),
+        ("LEARN",  r"LEARN:\s*(.+?)(?:\n|$)"),
+        ("IDLE",   r"IDLE:\s*(.+?)(?:\n|$)"),
+    ]
+    for action, pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return LLMResponse(action=action, content=match.group(1).strip())
+    return LLMResponse(action="IDLE", content="no recognizable action found")
+\end{lstlisting}
+
+The priority ordering matters: \texttt{GOAL} is tried before \texttt{SEARCH} because a goal update is a structural change that persists across many future ticks (via the $C$ matrix injection), while a search is a one-time informational act. If the LLM outputs both a GOAL and a SEARCH line (a malformed response), the GOAL takes precedence.
+
+\subsection{Goal Injection and Decay}
+
+If a \texttt{GOAL} action is parsed, the text content is passed to the \texttt{GoalUpdater}, which embeds it into a soft observation preference vector and injects it into the FEP Swarm's $C$ matrix:
+
+\begin{lstlisting}[language=python]
+class GoalUpdater:
+    def update_goal(self, model: HaloFEPModel, goal_text: str) -> HaloFEPModel:
+        """
+        Embed goal_text into a (n_obs,) preference vector and inject into log_C.
+        Uses eqx.tree_at for functional (non-mutating) model update.
+        """
+        from scipy.special import softmax as scipy_softmax
+        raw = self.embedder.embed_text(goal_text)  # (384,)
+        projected = (self._proj @ raw)              # (n_obs,)
+        probs = scipy_softmax(projected).astype(np.float32)
+
+        new_log_C = jnp.log(jnp.array(probs) + 1e-8)
+        return eqx.tree_at(lambda m: m.gm.log_C, model, new_log_C)
+
+    def decay(self, model: HaloFEPModel, alpha: float = 0.99) -> HaloFEPModel:
+        """
+        Apply exponential decay to log_C toward the uniform distribution.
+        Prevents the organism from fixating obsessively on a single goal.
+        """
+        uniform_log_C = jnp.full_like(model.gm.log_C, -jnp.log(self.cfg.n_obs))
+        new_log_C = alpha * model.gm.log_C + (1.0 - alpha) * uniform_log_C
+        return eqx.tree_at(lambda m: m.gm.log_C, model, new_log_C)
+\end{lstlisting}
+
+The goal decay parameter $\alpha = 0.99$ gives the goal a functional lifetime of approximately 100 minutes (matching the EMA horizon of the other matrices). After this period, the $C$ matrix returns to its uniform default (no preference), and the organism resumes unbiased exploration. This prevents the organism from becoming stuck in an obsessive loop where it repeatedly searches for information about an unattainable goal, consuming API rate limits and producing no useful signal.
+
+The use of \texttt{scipy.special.softmax} rather than a manual implementation ($\text{exp}(x) / \text{sum}(\text{exp}(x))$) is intentional: scipy's implementation uses the numerically stable log-sum-exp trick internally, preventing overflow when the projection vector contains large values. Manual softmax implementations are a common source of NaN bugs in production systems.

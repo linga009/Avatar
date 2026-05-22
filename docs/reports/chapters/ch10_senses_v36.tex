@@ -265,7 +265,7 @@ class SenseBuffer:
     def get_raw(self) -> RawSensePaths:
         meta = json.load(open("data/senses/meta.json"))
         age = time.time() - meta["timestamp"]
-        if age > 30.0:         # stale — agent probably stopped
+        if age > 30.0:         # stale -- agent probably stopped
             return RawSensePaths(None, None)
         # ... return paths if files exist
 \end{lstlisting}

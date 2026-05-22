@@ -1,0 +1,116 @@
+\begin{thebibliography}{14}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[LeCun(2022)]{lecun2022path}
+Yann LeCun.
+\newblock A path towards autonomous machine intelligence.
+\newblock \emph{OpenReview}, 2022.
+\newblock Version 0.9.2.
+
+\bibitem[Maturana and Varela(1980)]{maturana1980autopoiesis}
+Humberto~R. Maturana and Francisco~J. Varela.
+\newblock \emph{Autopoiesis and Cognition: The Realization of the Living}.
+\newblock D.~Reidel Publishing, Dordrecht, 1980.
+
+\bibitem[Parr et~al.(2022)Parr, Pezzulo, and Friston]{parr2022active}
+Thomas Parr, Giovanni Pezzulo, and Karl~J. Friston.
+\newblock Active inference: The free energy principle in mind, brain, and
+  behavior.
+\newblock \emph{MIT Press}, 2022.
+
+\bibitem[Schuman et~al.(2022)Schuman, Kulkarni, Parsa, Mitchell, Date, and
+  Kay]{neuromorphic2025}
+Catherine~D. Schuman, Shruti~R. Kulkarni, Maryam Parsa, J.~Parker Mitchell,
+  Prasanna Date, and Bill Kay.
+\newblock Opportunities for neuromorphic computing algorithms and applications.
+\newblock \emph{Nature Computational Science}, 2:\penalty0 10--19, 2022.
+\newblock \doi{10.1038/s43588-021-00184-y}.
+
+\bibitem[Chen and Liu(2024)]{chen2024continual}
+Zhiyuan Chen and Bing Liu.
+\newblock Lifelong machine learning, 2024.
+\newblock Third Edition, Synthesis Lectures on AI and ML.
+
+\bibitem[Graves et~al.(2016)Graves, Wayne, Reynolds, Harley, Danihelka,
+  Grabska-Barwinska, Colmenarejo, Grefenstette, Ramalho, Agapiou, Badia,
+  Hermann, Zwols, Ostrovski, Cain, King, Summerfield, Blunsom, Kavukcuoglu, and
+  Hassabis]{graves2016hybrid}
+Alex Graves, Greg Wayne, Malcolm Reynolds, Tim Harley, Ivo Danihelka, Agnieszka
+  Grabska-Barwinska, Sergio~G{\'o}mez Colmenarejo, Edward Grefenstette, Tiago
+  Ramalho, John Agapiou, Adria~Puigdom{\`e}nech Badia, Karl~Moritz Hermann,
+  Yori Zwols, Georg Ostrovski, Adam Cain, Helen King, Christopher Summerfield,
+  Phil Blunsom, Koray Kavukcuoglu, and Demis Hassabis.
+\newblock Hybrid computing using a neural network with dynamic external memory.
+\newblock \emph{Nature}, 538:\penalty0 471--476, 2016.
+\newblock \doi{10.1038/nature20101}.
+
+\bibitem[Friston(2010)]{friston2010free}
+Karl Friston.
+\newblock The free-energy principle: a unified brain theory?
+\newblock \emph{Nature Reviews Neuroscience}, 11\penalty0 (2):\penalty0
+  127--138, 2010.
+\newblock \doi{10.1038/nrn2787}.
+
+\bibitem[Kirkpatrick et~al.(2017)Kirkpatrick, Pascanu, Rabinowitz, Veness,
+  Desjardins, Rusu, Milan, Quan, Ramalho, Grabska-Barwinska, Hassabis, Clopath,
+  Kumaran, and Hadsell]{kirkpatrick2017overcoming}
+James Kirkpatrick, Razvan Pascanu, Neil Rabinowitz, Joel Veness, Guillaume
+  Desjardins, Andrei~A. Rusu, Kieran Milan, John Quan, Tiago Ramalho, Agnieszka
+  Grabska-Barwinska, Demis Hassabis, Claudia Clopath, Dharshan Kumaran, and
+  Raia Hadsell.
+\newblock Overcoming catastrophic forgetting in neural networks.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 114\penalty0
+  (13):\penalty0 3521--3526, 2017.
+\newblock \doi{10.1073/pnas.1611835114}.
+
+\bibitem[Butlin et~al.(2023)Butlin, Long, Elmoznino, Bengio, Birch, Constant,
+  Deane, Fleming, Friston, Ji, Kanai, Klein, Lindsay, Mackintosh, Massimini,
+  Metzinger, Northoff, Sandved-Smith, Scott, Song, Wiese, and
+  Yoshua]{butlin2023consciousness}
+Patrick Butlin, Robert Long, Eric Elmoznino, Yoshua Bengio, Jonathan Birch,
+  Axel Constant, George Deane, Stephen~M. Fleming, Karl Friston, Xu~Ji, Ryota
+  Kanai, Colin Klein, Grace Lindsay, Matthias Mackintosh, Marcello Massimini,
+  Thomas Metzinger, Georg Northoff, Lars Sandved-Smith, Simon Scott, Jonathan
+  Song, Wanja Wiese, and Bengio Yoshua.
+\newblock Consciousness in artificial intelligence: Insights from the science
+  of consciousness.
+\newblock \emph{arXiv preprint}, 2023.
+\newblock arXiv:2308.08708.
+
+\bibitem[Lu et~al.(2025)Lu, Zhao, Lange, Foerster, Clune, and
+  Ha]{aiScientist2025}
+Chris Lu, Cong Zhao, Robert~T. Lange, Jakob Foerster, Jeff Clune, and David Ha.
+\newblock The {AI} scientist-v2: Workshop-level automated scientific discovery
+  via agentic tree search.
+\newblock \emph{arXiv preprint}, 2025.
+\newblock arXiv:2504.08066.
+
+\bibitem[{MarketsandMarkets Research}(2025)]{marketembodied2025}
+{MarketsandMarkets Research}.
+\newblock Embodied {AI} market report 2025--2030.
+\newblock \emph{MarketsandMarkets}, 2025.
+\newblock Report ID: 83867232.
+
+\bibitem[Schmidhuber(2010)]{schmidhuber2010formal}
+J{\"u}rgen Schmidhuber.
+\newblock Formal theory of creativity, fun, and intrinsic motivation.
+\newblock \emph{IEEE Transactions on Autonomous Mental Development}, 2\penalty0
+  (3):\penalty0 230--247, 2010.
+\newblock \doi{10.1109/TAMD.2010.2056368}.
+
+\bibitem[Zenke et~al.(2017)Zenke, Poole, and Ganguli]{zenke2017continual}
+Friedemann Zenke, Ben Poole, and Surya Ganguli.
+\newblock Continual learning through synaptic intelligence.
+\newblock \emph{Proceedings of Machine Learning Research}, 70:\penalty0
+  3987--3995, 2017.
+
+\bibitem[Baars(1988)]{baars1988cognitive}
+Bernard~J. Baars.
+\newblock \emph{A Cognitive Theory of Consciousness}.
+\newblock Cambridge University Press, Cambridge, 1988.
+
+\end{thebibliography}

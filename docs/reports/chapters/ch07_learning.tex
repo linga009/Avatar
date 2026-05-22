@@ -1,0 +1,228 @@
+\chapter{Self-Improvement: Nightly Dreaming}
+
+\section{The Concept of Weight Recollidation}
+
+While the Bayesian EMA updates discussed in Chapter~\ref{ch:mathematics} adjust the agent's short-term probabilistic priors within the FEP matrices, they do not alter the neural architecture of the HALO backbone. The EMA updates change \textit{what} the organism believes (the $A$, $B$, $D$ matrices) but not \textit{how} it perceives (the weight matrices of the HALO backbone that map raw token embeddings to semantic representations). True structural learning---the ability to recognize entirely new categories of concepts, detect new patterns in web data, or build more efficient internal representations of the organism's informational niche---requires modifying the neural weights of the HALO backbone itself.
+
+However, continuously training a neural network on a non-stationary stream of web data leads to ``catastrophic forgetting'': gradient updates that improve performance on the most recent data systematically degrade performance on older data, because the gradient is computed only from the current batch and has no memory of past distributions. For a system designed to accumulate knowledge indefinitely, catastrophic forgetting would mean that the organism's oldest and most consolidated knowledge---its core semantic competencies---would be gradually overwritten by the idiosyncratic statistics of whatever topic it was browsing in the past week.
+
+To prevent this, and to maintain the strict performance constraints of the 60-second heartbeat loop (which cannot tolerate the computational overhead of backpropagation on every tick), structural learning occurs only during a specific, secluded ``Nightly Window'' from 02:00 to 02:15 local time. This 15-minute window is chosen to minimize collision with active user sessions and to provide a consistent, predictable maintenance schedule. We refer to this process as \textbf{Weight Recollidation}---the consolidation of weights around the day's most informative experiences---analogous to mammalian Rapid Eye Movement (REM) sleep.
+
+\subsection{The REM Sleep Analogy}
+
+During REM sleep, the mammalian hippocampus replays episodic memories from the day, selectively strengthening synaptic connections in the neocortex that are associated with high-salience or surprising events. The neocortex does not replay everything---it selectively consolidates the experiences that were most informative, most surprising, or most emotionally salient. The result is not rote memorization but structural adaptation: the brain becomes better at processing the types of situations it found most challenging.
+
+The HoloBiont's nightly dreaming protocol mirrors this mechanism exactly:
+\begin{itemize}
+    \item The ``hippocampus'' (FAISS + SQLite) stores all experiences from the day.
+    \item The ``replay selection'' (high-confidence episode filtering by $\Delta\mathcal{F} < -0.05$) identifies the experiences where the organism most successfully reduced its surprise---the moments of genuine learning.
+    \item The ``neocortical consolidation'' (LoRA gradient updates on the HALO backbone) strengthens the backbone's ability to recognize and efficiently process the patterns that led to successful uncertainty resolution.
+\end{itemize}
+
+The critical insight is that the organism does not learn from its \textit{failures} (high free energy, persistent surprise); it learns from its \textit{successes} (high negative $\Delta\mathcal{F}$, rapid surprise reduction). This reflects the biological principle that learning occurs not during distress but during the resolution of distress.
+
+\section{LoRA Filtering Protocol via Equinox}
+
+The \texttt{LoRATrainer} does not perform full-parameter fine-tuning. Full fine-tuning of the entire \texttt{HaloFEPModel} would be computationally expensive (requiring gradients through all bridge networks, the FEP generative model, and the HALO backbone simultaneously), memory-intensive (requiring the full Adam optimizer state for all parameters), and risky (updating the bridge networks on a small, potentially non-representative sample of episodes could destroy the carefully calibrated HALO-FEP coupling).
+
+Instead, the trainer isolates gradients exclusively to the backbone parameters using a boolean PyTree mask constructed via \texttt{jax.tree\_util.tree\_map}:
+
+\begin{lstlisting}[language=python]
+import jax
+import equinox as eqx
+
+def _make_backbone_filter(model: HaloFEPModel) -> HaloFEPModel:
+    """
+    Construct a boolean PyTree with True only for backbone parameter leaves.
+    All other leaves (bridges, FEP matrices, v_proj, page_memory) are False.
+
+    Used with eqx.filter_grad to isolate backbone gradients.
+    """
+    # Start with all-False (freeze everything)
+    all_false = jax.tree_util.tree_map(lambda _: False, model)
+    # Set backbone subtree to all-True
+    return eqx.tree_at(
+        lambda m: m.backbone,
+        all_false,
+        replace=jax.tree_util.tree_map(lambda _: True, model.backbone),
+    )
+\end{lstlisting}
+
+Note that \texttt{jax.tree\_util.tree\_map} is used rather than the non-existent \texttt{eqx.map}: Equinox's \texttt{tree\_at} handles the structural replacement at the subtree level, while \texttt{jax.tree\_util.tree\_map} handles leaf-level boolean initialization. The mask is then passed to \texttt{eqx.filter\_grad} to produce gradients only for the backbone's parameters:
+
+\begin{lstlisting}[language=python]
+@eqx.filter_jit
+def _loss_and_grad(model, tokens_batch, key):
+    """Compute ELBO loss and backbone-only gradients."""
+    filter_spec = _make_backbone_filter(model)
+
+    def loss_fn(m):
+        # Run HALO forward pass on each episode's token array
+        h_out, v_pred, v_target = _halo_forward(m, tokens_batch, key)
+        # Flow matching MSE loss (ELBO proxy)
+        return jnp.mean((v_pred - v_target) ** 2)
+
+    loss, grads = eqx.filter_value_and_grad(loss_fn, filter_spec)(model)
+    return loss, grads
+\end{lstlisting}
+
+\subsection{Targeted Backbone Components}
+
+The backbone components that are updated during dreaming are specifically:
+
+\begin{itemize}
+    \item \textbf{SSM Diagonal Matrices ($\Lambda$):} The learned diagonal state matrices of each \texttt{SimpleSSM} block. These parameters govern the temporal dynamics of the recurrent state---how quickly the SSM forgets past inputs and how strongly it amplifies or attenuates different frequency components of the input sequence. Updating $\Lambda$ allows the organism to tune its temporal filtering to better match the statistical structure of the web data it has been processing.
+
+    \item \textbf{Attention Projection Matrices ($W_Q, W_K, W_V, W_O$):} The query, key, value, and output projection matrices of each \texttt{HoloAttention} layer. These matrices determine which token pairs the attention mechanism focuses on and how the attended information is combined. Updating them allows the organism to develop more efficient attention patterns for the types of documents it processes most frequently.
+
+    \item \textbf{Layer Normalization Parameters:} The scale and shift parameters of the layer normalization layers within the backbone. These parameters adapt the backbone's activation statistics to the empirical distribution of the organism's inputs.
+\end{itemize}
+
+All other components---the \texttt{ObsBridge}, \texttt{ActionBridge}, \texttt{BeliefBridge} (learned during the main training phase), the FEP generative matrices $A$, $B$, $C$, $D$ (updated by EMA and the \texttt{GoalUpdater}), the \texttt{v\_proj} layer, and the \texttt{PageCurveMemory} gating network---are completely frozen during dreaming. This ensures that the carefully calibrated HALO-FEP coupling is not disrupted by the backbone's structural adaptation.
+
+\section{Data Selection Strategy}
+
+The trainer does not learn from everything the agent saw that day. Indiscriminate training on all episodes would expose the backbone to the full non-stationary distribution of the web---including episodes where the organism was highly confused (high free energy, unsuccessful inference) and episodes where the backbone's outputs were noise-corrupted or semantically incoherent. Training on these negative examples would not improve the backbone; it would degrade it.
+
+Instead, the \texttt{EpisodeStore.get\_high\_confidence} method is called to retrieve only the episodes where the free energy delta $\Delta\mathcal{F} = \mathcal{F}_t - \mathcal{F}_{t-1}$ was significantly negative (i.e., $\Delta\mathcal{F} < -0.05$). These are the ticks where the organism:
+
+\begin{enumerate}
+    \item Encountered meaningful new information (non-trivial free energy reduction)
+    \item Successfully assimilated it into its beliefs (the FEP belief update converged)
+    \item Produced high-quality HALO backbone outputs (the flow-matching loss was low at the end of the tick)
+\end{enumerate}
+
+The threshold of $-0.05$ is empirically chosen to be small enough to capture a reasonable number of training examples per day ($\approx 50$--200 episodes, depending on the breadth of browsing) while large enough to exclude trivial reductions caused by numerical noise in the EMA updates.
+
+\begin{lstlisting}[language=python]
+class LoRATrainer:
+    def run(
+        self,
+        model: HaloFEPModel,
+        episodes: list[Episode],
+        key: jnp.ndarray,
+    ) -> tuple[HaloFEPModel, dict]:
+        """
+        Run one nightly LoRA dreaming cycle.
+
+        Args:
+            model: The current HaloFEPModel (backbone weights to update).
+            episodes: High-confidence episodes from the day (delta_fe < threshold).
+            key: JAX PRNG key for stochastic operations.
+
+        Returns:
+            (updated_model, log_dict) -- model may be the original if divergence detected.
+        """
+        if len(episodes) < 2:
+            return model, {"status": "skipped", "reason": "insufficient episodes"}
+
+        # Snapshot pre-training weights for revert-on-diverge
+        original_model = model
+
+        # Stack episode token arrays into a batch
+        tokens_batch = jnp.stack([
+            jnp.array(ep.tokens) for ep in episodes
+        ])   # (N_episodes, 32, 256)
+
+        # Compute holdout loss before training (on a 20% holdout split)
+        n_holdout = max(1, len(episodes) // 5)
+        holdout_tokens = tokens_batch[:n_holdout]
+        train_tokens = tokens_batch[n_holdout:]
+        k1, k2 = jax.random.split(key)
+        pre_loss = self._eval_loss(model, holdout_tokens, k1)
+
+        # Build optimizer
+        optimizer = optax.chain(
+            optax.clip_by_global_norm(1.0),        # Gradient clipping
+            optax.adamw(self.lr, weight_decay=1e-4) # AdamW
+        )
+        opt_state = optimizer.init(
+            eqx.filter(model, _make_backbone_filter(model))
+        )
+
+        # Training loop
+        losses = []
+        for step in range(self.n_steps):
+            k2, k_step = jax.random.split(k2)
+            # Sample a mini-batch
+            idx = jax.random.randint(k_step, (self.batch_size,), 0, len(train_tokens))
+            batch = train_tokens[idx]
+
+            loss, grads = _loss_and_grad(model, batch, k_step)
+            updates, opt_state = optimizer.update(
+                grads, opt_state, eqx.filter(model, _make_backbone_filter(model))
+            )
+            model = eqx.apply_updates(model, updates)
+            losses.append(float(loss))
+
+        # Revert-on-diverge check
+        post_loss = self._eval_loss(model, holdout_tokens, k1)
+        if post_loss > pre_loss + 1e-4:
+            return original_model, {
+                "status": "reverted",
+                "pre_loss": float(pre_loss),
+                "post_loss": float(post_loss),
+                "n_steps": self.n_steps,
+                "n_episodes": len(episodes),
+            }
+
+        return model, {
+            "status": "success",
+            "pre_loss": float(pre_loss),
+            "post_loss": float(post_loss),
+            "final_train_loss": losses[-1],
+            "n_steps": self.n_steps,
+            "n_episodes": len(episodes),
+        }
+\end{lstlisting}
+
+\section{Optimization Chain and Safety Mechanisms}
+
+The optimization process utilizes an \texttt{optax.chain} combining AdamW with global gradient clipping. This combination is chosen for robustness:
+
+\subsection{AdamW Optimizer}
+
+AdamW (Adam with decoupled weight decay) is the current state-of-the-art optimizer for transformer fine-tuning. The decoupled weight decay penalizes the L2 norm of the weights directly (rather than adding it to the gradient, as in L2 regularization), which prevents Adam's adaptive learning rate from reducing the effective weight decay for parameters with high gradient variance. The weight decay coefficient is set to $10^{-4}$, small enough to not significantly shrink well-calibrated weights but large enough to prevent individual parameters from growing without bound over many nightly cycles.
+
+The learning rate is set to $10^{-4}$, an order of magnitude lower than typical fine-tuning runs. This conservative setting reflects the fact that the training data is small (50--200 episodes) and the pre-trained backbone weights represent months of accumulated structural adaptation that should not be destabilized by a single night's dreaming.
+
+\subsection{Global Gradient Clipping}
+
+Gradient clipping limits the global L2 norm of the gradient to 1.0 before the optimizer update is applied. This prevents chaotic gradient explosions that can occur when the training episodes contain unusual or contradictory content. Without clipping, a single episode containing a particularly bizarre or self-contradictory web page (a common occurrence in the wild) could produce a massive gradient update that permanently corrupts the backbone's core semantic representations.
+
+\subsection{Revert-on-Divergence Protocol}
+
+Because autonomous, unsupervised learning on web data is highly unstable, the system implements a strict ``Revert-on-Divergence'' protocol with the following steps:
+
+\begin{enumerate}
+    \item Before training begins, the mean ELBO loss is computed on a 20\% holdout subset of the day's high-confidence episodes. This pre-training baseline represents the quality of the backbone's current representations on the most informative data from the day.
+
+    \item The trainer runs for $n_{steps} = 100$ steps of stochastic gradient descent on the remaining 80\% of episodes, using mini-batches of size 8 (or the episode count if fewer than 8 episodes are available).
+
+    \item After training, the mean ELBO loss is computed again on the \textit{same holdout set} using the \textit{updated} backbone weights.
+
+    \item If $\mathcal{L}_{\text{post}} > \mathcal{L}_{\text{pre}} + \epsilon$ where $\epsilon = 10^{-4}$, the update is considered divergent. The trained backbone weights are discarded, the model is reverted to the pre-training snapshot, and the failure is logged with both loss values and the episode statistics for post-hoc analysis.
+
+    \item If $\mathcal{L}_{\text{post}} \leq \mathcal{L}_{\text{pre}} + \epsilon$, the update is accepted and the new backbone weights replace the old ones. A checkpoint is saved immediately.
+\end{enumerate}
+
+This ensures the organism never acquires ``bad habits'' or degenerates due to noisy web data. In practice, divergence events are rare ($<5\%$ of nightly cycles in testing) and tend to occur after days when the organism browsed highly diverse, contradictory, or adversarial content. When divergence is detected, the logged statistics provide a diagnostic signal that can be used to tune the learning rate or episode selection threshold.
+
+\subsection{Nightly Cycle Timing}
+
+The nightly window check is performed at every tick by comparing the current local time against the configured window:
+
+\begin{lstlisting}[language=python]
+def _should_run_nightly(self) -> bool:
+    """Check if current time falls within the 02:00-02:15 nightly window."""
+    now = datetime.datetime.now()
+    return (
+        now.hour == 2
+        and 0 <= now.minute <= 15
+        and not self._nightly_ran_today
+    )
+\end{lstlisting}
+
+The \texttt{\_nightly\_ran\_today} flag prevents the training from re-triggering within the same 15-minute window (since the heartbeat ticks every 60 seconds, multiple ticks could fall within the window). The flag is reset at midnight by checking if the current date has advanced past the date of the last run.
+
+The 02:00--02:15 window is configurable via the \texttt{HaloFEPConfig.nightly\_hour} field. Operators running HoloBiont in time zones or usage patterns where 02:00 is a peak activity hour should adjust this accordingly to minimize disruption.

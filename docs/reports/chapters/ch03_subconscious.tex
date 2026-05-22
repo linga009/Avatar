@@ -1,0 +1,127 @@
+\chapter{The Subconscious Layer (HALO+FEP)}
+
+\section{Holographic Attention Layer Objects (HALO)}
+
+The core of the HoloBiont's persistent existence is the HALO backbone. It operates completely in JAX/Equinox, enabling high-speed compilation (\texttt{jax.jit}) and massive parallelization across the FEP swarm. The backbone transforms raw multimodal token tensors of shape $(N_{tok}, d_{model})$ into context-aware representations that feed both the perception-to-belief bridge and the flow-matching loss.
+
+\subsection{Hybrid SSM-Attention Architecture}
+
+The backbone is defined in \texttt{halo\_fep/model.py} as an interleaved composition of Holographic Attention (\texttt{HoloAttention}) and Structured State Space Models (\texttt{SimpleSSM}). The architecture follows a topology determined by the \texttt{HaloFEPConfig.backbone\_layers} field, typically an $[\underbrace{S, S, S}_{\text{SSM block}}, H, \underbrace{S, S, S}_{\text{SSM block}}, H]$ pattern.
+
+This hybrid approach is motivated by a fundamental trade-off in sequence modeling:
+
+\begin{itemize}
+    \item \textbf{Structured State Space Models (SSMs):} Compute in $O(N)$ time and $O(1)$ memory with respect to sequence length. They model long-range temporal dependencies through a learned recurrence without attending to every token pair. This makes them ideal for the bulk of processing in the HALO backbone, where the 32-token input is relatively short but must be processed at high throughput across thousands of ticks per day.
+
+    \item \textbf{HoloAttention:} Standard scaled dot-product attention operating in $O(N^2)$ time, but enriched with a hyperbolic geometry-aware distance metric computed in the Poincare disk embedding space. Placed sparingly (every 3rd layer), attention allows the model to form sharp, direct associations between any two tokens regardless of their positional distance---critical for the semantic coherence of multi-result web search outputs.
+\end{itemize}
+
+The SSM state matrices are parameterized with a diagonal structure (the $\Lambda$ matrix contains only the diagonal elements of the full $A$ matrix), reducing the state transition from $O(d_{state}^2)$ to $O(d_{state})$ parameters and enabling the nightly LoRA step to target only the most impactful components of the recurrence.
+
+\subsection{Flow Matching in Poincare Space}
+
+Unlike standard transformers that operate in Euclidean space, HALO embeddings are first projected into a hyperbolic Poincare disk by the \texttt{HoloEmbedding} layer. The Poincare disk $\mathbb{D}^n = \{x \in \mathbb{R}^n : \|x\| < 1\}$ equipped with the Riemannian metric:
+\begin{equation}
+g_x = \left(\frac{2}{1 - \|x\|^2}\right)^2 g_{\text{Euclidean}}
+\end{equation}
+
+has the remarkable property that distances grow exponentially toward the boundary of the disk, naturally encoding hierarchical tree-like structures (such as web taxonomies, knowledge graphs, and IS-A hierarchies) with low distortion. An entity at the ``root'' of a hierarchy occupies a position near the center; leaf nodes cluster near the boundary.
+
+The flow-matching loss trains the HALO backbone to predict a continuous velocity field $v_\theta(x_t, t)$ that transports a Gaussian distribution on the disk toward the target embedding distribution induced by the incoming web data. The key term is the projected KG prior:
+
+\begin{equation}
+v_{KG} = \text{ADS-KG-Prior}(x_{\text{noise}}, x_{\text{biased}}, t, \delta_{\text{flow}})
+\end{equation}
+
+This prior is then projected from the boundary dimension ($d_{boundary}$) to the model dimension ($d_{model}$) via the dedicated \texttt{v\_proj} linear layer---a design choice that keeps the flow prediction in the same geometric space as the backbone's residual stream, preventing dimensional mismatch artifacts.
+
+\subsection{The JAX Carry Structure}
+
+The system's entire cognitive state is strictly encapsulated in an immutable \texttt{NamedTuple}. This functional purity is a hard requirement of JAX's transformation model: \texttt{jax.jit} requires that all stateful operations be expressed as pure functions of their inputs, and \texttt{jax.lax.scan} requires that the loop state have a fixed shape and dtype from iteration to iteration.
+
+\begin{lstlisting}[language=python]
+class HaloFEPCarry(NamedTuple):
+    swarm_mu:     jnp.ndarray   # (N_agents=256, n_hidden=8) -- unnormalized log-beliefs
+    swarm_action: jnp.ndarray   # (N_agents=256, n_actions=4) -- policy probabilities
+    page_mem:     PageMemState  # The holographic buffer state for infinite context
+    key:          jnp.ndarray   # PRNG key (uint32[2]) for stochastic operations
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{\texttt{swarm\_mu}:} The internal belief state of every active inference agent in the swarm. Each row $\mu_i \in \mathbb{R}^{n_{hidden}}$ is an unnormalized log-probability vector over the $n_{hidden} = 8$ discrete hidden states. The softmax of each row gives the agent's approximate posterior $Q_i(\eta)$. The 256 agents operate in parallel via \texttt{jax.vmap}, each maintaining independent beliefs but sharing the same generative model matrices and the same HALO backbone outputs (via the \texttt{ObsBridge}).
+
+    \item \textbf{\texttt{swarm\_action}:} The distribution over possible actions for each agent. In the current default configuration, $n_{actions} = 4$ actions correspond to the four query strategies: exploratory broad search, technical narrow search, historical lookup, and reflective (no external search). The softmax distribution encodes the agent's degree of preference for each strategy, and the dominant action (argmax of the mean distribution) determines the query that the \texttt{PerceptionPipeline} executes on the next tick.
+
+    \item \textbf{\texttt{page\_mem}:} A holographic Page Curve Memory buffer that maintains an adaptive summary of the most informative tokens across all previous ticks. The \texttt{PageCurveMemory} module implements a learned gating mechanism that evicts low-entropy (predictable) tokens and retains high-entropy (surprising) tokens, effectively granting the system an unbounded context window without unbounded memory growth. The buffer size is fixed at compile time (determined by \texttt{cfg.page\_size}), but its \textit{content} evolves continuously as the organism selects which past perceptions are worth carrying forward.
+
+    \item \textbf{\texttt{key}:} A JAX PRNG key of shape \texttt{uint32[2]}. All stochastic operations (flow matching noise, token dropout during dreaming, random search jitter) consume sub-keys derived from this master key via \texttt{jax.random.split}. Splitting advances the key without consuming it, ensuring reproducibility from any checkpoint and preventing the same random sequence from repeating across ticks.
+\end{itemize}
+
+The immutability of the \texttt{NamedTuple} means that every tick produces a \textit{new} carry object rather than modifying the old one in place. This enables a critical engineering capability: the entire ``mind'' of the organism---its beliefs, action preferences, memory buffer, and PRNG state---can be serialized to disk via \texttt{eqx.tree\_serialise\_leaves} at any exact millisecond without race conditions or partial-write corruption. Checkpointing is therefore cheap, atomic, and complete.
+
+\section{The FEP-Swarm Bridge Architecture}
+
+The HALO backbone processes raw multimodal vectors and produces high-dimensional continuous representations. But it does not, by itself, ``think'' in the active inference sense---it has no discrete beliefs, no policy preferences, and no free energy signal. These cognitive properties emerge from the explicit coupling of the HALO backbone to the FEP Swarm via three heavily parameterized bridge neural networks. Together, they form a biological ``strange loop'' in which what the agent believes actively changes how it perceives, and what it perceives actively changes what it believes.
+
+\subsection{ObsBridge: Continuous Representations to Discrete Observations}
+
+The \texttt{ObsBridge} is a differentiable interface that translates the high-dimensional continuous output of the HALO backbone (\texttt{h\_out}, shape $(N_{tok}, d_{model})$) into discrete observation probabilities for the $N_{agents}$ FEP agents (output shape $(N_{agents}, n_{obs})$).
+
+The architecture uses a \textit{learned soft attention assignment} to pool the $N_{tok}$ backbone tokens into one summary vector per agent:
+
+\begin{lstlisting}[language=python]
+class ObsBridge(eqx.Module):
+    # Raw assignment logits: each agent attends softly to all tokens
+    assignment_logits: jnp.ndarray  # (N_agents, N_tok)
+    w_obs: eqx.nn.Linear            # d_model -> n_obs
+
+    def __call__(self, h_out: jnp.ndarray) -> jnp.ndarray:
+        # Soft assignment: (N_agents, N_tok) -- rows sum to 1
+        assignment = jax.nn.softmax(self.assignment_logits, axis=-1)
+        # Weighted pool: (N_agents, d_model)
+        h_pooled = assignment @ h_out
+        # Project to observation space, then softmax
+        return jax.nn.softmax(jax.vmap(self.w_obs)(h_pooled), axis=-1)
+\end{lstlisting}
+
+The assignment logits are initialized to zero (uniform attention across all tokens) and learned during training, allowing each agent to specialize in attending to different portions of the token sequence. Agent 0 might learn to focus on the query tokens (indices 0--3); agent 42 might learn to focus on the first search result's snippet (index 5). This specialization emerges without explicit supervision purely from the pressure of minimizing the swarm's collective free energy.
+
+The shape constraint $N_{tok} = 32$ is baked into the \texttt{assignment\_logits} weight at construction time, which is why the bootstrap procedure and the heartbeat loop must both use the same \texttt{n\_tokens = 32} configuration value. Loading a checkpoint trained with $N_{tok} = 2$ into a model configured for $N_{tok} = 32$ would produce a shape mismatch error at \texttt{eqx.tree\_deserialise\_leaves}.
+
+\subsection{ActionBridge: Policy to Perceptual Bias}
+
+The \texttt{ActionBridge} is the physical manifestation of ``top-down attention'' in the HoloBiont. It translates the swarm's current aggregate policy distribution (\texttt{swarm\_action}, shape $(N_{agents}, n_{actions})$) into a continuous boundary-space bias (\texttt{delta\_x}, shape $(N_{tok}, d_{boundary})$) that is added directly to the Poincare embeddings before they enter the HALO backbone.
+
+This bias shifts the geometric position of every input token in the Poincare disk according to the swarm's current action preference. In effect, if the majority of agents currently prefer the ``technical deep-dive'' action, the \texttt{ActionBridge} will geometrically pull all incoming token embeddings toward the region of the Poincare disk that the backbone has learned to associate with technical content, making that content easier to process accurately.
+
+This is the computational analog of directed cortical attention: the system's motor intentions literally reshape its sensory experience. A scientist in the act of measuring will notice different aspects of the same scene than an artist painting it---not because the scene is different, but because their intentional stance filters the percept differently. The \texttt{ActionBridge} instantiates this phenomenon in the mathematical structure of the backbone's input.
+
+\subsection{BeliefBridge: Beliefs to Flow Field Bias}
+
+The \texttt{BeliefBridge} completes the strange loop by translating the swarm's current belief state (\texttt{swarm\_mu}, shape $(N_{agents}, n_{hidden})$) into a flow field bias (\texttt{delta\_v}, shape $(N_{tok}, d_{model})$) that modifies the \textit{target} of the flow-matching loss.
+
+Without the \texttt{BeliefBridge}, the flow-matching loss would drive the backbone to predict a velocity field pointing from random noise to the raw token embeddings. With the \texttt{BeliefBridge}, the target is shifted by \texttt{delta\_v}:
+
+\begin{equation}
+v_{\text{pred}} = v_{KG} \cdot W_{v\_proj} + \delta_v
+\end{equation}
+
+This means the backbone is not learning to reconstruct the raw perceptual data; it is learning to reconstruct a version of the perceptual data that is consistent with the organism's current beliefs. If the organism believes (with high confidence) that the current topic is mathematics, the \texttt{BeliefBridge} will bias the flow-matching target toward mathematical-content embeddings, and the backbone will be penalized for producing predictions that are inconsistent with this belief.
+
+The result is a self-fulfilling prophecy with a corrective mechanism: beliefs bias perception, but the free energy signal ensures that when perceptions are too discrepant from predictions, the system is forced to update its beliefs rather than simply ignoring the evidence. This is the dynamical balance between top-down and bottom-up information processing that characterizes all intelligent biological systems.
+
+\subsection{The Closed-Loop Dynamics}
+
+The three bridges create a closed-loop dynamical system whose fixed points correspond to the organism's stable ``cognitive modes''---states where the swarm's beliefs, actions, and perceptions are mutually consistent. The system is attracted to these fixed points by the free energy minimization pressure, but can escape them when sufficiently novel external data generates enough surprise to overwhelm the top-down bias.
+
+Formally, the closed-loop dynamics can be written as a discrete-time dynamical system:
+
+\begin{align}
+\delta_x^t &= \text{ActionBridge}(\text{swarm\_action}^{t-1}) \\
+\delta_v^t &= \text{BeliefBridge}(\text{swarm\_mu}^{t-1}) \\
+h^t &= \text{HALO}(\text{tokens}^t, \delta_x^t, \delta_v^t) \\
+o^t &= \text{ObsBridge}(h^t) \\
+\text{swarm\_mu}^t, \text{swarm\_action}^t &= \text{FEP-Step}(\text{swarm\_mu}^{t-1}, o^t, \text{gm})
+\end{align}
+
+This coupled system is guaranteed to converge (in the mean-field limit) to a local minimum of the free energy functional, by the same arguments that guarantee convergence of variational Bayesian inference with coordinate ascent updates. The practical consequence is that the organism's cognitive state is self-organizing: it naturally gravitates toward stable interpretive frameworks for the incoming data without any explicit curriculum or task supervision.
