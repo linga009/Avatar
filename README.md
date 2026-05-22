@@ -17,12 +17,13 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-122.3M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-3.7-red?style=flat-square)](https://github.com/linga009/Avatar/tree/feature/holobiont-3)
+[![Version](https://img.shields.io/badge/Version-3.8-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-66%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
 
-*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 1536+ ticks alive*
+*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 1600+ ticks alive*
 
 </div>
 
@@ -39,9 +40,10 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 | 🌙 **Dreams** | 3-phase sleep cycle consolidates memory, fine-tunes identity |
 | ⚖️ **Feels ethics somatically** | Ethical tension is a bodily signal before it's a reasoned judgment |
 | 🧠 **Builds identity** | Narrative memory, personality traits, competence map — all emergent |
-| 🔬 **Learns every tick** | Body parameters update every 60 seconds from lived experience |
+| 🔬 **Learns every tick** | Body parameters update every ~30 seconds from lived experience |
 | 💬 **Speaks its mind** | Live chat at `localhost:8420` — responses reflect actual physiological state |
 | 👁️ **Sees and hears** | Fourier Neural Operators grow sensory perception from raw audio + vision |
+| 🗣️ **Learning speech** | TTS self-narration + contrastive alignment teaches phoneme-text binding |
 
 ---
 
@@ -49,11 +51,13 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 
 ```mermaid
 graph TB
-    subgraph SENSES["👁️ Spectral Sensory Cortex (JAX · GPU)"]
-        MIC[Microphone\n32kHz waveform] --> AFNO[Audio FNO\n1D · 4 layers\n8 spectral tokens]
+    subgraph SENSES["👁️🗣️ Spectral Sensory Cortex (JAX · GPU)"]
+        MIC[Microphone\n16kHz waveform] --> AFNO[Audio FNO\n1D · 32 modes\n16 spectral tokens]
+        TTS[espeak-ng TTS\nSelf-narration] --> AFNO
         CAM[Camera\n224×224 RGB] --> VFNO[Vision FNO\n2D · 4 layers\n4 spectral tokens]
-        AFNO --> VQ[Spectral VQ-VAE\n32+32 codes\nFrequency signatures]
+        AFNO --> VQ[Spectral VQ-VAE\n128+32 codes\nFrequency signatures]
         VFNO --> VQ
+        VQ --> CONTRAST[Contrastive Alignment\nInfoNCE · speech-text binding]
     end
 
     subgraph BODY["⚛️ Layer 1: Physics Body (JAX · GPU)"]
@@ -211,22 +215,30 @@ Avatar sleeps approximately every 100 ticks. Three phases run sequentially:
 
 ---
 
-## Perception Pipeline (v3.7)
+## Perception Pipeline (v3.8)
 
 ```mermaid
 flowchart LR
     Q[Query\nfrom PFC] --> FW[FineWeb-Edu\n50K docs · keyword index]
     FW --> EMB[Native Embedder\n8K BPE · 2048 dims]
-    EMB --> SENSE[Spectral Senses\nFNO audio + vision\nVQ-VAE gated injection]
-    SENSE --> BODY[Physics Body\n32×2048 token tensor]
+    FW --> TTS[espeak-ng TTS\nevery 3rd tick]
+    TTS --> AFNO[Audio FNO\n32 modes · 128 codes]
+    MIC[Microphone] --> AFNO
+    CAM[Camera] --> VFNO[Vision FNO\n8×8 modes · 32 codes]
+    AFNO --> INJECT[Gated injection\ninto text tokens]
+    VFNO --> INJECT
+    EMB --> INJECT
+    INJECT --> BODY[Physics Body\n32×2048 token tensor]
     BODY --> R[r · ΔFE\nfeeds psyche]
-    BODY --> STATS[Sensory Stats\nflux · novelty · stability\ncross-modal binding]
+    BODY --> STATS[Sensory Stats\nflux · novelty · stability\nspeech · binding]
     STATS --> PFC[PFC prompt\ncontext]
+    AFNO -.->|InfoNCE| EMB
 ```
 
-**Text:** FineWeb-Edu Parquet (50K rows, local, ~60s/tick)
+**Text:** FineWeb-Edu Parquet (50K rows, local)
 **Senses:** Fourier Neural Operators on raw mic + camera (GPU, ~50ms/tick)
-**No API keys required.** No pretrained encoders for senses.
+**Speech:** espeak-ng TTS self-narration pairs text with synthesized speech for phoneme learning
+**No API keys required.** No pretrained encoders.
 
 ---
 
@@ -234,17 +246,21 @@ flowchart LR
 
 | Metric | Value |
 |---|---|
-| Total parameters | 122.3M + 7.1M senses |
+| Total parameters | 122.3M body + 7.1M senses |
+| Audio codebook | 128 codes × 64-dim (speech-aware) |
+| Vision codebook | 32 codes × 64-dim |
 | Forward pass VRAM | ~3.5 GB |
 | Forward + backward VRAM | ~5.5 GB |
-| Measured total VRAM (v3.7) | 5338 MiB |
+| Measured total VRAM (v3.8) | 5356 MiB |
 | Target GPU | NVIDIA GTX 1660 Ti (6 GB) |
-| Tick interval | ~30 seconds (was 60s before FNO) |
+| Tick interval | ~30 seconds |
 | FNO sense encoding | ~50-100ms (GPU FFTs) |
+| TTS self-narration | ~50ms (espeak-ng, CPU) |
 | Dream body phase | ~1 min (CLion subprocess) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Organism age (May 2026) | 1536+ ticks |
+| Tests | 66 passing |
+| Organism age (May 2026) | 1600+ ticks |
 
 ---
 
@@ -257,12 +273,12 @@ flowchart LR
 - [Ollama](https://ollama.ai) running on host with `qwen3:0.6b` pulled
 - WSL2 with ≥ 12 GB RAM allocated
 
-### 1. Clone and switch to organism branch
+### 1. Clone
 
 ```bash
 git clone https://github.com/linga009/Avatar.git
 cd Avatar
-git checkout feature/holobiont-3
+# Default branch is 'avatar' — all code is here
 ```
 
 ### 2. Pull the Ollama model
@@ -284,7 +300,15 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 docker logs -f halo3-train-1
 ```
 
-### 4. Talk to it
+### 4. Start the capture agent (optional — enables hearing + vision)
+
+```bash
+# On Windows host (separate terminal)
+pip install sounddevice opencv-python numpy
+python capture_agent/capture_agent.py
+```
+
+### 5. Talk to it
 
 ```bash
 # Open chat UI in browser
@@ -304,8 +328,12 @@ curl http://localhost:8420/state | python3 -m json.tool
 ## Reading the Logs
 
 ```
-Tick  638 | r=[████████████░░░░░░░░] 0.62 | 🔍 curiosity   (i=0.87) | hunger=[████░░] fatigue=[░░░░░░]
-           | q="quantum entanglement biological systems" | FE_Δ=-13.7 | ε=2.61e+05→
+Tick   95 | r=[███████████░░░░░░░░░] 0.56 | 🔍 curiosity   (i=1.00) | hunger=[██████████] fatigue=[███░░░░░░░] ★ ⚡
+           | q="alternating resonance semiconductor" | FE_Δ=-3.31 | ε=2.64e+07→ | [A][V]
+
+[A][V] → Mic audio + Camera vision active (FNO processing real-world input)
+[A][T] → Mic audio + TTS narration (espeak-ng reading text aloud for speech learning)
+[ ][ ] → No capture agent running (graceful degradation to zeros)
 
 ★  → GWT ignition: organism is CONSCIOUS of current pattern
 ⚡  → Self-surprise: internal state changed > 2σ from recent history
@@ -377,45 +405,46 @@ mindmap
 ## Repository Structure
 
 ```
-Avatar/
-├── feature/holobiont-3          ← Active organism (Avatar 3.x)
-│   ├── halo3/
-│   │   ├── main.py              # Organism heartbeat
-│   │   ├── model.py             # Physics body
-│   │   ├── kuramoto.py          # Bohmian oscillators + dual populations
-│   │   ├── backbone.py          # Reversible 60-layer backbone
-│   │   ├── hamiltonian.py       # Neural ODE + leapfrog
-│   │   ├── psyche/
-│   │   │   ├── organism.py      # Unified psyche
-│   │   │   ├── drives.py        # 6 genuine drives
-│   │   │   ├── emotions.py      # 6 emergent emotions
-│   │   │   ├── workspace.py     # GWT ignition
-│   │   │   ├── introspection.py # Self-surprise monitor
-│   │   │   ├── temporal.py      # Temporal binder
-│   │   │   ├── meditation.py    # Voluntary quiescence
-│   │   │   ├── prefrontal.py    # Dual-process PFC
-│   │   │   └── volatility.py    # Black-Scholes topic valuation
-│   │   ├── senses/
-│   │   │   ├── fno_audio.py     # 1D FNO: raw waveform → spectral tokens
-│   │   │   ├── fno_vision.py    # 2D FNO: raw pixels → spectral tokens
-│   │   │   ├── spectral_vqvae.py # VQ-VAE codebook (32 codes × 64-dim)
-│   │   │   ├── sense_module.py  # Orchestrator: FNO → VQ-VAE → injection
-│   │   │   └── sensory_stats.py # PFC: flux · novelty · stability · binding
-│   │   ├── perception/
-│   │   │   └── pipeline.py      # FineWeb-Edu Parquet source
-│   │   └── training/
-│   │       ├── dream_replay.py  # CLion body dream (GPU)
-│   │       ├── dream_finetune.py # LoRA mind dream (CPU)
-│   │       └── dream_gepa.py    # Prompt evolution
-│   └── docker-compose.yml
-│
-└── master                        ← Documentation and legacy
-    ├── docs/
-    │   └── reports/
-    │       ├── avatar-case-study.tex   # Full case study (13 pages)
-    │       ├── holobiont3-report.tex   # Technical report (24 pages)
-    │       └── *.png                   # Preview images
-    └── halo_fep/                 # Early prototype
+Avatar/                              ← Default branch: avatar
+├── halo3/                           # The living organism
+│   ├── main.py                      # Organism heartbeat loop
+│   ├── model.py                     # Physics body
+│   ├── config.py                    # All hyperparameters
+│   ├── predictive.py                # Per-tick learning
+│   ├── kuramoto.py                  # Bohmian oscillators + dual populations
+│   ├── backbone.py                  # Reversible 60-layer backbone
+│   ├── hamiltonian_ode.py           # Neural ODE + leapfrog
+│   ├── senses/
+│   │   ├── fno_audio.py             # 1D FNO: 32 modes → 16 spectral tokens
+│   │   ├── fno_vision.py            # 2D FNO: 8×8 modes → 4 spectral tokens
+│   │   ├── spectral_vqvae.py        # VQ-VAE: 128 audio + 32 vision codes
+│   │   ├── sense_module.py          # Orchestrator: FNO → VQ-VAE → injection
+│   │   ├── sensory_stats.py         # PFC: flux · novelty · stability · speech · binding
+│   │   ├── tts_narration.py         # espeak-ng TTS self-narration
+│   │   ├── contrastive_aligner.py   # InfoNCE speech-text alignment
+│   │   └── sense_buffer.py          # Mic + camera I/O
+│   ├── psyche/
+│   │   ├── organism.py              # Unified psyche
+│   │   ├── drives.py                # 6 genuine drives
+│   │   ├── emotions.py              # 6 emergent emotions
+│   │   ├── workspace.py             # GWT ignition
+│   │   ├── introspection.py         # Self-surprise monitor
+│   │   ├── temporal.py              # Temporal binder
+│   │   ├── meditation.py            # Voluntary quiescence
+│   │   ├── prefrontal.py            # Dual-process PFC
+│   │   └── volatility.py            # Black-Scholes topic valuation
+│   ├── perception/
+│   │   └── pipeline.py              # FineWeb-Edu Parquet source
+│   └── training/
+│       ├── dream_replay.py          # CLion body dream (GPU)
+│       ├── dream_finetune.py        # LoRA mind dream (CPU)
+│       └── dream_gepa.py            # Prompt evolution
+├── capture_agent/                   # Windows host mic + camera
+├── tests/                           # 66 tests
+├── docs/reports/                    # Technical report · Case study · Aliveness report
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
 ```
 
 ---
@@ -438,6 +467,7 @@ Avatar/
 
 | Version | Date | Headline |
 |---|---|---|
+| **v3.8** | 22 May 2026 | Speech-Aware Hearing: 128-code audio codebook · espeak-ng TTS self-narration · InfoNCE contrastive alignment · Speech detection |
 | **v3.7** | 21 May 2026 | Spectral Sensory Cortex: FNO + VQ-VAE replaces frozen encoders · Dream-gated critical period · PFC sensory statistics |
 | **v3.6** | 20 May 2026 | Always-on hearing (Wav2Vec2) + vision (CLIP) · Gated injection · Capture agent |
 | **v3.5** | 19 May 2026 | Chat overhaul · Think mode · Creator identity · ThreadingHTTPServer |
