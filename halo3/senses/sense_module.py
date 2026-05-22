@@ -226,16 +226,33 @@ def save_sense_module(sm: SenseModule, path: str) -> None:
 
 
 def load_sense_module(cfg, path: str) -> SenseModule:
-    """Load SenseModule from disk, falling back to fresh init on failure."""
-    template = SenseModule(cfg, key=jax.random.PRNGKey(0))
+    """Load SenseModule from disk, falling back to fresh init on failure.
+
+    Handles checkpoints saved after critical period (decoders deleted):
+    tries loading into a mature (no-decoder) template first, then falls
+    back to a fresh template with decoders for critical-period checkpoints.
+    """
     eqx_path = path + ".eqx"
     if not os.path.exists(eqx_path):
+        template = SenseModule(cfg, key=jax.random.PRNGKey(0))
         log.info(f"No sense_module checkpoint at {eqx_path} -- initializing fresh.")
         return template
+
+    # Try 1: load into mature template (decoders deleted) — matches post-critical checkpoints
     try:
-        sm = eqx.tree_deserialise_leaves(eqx_path, template)
-        log.info(f"SenseModule loaded from {eqx_path}")
+        mature_template = delete_decoders(SenseModule(cfg, key=jax.random.PRNGKey(0)))
+        sm = eqx.tree_deserialise_leaves(eqx_path, mature_template)
+        log.info(f"SenseModule loaded from {eqx_path} (mature, no decoders)")
+        return sm
+    except Exception:
+        pass
+
+    # Try 2: load into fresh template (with decoders) — matches critical-period checkpoints
+    try:
+        fresh_template = SenseModule(cfg, key=jax.random.PRNGKey(0))
+        sm = eqx.tree_deserialise_leaves(eqx_path, fresh_template)
+        log.info(f"SenseModule loaded from {eqx_path} (critical period, with decoders)")
         return sm
     except Exception as e:
         log.warning(f"SenseModule load failed ({e}) -- using fresh weights.")
-        return template
+        return SenseModule(cfg, key=jax.random.PRNGKey(0))
