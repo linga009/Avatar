@@ -99,7 +99,7 @@ transform that bypasses the spectral path.
 \end{definition}
 
 The audio FNO stacks four such layers with hidden dimension 64 and
-$k_{\mathrm{modes}} = 64$ retained Fourier modes.
+$k_{\mathrm{modes}} = 16$ retained Fourier modes.
 After four layers, a linear read-out pools the sequence to 8 spectral tokens:
 \begin{equation}
 \mathbf{A}_{\mathrm{spec}} = \mathrm{Pool}_{8}\!\left(
@@ -138,8 +138,8 @@ followed by GELU activation.
 \end{definition}
 
 The vision FNO stacks four SpectralConv2d layers with hidden dimension 64 and
-$k_H = k_W = 12$ retained modes (capturing structure up to spatial frequency
-$\sim 0.05$ cycles/pixel).
+$k_H = k_W = 8$ retained modes (capturing structure up to spatial frequency
+$\sim 0.036$ cycles/pixel).
 Global average pooling over the spatial dimensions followed by a linear layer yields
 4 spectral tokens:
 \begin{equation}
@@ -166,10 +166,10 @@ Table~\ref{tab:fno_params} summarises the parameter budget.
 \toprule
 \textbf{Module} & \textbf{Architecture} & \textbf{Params} & \textbf{VRAM} \\
 \midrule
-Audio FNO     & 4$\times$SpectralConv1d, dim\,64, 64 modes   & $\sim$740K & $\sim$2.8\,MB \\
-Vision FNO    & 4$\times$SpectralConv2d, dim\,64, $12^2$ modes & $\sim$660K & $\sim$2.5\,MB \\
+Audio FNO     & 4$\times$SpectralConv1d, dim\,64, 16 modes   & $\sim$300K & $\sim$1.2\,MB \\
+Vision FNO    & 4$\times$SpectralConv2d, dim\,64, $8^2$ modes & $\sim$1.1M & $\sim$4.4\,MB \\
 \rowcolor{gray!10}
-\textbf{Total FNO} & & \textbf{$\sim$1.4M} & \textbf{$\sim$5.3\,MB} \\
+\textbf{Total FNO} & & \textbf{$\sim$1.4M} & \textbf{$\sim$5.6\,MB} \\
 \midrule
 \multicolumn{2}{l}{\textit{v3.6 frozen encoders (CPU RAM, for comparison)}} & 170M & 730\,MB \\
 \bottomrule
@@ -723,7 +723,7 @@ When the capture agent is active, real microphone audio takes priority, with TTS
 
 \subsubsection{Contrastive Alignment}
 
-An InfoNCE contrastive loss~\cite{vqvae2017} pushes audio codebook embeddings toward their corresponding text token embeddings in Lorentz space:
+An InfoNCE contrastive loss~\cite{oord2018cpc} pushes audio codebook embeddings toward their corresponding text token embeddings in Lorentz space:
 \begin{equation}
 \mathcal{L}_{\mathrm{contrast}} = -\frac{\cos(\mathbf{a}, \mathbf{t}^+)}{\tau} + \log \sum_{k} \exp\!\left(\frac{\cos(\mathbf{a}, \mathbf{t}_k^-)}{\tau}\right)
 \label{eq:infonce}
