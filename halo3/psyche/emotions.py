@@ -41,6 +41,9 @@ class EmotionState:
         fe_delta: float,
         perception_failed: bool = False,
         consecutive_failures: int = 0,
+        sensory_novelty: float = 0.0,
+        sensory_stability: int = 0,
+        speech_detected: bool = False,
     ) -> tuple[str, float]:
         """Compute emotion from physics.
 
@@ -65,6 +68,10 @@ class EmotionState:
         # nothing IS surprising, not "low surprise"
         if perception_failed:
             surprise = max(surprise, 0.6)
+
+        # Sensory novelty amplifies surprise (something unexpected heard/seen)
+        if sensory_novelty > 0.8:
+            surprise = min(1.0, surprise + 0.15 * sensory_novelty)
 
         confidence = r_mean
 
@@ -106,6 +113,14 @@ class EmotionState:
         alpha = 0.6  # how much new emotion influences (0=full inertia, 1=no inertia)
         self._valence = alpha * new_v + (1.0 - alpha) * self._valence
         self._arousal = alpha * new_a + (1.0 - alpha) * self._arousal
+
+        # Sensory stability dampens arousal (calm environment = calm Avatar)
+        if sensory_stability > 3:
+            self._arousal *= 0.9
+
+        # Speech detected nudges valence positive (company = comfort)
+        if speech_detected:
+            self._valence = min(1.0, self._valence + 0.05)
 
         # Re-derive emotion from smoothed valence/arousal (prevents flipping)
         # Only override if the smoothed state disagrees strongly

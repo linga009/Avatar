@@ -30,3 +30,27 @@ def test_sensory_arousal_dampens_starvation():
     # Without sensory arousal: starvation = 0.8 - 0.3 = 0.5
     # With sensory arousal > 0.3: additional -0.1 → 0.4
     assert d.starvation < 0.5, "Sensory arousal should dampen starvation further"
+
+
+from halo3.psyche.emotions import EmotionState
+
+
+def test_sensory_novelty_amplifies_surprise():
+    e = EmotionState()
+    for _ in range(5):
+        e.update(r_mean=0.5, fe_delta=0.1)
+    e2 = EmotionState()
+    for _ in range(5):
+        e2.update(r_mean=0.5, fe_delta=0.1)
+    _, i_low = e.update(r_mean=0.4, fe_delta=0.5, sensory_novelty=0.0)
+    _, i_high = e2.update(r_mean=0.4, fe_delta=0.5, sensory_novelty=0.95)
+    assert i_high >= i_low, "High sensory novelty should amplify intensity"
+
+
+def test_speech_detected_nudges_valence():
+    e = EmotionState()
+    for _ in range(3):
+        e.update(r_mean=0.5, fe_delta=0.0)
+    v_before = e._valence
+    e.update(r_mean=0.5, fe_delta=0.0, speech_detected=True)
+    assert e._valence >= v_before, "Speech detection should nudge valence positive"
