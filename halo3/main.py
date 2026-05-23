@@ -294,7 +294,23 @@ def main() -> None:
             carry_norm = float(sum(jnp.sum(l**2) for l in carry_leaves if hasattr(l, 'shape') and l.size > 1) ** 0.5)
         except Exception:
             carry_norm = None
-        psyche_output = organism.tick(r_mean, combined_surprise, texts, current_query, carry_norm=carry_norm, body_tension=body_tension)
+        # Compute sensory scalars for psyche integration
+        _s_arousal = (sensory_stats.audio_flux + sensory_stats.vision_flux) / max(1, cfg.n_audio_tokens + cfg.n_vision_tokens)
+        _s_novelty = (sensory_stats.audio_novelty + sensory_stats.vision_novelty) / 2.0
+        _s_stability = min(sensory_stats.audio_stability, sensory_stats.vision_stability)
+        _s_speech = sensory_stats.speech_detected
+        _s_binding = sensory_stats.cross_modal_binding
+
+        psyche_output = organism.tick(
+            r_mean, combined_surprise, texts, current_query,
+            carry_norm=carry_norm, body_tension=body_tension,
+            sensory_arousal=_s_arousal,
+            sensory_novelty=_s_novelty,
+            sensory_stability=_s_stability,
+            speech_detected=_s_speech,
+            binding_familiarity=_s_binding,
+            sensory_stats_line=sensory_stats.format_for_pfc(),
+        )
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]

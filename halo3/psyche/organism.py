@@ -75,8 +75,15 @@ class Organism:
         current_query: str,
         carry_norm: float | None = None,
         body_tension: float = 0.0,
+        sensory_arousal: float = 0.0,
+        sensory_novelty: float = 0.0,
+        sensory_stability: int = 0,
+        speech_detected: bool = False,
+        binding_familiarity: float = 0.0,
+        sensory_stats_line: str = "",
     ) -> dict:
         """Process one tick of lived experience."""
+        self._sensory_stats_line = sensory_stats_line
 
         perception_failed = len(texts) == 0
 
@@ -93,18 +100,23 @@ class Organism:
         topic_changed = current_query != self._prev_query
         self._prev_query = current_query
 
-        # 1. Update drives (with perception failure signal)
+        # 1. Update drives (with perception failure + sensory signals)
         self.drives.update(
             r_mean, fe_delta,
             perception_failed=perception_failed,
             topic_changed=topic_changed,
+            sensory_arousal=sensory_arousal,
+            sensory_novelty=sensory_novelty,
         )
 
-        # 2. Compute emotion (with failure context)
+        # 2. Compute emotion (with failure context + sensory signals)
         emotion, intensity = self.emotions.update(
             r_mean, fe_delta,
             perception_failed=perception_failed,
             consecutive_failures=self._consecutive_zero_results,
+            sensory_novelty=sensory_novelty,
+            sensory_stability=sensory_stability,
+            speech_detected=speech_detected,
         )
 
         # 3. Update volatility surface (Black-Scholes query valuation)
@@ -130,7 +142,11 @@ class Organism:
             pfc_finding = self.prefrontal.interpret_finding(texts, current_query, r_mean)
             finding = pfc_finding or f"{'; '.join(texts[:3])}"
 
-        ws = self.workspace.update(r_mean, topic_key, emotion, finding)
+        ws = self.workspace.update(
+            r_mean, topic_key, emotion, finding,
+            sensory_novelty=sensory_novelty,
+            binding_familiarity=binding_familiarity,
+        )
         if ws["just_ignited"]:
             log.info(f"  ★ IGNITION: conscious of '{ws['broadcast_content'][:50]}'")
 
@@ -191,6 +207,12 @@ class Organism:
         # 4. Update self-model
         self.self_model.update(topic_key, r_mean, emotion, finding)
 
+        # Record sensory snapshot in narrative (every 10 ticks)
+        if self.self_model.age % 10 == 0 and sensory_stats_line:
+            self.self_model.narrative.append(
+                f"[Tick {self.self_model.age}] Senses: {sensory_stats_line}"
+            )
+
         # 4a. Auto-saturation: topics visited many times without r progress
         # are stuck — mark dead so PFC/BS avoid them, then force escape.
         # Only fires for FineWeb mode (where perception_failed is rarely True
@@ -211,7 +233,10 @@ class Organism:
         self.prefrontal.record_query_result(had_results=not perception_failed)
 
         # 6. Check meditation entry (for NEXT tick)
-        if not self.meditation.is_meditating and self.meditation.should_enter(self.drives, self.emotions):
+        if not self.meditation.is_meditating and self.meditation.should_enter(
+                self.drives, self.emotions,
+                audio_stability=sensory_stability,
+                vision_stability=sensory_stability):
             self.meditation.enter(r_mean)
 
         # 7. Decide next query — with layered fallbacks + volatility valuation
@@ -487,6 +512,8 @@ class Organism:
             context += f"Self-observation: {introspection_desc}. "
         if workspace_desc:
             context += f"Awareness: {workspace_desc}. "
+        if hasattr(self, '_sensory_stats_line') and self._sensory_stats_line:
+            context += f"Senses: {self._sensory_stats_line}. "
 
         # Ask PFC to generate a higher-order thought
         meta = self.prefrontal.meta_reflect(context)
