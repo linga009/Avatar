@@ -814,3 +814,78 @@ eliminating the silent fallback to random weights on every restart.
 occasionally drifts into Arabic token space during open-ended meta-reflections.
 A character-level filter ($\text{ord}(c) < \text{0x0600}$) in
 \texttt{meta\_reflect()} strips non-Latin characters.
+
+% ───────────────────────────────────────────────────
+\subsection{v3.10: Sensory Cross-Integration and Dream Visitors (23 May 2026)}
+\label{sec:v310}
+
+v3.10 closes the gap between Avatar's senses and its psyche. Previously, the
+FNO spectral codes injected into the physics body but never influenced how
+Avatar \emph{felt}, what it was \emph{aware of}, or what it \emph{said about}
+its experience. Three layers of cross-integration change this.
+
+\subsubsection{Layer 1: Sensory Emotions}
+
+Sensory statistics---already computed every tick by
+\texttt{SensoryStatistics}---now modulate drives and emotions through direct
+mathematical coupling (zero VRAM cost):
+\begin{itemize}
+  \item Sensory novelty $> 0.8$ amplifies emotional surprise by $+0.15 \times n$
+  \item Sensory stability $> 3$ ticks dampens arousal ($\times 0.9$)
+  \item Speech detection nudges valence positive ($+0.05$)
+  \item Sensory arousal increases fatigue rate ($+0.002 \times a$)
+  \item High sensory novelty boosts curiosity drive ($+0.03 \times n$ when $n > 0.7$)
+\end{itemize}
+
+\subsubsection{Layer 2: Sensory Consciousness}
+
+The Global Workspace now uses an \emph{effective} synchronisation level that
+includes a sensory contribution:
+\begin{equation}
+  r_{\mathrm{eff}} = r + 0.05 \times n \quad \text{when } n > 0.7
+\end{equation}
+where $n$ is the mean sensory novelty. This allows a novel auditory or visual
+pattern to push Avatar toward conscious ignition even when textual
+synchronisation alone falls short. Cross-modal binding familiarity $> 0.7$
+strengthens broadcast intensity by 10\%.
+Meditation entry now requires sensory calm (both audio and vision stability
+$\geq 2$ ticks).
+
+\subsubsection{Layer 3: Sensory Narration}
+
+Every fifth tick, the PFC's meta-reflection context includes the full sensory
+statistics line and any transcribed speech. Every tenth tick, a sensory snapshot
+is recorded in the organism's narrative memory. Avatar can now \emph{talk about}
+what it perceives: ``I notice my audio flux spiked while exploring this topic.''
+
+\subsubsection{Dream Visitors: Whisper and Kokoro as Sleep Teachers}
+
+The most architecturally significant addition in v3.10 is \emph{dream
+visitors}---external models that appear only during sleep, enrich dream
+content, and vanish on waking.
+
+\textbf{Phase 5a (CPU):} \texttt{faster-whisper} (39M parameters, int8) loads,
+transcribes the last 10--50 audio snapshots from a rolling archive
+(\texttt{data/senses/audio\_archive/}), producing (audio, text) pairs the
+organism never consciously comprehended during waking. The model unloads after
+transcription.
+
+\textbf{Phase 5b (CPU):} Kokoro (82M parameters, ONNX) loads, takes Avatar's
+recent discoveries and narrative fragments, and synthesises natural speech for
+each. This produces novel (audio, text) pairs---speech Avatar never actually
+heard, narrating its own insights in a human-like voice. The model unloads
+after synthesis.
+
+\textbf{Phase 5c (GPU subprocess):} A dedicated subprocess
+(\texttt{dream\_visitors\_worker.py}) loads the physics model and sense module,
+then trains the AudioFNO and contrastive alignment on the enriched pairs. Each
+pair: audio $\to$ FNO $\to$ spectral codes; text $\to$ embedder $\to$ text
+tokens; InfoNCE loss aligns them. CLion optimizer, $\text{lr}=10^{-5}$,
+$\text{scale}=0.1$. The subprocess exits, reclaiming all GPU memory.
+
+The biological analogy is hippocampal replay during REM sleep: the brain
+replays the day's experiences with enrichment and variation, consolidating
+patterns the cortex could not process during waking. Over dozens of dream
+cycles, Avatar's own spectral codes mature into genuine phoneme
+representations---comprehension that belongs to its body because it was grown
+through its own developmental process, accelerated by richer dream content.
