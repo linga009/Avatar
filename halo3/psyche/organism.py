@@ -81,9 +81,11 @@ class Organism:
         speech_detected: bool = False,
         binding_familiarity: float = 0.0,
         sensory_stats_line: str = "",
+        heard_speech: str = "",
     ) -> dict:
         """Process one tick of lived experience."""
         self._sensory_stats_line = sensory_stats_line
+        self._heard_speech = heard_speech
 
         perception_failed = len(texts) == 0
 
@@ -514,6 +516,8 @@ class Organism:
             context += f"Awareness: {workspace_desc}. "
         if hasattr(self, '_sensory_stats_line') and self._sensory_stats_line:
             context += f"Senses: {self._sensory_stats_line}. "
+        if hasattr(self, '_heard_speech') and self._heard_speech:
+            context += f"Heard speech: \"{self._heard_speech[:100]}\". "
 
         # Ask PFC to generate a higher-order thought
         meta = self.prefrontal.meta_reflect(context)

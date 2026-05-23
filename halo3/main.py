@@ -301,6 +301,14 @@ def main() -> None:
         _s_speech = sensory_stats.speech_detected
         _s_binding = sensory_stats.cross_modal_binding
 
+        # Speech recognition: transcribe when speech detected (CPU, ~500ms)
+        _heard_speech = ""
+        if _s_speech and raw_data.audio_np is not None:
+            from halo3.senses.speech_recognition import transcribe
+            _heard_speech = transcribe(raw_data.audio_np)
+            if _heard_speech:
+                log.info(f"  Heard: \"{_heard_speech[:60]}\"")
+
         psyche_output = organism.tick(
             r_mean, combined_surprise, texts, current_query,
             carry_norm=carry_norm, body_tension=body_tension,
@@ -310,6 +318,7 @@ def main() -> None:
             speech_detected=_s_speech,
             binding_familiarity=_s_binding,
             sensory_stats_line=sensory_stats.format_for_pfc(),
+            heard_speech=_heard_speech,
         )
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
