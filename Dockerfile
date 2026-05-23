@@ -33,7 +33,7 @@ RUN pip3 install --no-cache-dir --break-system-packages Pillow
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends espeak-ng && \
     rm -rf /var/lib/apt/lists/*
-RUN pip3 install --no-cache-dir --break-system-packages faster-whisper piper-tts
+RUN pip3 install --no-cache-dir --break-system-packages faster-whisper kokoro-onnx
 
 COPY halo3/ /app/halo3/
 COPY train_halo3.py /app/train_halo3.py

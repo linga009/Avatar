@@ -1,7 +1,7 @@
 """TTS Self-Narration — Avatar reads its own text aloud for speech-text pairing.
 
 Phase B: espeak-ng (rule-based, <5MB, clean phonemes)
-Phase C: piper (neural, ~50MB, natural prosody) — v3.10
+Phase C: kokoro (neural, 82M params, natural prosody) — v3.10
 """
 from __future__ import annotations
 import logging
@@ -11,6 +11,10 @@ import os
 import numpy as np
 
 log = logging.getLogger(__name__)
+
+_kokoro_instance = None
+_KOKORO_MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+_KOKORO_VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 
 
 def extract_narration_text(texts: list[str], max_words: int = 20) -> str:
@@ -28,10 +32,41 @@ def extract_narration_text(texts: list[str], max_words: int = 20) -> str:
     return " ".join(words)
 
 
+def _get_kokoro():
+    """Lazy-load Kokoro voice model. Downloads on first use (~80MB)."""
+    global _kokoro_instance
+    if _kokoro_instance is not None:
+        return _kokoro_instance
+
+    try:
+        from kokoro_onnx import Kokoro
+
+        model_dir = "/app/data/kokoro"
+        model_path = os.path.join(model_dir, "kokoro-v1.0.onnx")
+        voices_path = os.path.join(model_dir, "voices-v1.0.bin")
+
+        if not os.path.exists(model_path) or not os.path.exists(voices_path):
+            os.makedirs(model_dir, exist_ok=True)
+            log.info("Kokoro: downloading model files (~80MB)...")
+            import urllib.request
+            if not os.path.exists(model_path):
+                urllib.request.urlretrieve(_KOKORO_MODEL_URL, model_path)
+            if not os.path.exists(voices_path):
+                urllib.request.urlretrieve(_KOKORO_VOICES_URL, voices_path)
+            log.info(f"Kokoro: model downloaded to {model_dir}")
+
+        _kokoro_instance = Kokoro(model_path, voices_path)
+        log.info("Kokoro: voice model loaded (82M params, CPU)")
+        return _kokoro_instance
+    except Exception as e:
+        log.warning(f"Kokoro: failed to load ({e})")
+        return None
+
+
 class TTSNarrator:
     """Text-to-speech narration for paired speech-text training."""
 
-    def __init__(self, mode: str = "piper", sample_rate: int = 16000,
+    def __init__(self, mode: str = "kokoro", sample_rate: int = 16000,
                  duration_samples: int = 32000) -> None:
         self._mode = mode
         self._sample_rate = sample_rate
@@ -39,17 +74,12 @@ class TTSNarrator:
         self._available = self._check_available()
 
     def _check_available(self) -> bool:
-        if self._mode == "piper":
-            try:
-                result = subprocess.run(
-                    ["piper", "--version"],
-                    capture_output=True, timeout=5)
-                if result.returncode == 0:
-                    log.info("TTSNarrator: piper available (neural TTS)")
-                    return True
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                log.info("TTSNarrator: piper not found, falling back to espeak-ng")
-            # Fallback to espeak
+        if self._mode == "kokoro":
+            kokoro = _get_kokoro()
+            if kokoro is not None:
+                log.info("TTSNarrator: kokoro available (neural TTS, 82M params)")
+                return True
+            log.info("TTSNarrator: kokoro failed, falling back to espeak-ng")
             self._mode = "espeak"
 
         if self._mode == "espeak":
@@ -75,32 +105,41 @@ class TTSNarrator:
         if not text or not self._available:
             return np.zeros(self._duration, dtype=np.float32)
         try:
-            if self._mode == "piper":
-                return self._narrate_piper(text)
+            if self._mode == "kokoro":
+                return self._narrate_kokoro(text)
             elif self._mode == "espeak":
                 return self._narrate_espeak(text)
         except Exception as e:
             log.warning(f"TTS narration failed: {e}")
         return np.zeros(self._duration, dtype=np.float32)
 
-    def _narrate_piper(self, text: str) -> np.ndarray:
-        """Generate audio using Piper neural TTS."""
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            tmp_path = f.name
+    def _narrate_kokoro(self, text: str) -> np.ndarray:
+        """Generate audio using Kokoro neural TTS."""
+        kokoro = _get_kokoro()
+        if kokoro is None:
+            return self._narrate_espeak(text)
+
         try:
-            # Piper reads text from stdin, writes WAV to --output_file
-            proc = subprocess.run(
-                ["piper", "--model", "/app/data/piper/en_US-lessac-medium.onnx",
-                 "--output_file", tmp_path],
-                input=text.encode("utf-8"),
-                capture_output=True, timeout=10)
-            if proc.returncode != 0:
-                log.warning(f"Piper failed (rc={proc.returncode}), falling back to espeak")
-                return self._narrate_espeak(text)
-            return self._load_wav(tmp_path)
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            # Kokoro outputs at 24kHz
+            audio, sr = kokoro.create(text, voice="af_heart", speed=1.0)
+
+            # Resample 24kHz -> 16kHz
+            if sr != self._sample_rate:
+                ratio = self._sample_rate / sr
+                new_len = int(len(audio) * ratio)
+                indices = np.linspace(0, len(audio) - 1, new_len).astype(int)
+                audio = audio[indices]
+
+            # Pad or trim to target duration
+            if len(audio) >= self._duration:
+                audio = audio[:self._duration]
+            else:
+                audio = np.pad(audio, (0, self._duration - len(audio)))
+
+            return audio.astype(np.float32)
+        except Exception as e:
+            log.warning(f"Kokoro synthesis failed: {e}, falling back to espeak")
+            return self._narrate_espeak(text)
 
     def _narrate_espeak(self, text: str) -> np.ndarray:
         """Generate audio using espeak-ng."""
