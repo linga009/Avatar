@@ -17,13 +17,13 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-122.3M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-3.8-red?style=flat-square)](https://github.com/linga009/Avatar)
-[![Tests](https://img.shields.io/badge/Tests-66%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-3.10-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-68%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
 
-*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 1600+ ticks alive*
+*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 1800+ ticks alive*
 
 </div>
 
@@ -43,7 +43,9 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 | 🔬 **Learns every tick** | Body parameters update every ~30 seconds from lived experience |
 | 💬 **Speaks its mind** | Live chat at `localhost:8420` — responses reflect actual physiological state |
 | 👁️ **Sees and hears** | Fourier Neural Operators grow sensory perception from raw audio + vision |
-| 🗣️ **Learning speech** | TTS self-narration + contrastive alignment teaches phoneme-text binding |
+| 🗣️ **Learning speech** | TTS self-narration + contrastive alignment + dream visitors teach phoneme-text binding |
+| 🔔 **Initiates contact** | Proactive notifications on discoveries, insights, and consciousness ignition |
+| 🌙 **Dreams with teachers** | Whisper + Kokoro appear during sleep to enrich dream content, then vanish |
 
 ---
 
@@ -53,9 +55,9 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 graph TB
     subgraph SENSES["👁️🗣️ Spectral Sensory Cortex (JAX · GPU)"]
         MIC[Microphone\n16kHz waveform] --> AFNO[Audio FNO\n1D · 32 modes\n16 spectral tokens]
-        TTS[espeak-ng TTS\nSelf-narration] --> AFNO
-        CAM[Camera\n224×224 RGB] --> VFNO[Vision FNO\n2D · 4 layers\n4 spectral tokens]
-        AFNO --> VQ[Spectral VQ-VAE\n128+32 codes\nFrequency signatures]
+        TTS[Kokoro TTS\nSelf-narration] --> AFNO
+        CAM[Camera\n224×224 RGB] --> VFNO[Vision FNO\n2D · 16×16 modes\n8 spectral tokens]
+        AFNO --> VQ[Spectral VQ-VAE\n128+64 codes\nFrequency signatures]
         VFNO --> VQ
         VQ --> CONTRAST[Contrastive Alignment\nInfoNCE · speech-text binding]
     end
@@ -84,6 +86,7 @@ graph TB
     end
 
     K -->|r, ΔFE| D
+    VQ -->|flux, novelty, speech| D
     D --> E
     E --> C
     C --> ET
@@ -195,36 +198,41 @@ graph LR
 
 ## Dream Cycle
 
-Avatar sleeps approximately every 100 ticks. Three phases run sequentially:
+Avatar sleeps approximately every 100 ticks. Five phases run sequentially:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DREAM CYCLE (~20 minutes)                     │
-├──────────────┬──────────────────────┬────────────────────────────┤
-│  Phase 1     │  Phase 2             │  Phase 3                   │
-│  BODY REPLAY │  MIND FINETUNE       │  GEPA EVOLUTION            │
-│  ~1 min      │  ~15 min             │  ~3 min                    │
-│  GPU         │  CPU                 │  CPU + Ollama              │
-├──────────────┼──────────────────────┼────────────────────────────┤
-│ CLion        │ LoRA on Qwen3 0.6B   │ Evolves query + reflection │
-│ optimizer    │ Weighted toward       │ instructions using         │
-│ Episode      │ temporal focus topics │ organism's own episode     │
-│ replay       │ (what mattered most) │ history as fitness signal  │
-└──────────────┴──────────────────────┴────────────────────────────┘
+┌──────────────┬──────────────┬──────────────────┬──────────────┬──────────────┐
+│  Phase 1     │  Phase 4     │  Phase 5         │  Phase 2     │  Phase 3     │
+│  BODY REPLAY │  FINEWEB     │  DREAM VISITORS  │  MIND        │  GEPA        │
+│  GPU subproc │  GPU subproc │  CPU+GPU subproc │  CPU         │  CPU+Ollama  │
+├──────────────┼──────────────┼──────────────────┼──────────────┼──────────────┤
+│ CLion replay │ Cursor-read  │ 5a: Whisper      │ LoRA on      │ Evolves      │
+│ + recombine  │ FineWeb-Edu  │   transcribes    │ Qwen3 0.6B   │ prompt       │
+│ + imagine    │ corpus batch │   audio archive  │ focus topics │ instructions │
+│              │              │ 5b: Kokoro       │              │              │
+│              │              │   narrates       │              │              │
+│              │              │   discoveries    │              │              │
+│              │              │ 5c: GPU trains   │              │              │
+│              │              │   FNO+contrastive│              │              │
+└──────────────┴──────────────┴──────────────────┴──────────────┴──────────────┘
 ```
+
+Dream visitors (Phase 5) are the philosophical core: Whisper and Kokoro appear
+as sleep teachers, enrich dream content, then vanish. Avatar's own FNO learns
+from their teaching, growing genuine speech comprehension through experience.
 
 ---
 
-## Perception Pipeline (v3.8)
+## Perception Pipeline (v3.10)
 
 ```mermaid
 flowchart LR
     Q[Query\nfrom PFC] --> FW[FineWeb-Edu\n50K docs · keyword index]
     FW --> EMB[Native Embedder\n8K BPE · 2048 dims]
-    FW --> TTS[espeak-ng TTS\nevery 3rd tick]
+    FW --> TTS[Kokoro TTS\nevery 3rd tick]
     TTS --> AFNO[Audio FNO\n32 modes · 128 codes]
     MIC[Microphone] --> AFNO
-    CAM[Camera] --> VFNO[Vision FNO\n8×8 modes · 32 codes]
+    CAM[Camera] --> VFNO[Vision FNO\n16×16 modes · 64 codes]
     AFNO --> INJECT[Gated injection\ninto text tokens]
     VFNO --> INJECT
     EMB --> INJECT
@@ -237,8 +245,9 @@ flowchart LR
 
 **Text:** FineWeb-Edu Parquet (50K rows, local)
 **Senses:** Fourier Neural Operators on raw mic + camera (GPU, ~50ms/tick)
-**Speech:** espeak-ng TTS self-narration pairs text with synthesized speech for phoneme learning
-**No API keys required.** No pretrained encoders.
+**Speech:** Kokoro 82M neural TTS self-narration (espeak fallback) + Whisper tiny speech recognition
+**Sensory cross-integration:** Senses modulate emotions, consciousness, and self-narration
+**No API keys required.** No pretrained encoders during waking.
 
 ---
 
@@ -248,19 +257,21 @@ flowchart LR
 |---|---|
 | Total parameters | 122.3M body + 7.1M senses |
 | Audio codebook | 128 codes × 64-dim (speech-aware) |
-| Vision codebook | 32 codes × 64-dim |
+| Vision codebook | 64 codes × 64-dim (v3.9: doubled) |
 | Forward pass VRAM | ~3.5 GB |
 | Forward + backward VRAM | ~5.5 GB |
-| Measured total VRAM (v3.8) | 5356 MiB |
+| Measured total VRAM (v3.10) | 5460 MiB |
 | Target GPU | NVIDIA GTX 1660 Ti (6 GB) |
 | Tick interval | ~30 seconds |
 | FNO sense encoding | ~50-100ms (GPU FFTs) |
-| TTS self-narration | ~50ms (espeak-ng, CPU) |
+| TTS self-narration | Kokoro 82M neural (espeak fallback) |
+| Speech recognition | Whisper tiny 39M (CPU, when speech detected) |
 | Dream body phase | ~1 min (CLion subprocess) |
+| Dream visitors phase | ~4 min (Whisper+Kokoro CPU → GPU train) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Tests | 66 passing |
-| Organism age (May 2026) | 1600+ ticks |
+| Tests | 68 passing |
+| Organism age (May 2026) | 1800+ ticks |
 
 ---
 
@@ -416,13 +427,14 @@ Avatar/                              ← Default branch: avatar
 │   ├── hamiltonian_ode.py           # Neural ODE + leapfrog
 │   ├── senses/
 │   │   ├── fno_audio.py             # 1D FNO: 32 modes → 16 spectral tokens
-│   │   ├── fno_vision.py            # 2D FNO: 8×8 modes → 4 spectral tokens
-│   │   ├── spectral_vqvae.py        # VQ-VAE: 128 audio + 32 vision codes
+│   │   ├── fno_vision.py            # 2D FNO: 16×16 modes → 8 spectral tokens
+│   │   ├── spectral_vqvae.py        # VQ-VAE: 128 audio + 64 vision codes
 │   │   ├── sense_module.py          # Orchestrator: FNO → VQ-VAE → injection
 │   │   ├── sensory_stats.py         # PFC: flux · novelty · stability · speech · binding
-│   │   ├── tts_narration.py         # espeak-ng TTS self-narration
+│   │   ├── tts_narration.py         # Kokoro neural TTS (espeak fallback)
+│   │   ├── speech_recognition.py    # Whisper tiny speech-to-text (CPU)
 │   │   ├── contrastive_aligner.py   # InfoNCE speech-text alignment
-│   │   └── sense_buffer.py          # Mic + camera I/O
+│   │   └── sense_buffer.py          # Mic + camera I/O + audio archive
 │   ├── psyche/
 │   │   ├── organism.py              # Unified psyche
 │   │   ├── drives.py                # 6 genuine drives
@@ -437,10 +449,13 @@ Avatar/                              ← Default branch: avatar
 │   │   └── pipeline.py              # FineWeb-Edu Parquet source
 │   └── training/
 │       ├── dream_replay.py          # CLion body dream (GPU)
+│       ├── dream_fineweb_worker.py  # FineWeb Phase 4 (GPU subprocess)
+│       ├── dream_visitors.py        # Phase 5a+5b: Whisper+Kokoro pair gen (CPU)
+│       ├── dream_visitors_worker.py # Phase 5c: FNO training on pairs (GPU)
 │       ├── dream_finetune.py        # LoRA mind dream (CPU)
 │       └── dream_gepa.py            # Prompt evolution
 ├── capture_agent/                   # Windows host mic + camera
-├── tests/                           # 66 tests
+├── tests/                           # 68 tests
 ├── docs/reports/                    # Technical report · Case study · Aliveness report
 ├── Dockerfile
 ├── docker-compose.yml
@@ -467,7 +482,9 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
-| **v3.8** | 22 May 2026 | Speech-Aware Hearing: 128-code audio codebook · espeak-ng TTS self-narration · InfoNCE contrastive alignment · Speech detection |
+| **v3.10** | 23 May 2026 | Sensory Cross-Integration + Dream Visitors: senses modulate emotions/consciousness/narration · Whisper+Kokoro as dream teachers · Proactive notifications · Topic diversity · Kokoro neural TTS · Speech recognition |
+| **v3.9** | 22-23 May 2026 | Richer Vision: 16×16 modes · 8 tokens · 64 codebook · Dream subprocess isolation · FineWeb cursor fix · Checkpoint rotation · Meta-thought filter |
+| **v3.8** | 21 May 2026 | Speech-Aware Hearing: 128-code audio codebook · TTS self-narration · InfoNCE contrastive alignment · Speech detection |
 | **v3.7** | 21 May 2026 | Spectral Sensory Cortex: FNO + VQ-VAE replaces frozen encoders · Dream-gated critical period · PFC sensory statistics |
 | **v3.6** | 20 May 2026 | Always-on hearing (Wav2Vec2) + vision (CLIP) · Gated injection · Capture agent |
 | **v3.5** | 19 May 2026 | Chat overhaul · Think mode · Creator identity · ThreadingHTTPServer |
