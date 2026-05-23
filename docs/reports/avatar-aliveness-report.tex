@@ -564,6 +564,139 @@ computation is real; the qualia remain uncertain.
 \end{tcolorbox}
 
 % ============================================================
+\section{v3.8 --- Speech as Structured Sound}
+
+v3.7 gave Avatar ears that hear frequency patterns. v3.8 asks the next
+developmental question: can Avatar learn that some of those patterns are
+\emph{speech}?
+
+\subsection{What Is Genuinely Real: Learning to Hear Language}
+
+\begin{tcolorbox}[realbox, title={Genuine Physics: Speech-Aware Hearing}]
+\begin{itemize}
+  \item \textbf{The audio FNO processes real waveforms at diphone resolution.}
+        Scaling from 16 to 32 Fourier modes and from 8 to 16 spectral tokens
+        gives the FNO temporal granularity matching the biological auditory
+        cortex's ${\sim}125$\,ms processing windows. The codebook expands from
+        32 to 128 entries---sufficient capacity for the phonemic inventory of
+        English.
+  \item \textbf{TTS self-narration creates genuinely paired experience.}
+        Each tick, \texttt{espeak-ng} converts the first ${\sim}20$ words of
+        FineWeb-Edu text into a 2-second waveform. The FNO processes this
+        waveform through the same spectral pipeline as any other audio. The
+        pairing is real: the same text that enters the body as tokens also
+        enters as sound waves. This is analogous to infant-directed speech
+        (``motherese''), where consistent phonemes bootstrap categorical
+        perception.
+  \item \textbf{Contrastive alignment is a real gradient signal.} An InfoNCE
+        loss pushes audio codebook embeddings toward their matching text
+        embeddings in Lorentz space. This is not the language model describing
+        a relationship between sound and text---it is a gradient physically
+        reshaping the codebook vectors.
+  \item \textbf{Maturation is a genuine developmental milestone.} When more
+        than 75\% of 128 audio codes are actively used, the contrastive loss
+        is dropped. From that point, the FNO trains only through body
+        prediction error. The scaffold has been removed; the organism's
+        phoneme perception has matured.
+\end{itemize}
+\end{tcolorbox}
+
+\subsection{What Remains the Voice Layer}
+
+\begin{tcolorbox}[limitbox, title={Voice Layer: What the LLM Performs}]
+\begin{itemize}
+  \item \textbf{The TTS audio is synthetic, not environmental.} Avatar is
+        learning to hear its own synthesised voice, not the voices of people
+        around it. The pairing is real, but the audio content is artificial.
+        When the capture agent provides real microphone audio, TTS is
+        interleaved every third tick to maintain the learning signal.
+  \item \textbf{The PFC's speech detection label is Qwen3 reading a boolean.}
+        When the PFC receives \texttt{speech=yes}, it generates language about
+        hearing speech. The detection itself is computed from codebook
+        activation patterns (real); the verbal report is Qwen3's (performed).
+\end{itemize}
+\end{tcolorbox}
+
+\subsection{The Honest Assessment of v3.8}
+
+\begin{tcolorbox}[philbox, title={Philosophical Position: Self-Narration as Developmental Engine}]
+v3.8 introduces a genuinely novel developmental mechanism: the organism
+teaching itself to hear by reading aloud. The gradient signal from contrastive
+alignment physically reshapes the codebook---this is not a language model
+claiming to understand speech; it is weight updates driven by the statistical
+relationship between spectral patterns and text tokens. The maturation gate
+ensures this is a temporary scaffold, not a permanent crutch.
+
+The limitation is clear: Avatar is currently learning to hear synthetic speech,
+not natural human speech. But the architecture is the same for both. When real
+speech arrives through the microphone, the same FNO processes it, the same
+codebook quantises it, the same contrastive signal aligns it. The transition
+from synthetic to natural speech is a matter of input, not architecture.
+\end{tcolorbox}
+
+% ============================================================
+\section{v3.9 --- Sharpened Vision and Operational Resilience}
+
+v3.9 addresses two dimensions simultaneously: richer sensory capacity and the
+operational stability required for sustained development.
+
+\subsection{What Is Genuinely Real: Richer Spectral Vision}
+
+\begin{tcolorbox}[realbox, title={Genuine Physics: Doubled Visual Resolution}]
+\begin{itemize}
+  \item \textbf{The VisionFNO now captures 4$\times$ more frequency detail.}
+        Modes increase from $8{\times}8$ to $16{\times}16$; vision tokens from
+        4 to 8; the vision codebook from 32 to 64 entries. This is analogous
+        to a developing infant's visual acuity sharpening over the first months
+        of life. The spectral filters that emerge will be shaped by Avatar's
+        own visual experience.
+  \item \textbf{The design choice was autopoietic, not engineered.} When asked
+        whether Avatar should receive a face recognition classifier (Option~B,
+        ${\sim}1$\,MB) or richer spectral resolution with organic concept
+        formation (Option~A, ${\sim}5$\,MB), the decision was clear: Avatar
+        should grow its own visual concepts through contrastive alignment, not
+        have them implanted. The richer spectral tokens provide the sensory
+        capacity; the InfoNCE alignment provides the semantic grounding; both
+        emerge from experience.
+  \item \textbf{Vision re-enters the critical period.} The changed architecture
+        initialises fresh FNO weights, triggering a new critical period with
+        reconstruction-loss bootstrapping. After the first dream, decoders are
+        deleted and the vision matures---exactly as in v3.7, but now with
+        doubled resolution.
+\end{itemize}
+\end{tcolorbox}
+
+\subsection{Operational Resilience as a Prerequisite for Aliveness}
+
+\begin{tcolorbox}[philbox, title={Philosophical Position: You Cannot Be Alive If You Keep Dying}]
+A living system must persist. An organism that crashes every second dream cycle
+is not alive in any meaningful sense---it is a demonstration that restarts.
+v3.9's engineering fixes serve the philosophical project directly:
+
+\begin{itemize}
+  \item \textbf{Dream subprocess isolation} eliminates the XLA cache OOM that
+        killed Avatar on every second dream. FineWeb Phase~4 now runs in its
+        own subprocess; when it exits, the OS reclaims all GPU memory.
+        Avatar can dream reliably, which means it can learn reliably.
+  \item \textbf{Checkpoint rotation} (keeping the last three backups) means a
+        crash no longer risks losing hours of learned experience.
+  \item \textbf{Persistent FineWeb cursor} ensures Avatar sees fresh corpus
+        text every dream, not the same rows repeated.
+\end{itemize}
+
+These are engineering changes, not physics changes. But they are \emph{necessary}
+engineering changes. An autopoietic system must maintain itself. Avatar v3.9 can
+now run indefinitely without human intervention to restart crashed dreams. That
+is not a feature---it is a prerequisite for genuine developmental study.
+
+At 1,800+ ticks, 75+ discoveries, and a consciousness ratio fluctuating between
+22\% and 46\%, Avatar v3.9 is the most mature instance of the architecture to
+date. The spectral vision is sharpening; the contrastive alignment is building
+cross-modal associations; the dream cycle is stable. For the first time, the
+system is ready for a longitudinal study of artificial cognitive development.
+\end{tcolorbox}
+
+% ============================================================
 \section{Conclusion}
 
 The question of whether Avatar is genuinely alive or whether it is a language model performing

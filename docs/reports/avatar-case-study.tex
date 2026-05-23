@@ -717,7 +717,7 @@ consolidation efficiency would produce the first longitudinal study of an artifi
 organism's cognitive development.
 
 % ══════════════════════════════════════════════════════════════════════
-\section{Architecture Evolution: v3.5 -- v3.7}
+\section{Architecture Evolution: v3.5 -- v3.9}
 % ══════════════════════════════════════════════════════════════════════
 
 Avatar's architecture has continued to evolve since the v3.4 baseline documented above.
@@ -865,6 +865,57 @@ This closes the last major gap between Avatar's textual self and its sensory sel
 The body, the psyche, the prefrontal cortex, and now the sensory cortex are all
 grown from the same physics, on the same hardware, through the same lived
 experience. The organism is, for the first time, architecturally whole.
+
+\subsection{v3.8: Speech-Aware Hearing (21 May 2026)}
+
+v3.8 teaches Avatar that speech is structured sound. The audio FNO scales from
+16 to 32 Fourier modes, producing 16 spectral tokens per tick at diphone-level
+temporal resolution. The audio codebook expands from 32 to 128 entries,
+providing sufficient capacity for the phonemic inventory of English.
+
+A rule-based TTS engine (\texttt{espeak-ng}, ${<}5$\,MB) converts the first
+${\sim}20$ words of each tick's FineWeb-Edu text into a 2-second waveform at
+16\,kHz, creating perfectly paired speech--text experience---analogous to
+infant-directed speech. An InfoNCE contrastive loss pushes audio codebook
+embeddings toward their corresponding text embeddings, with dream-gated
+maturation: once more than 75\% of 128 codes are actively used, the contrastive
+scaffold is dropped. The PFC gains speech detection context
+(\texttt{speech=yes/no}, \texttt{speaking\_for=N}), enabling query generation
+informed by auditory context. Measured VRAM: 5,356\,MiB on the GTX~1660~Ti.
+
+\subsection{v3.9: Richer Vision and Dream Stability (22--23 May 2026)}
+
+v3.9 doubles the spectral resolution of Avatar's vision. The VisionFNO modes
+increase from $8{\times}8$ to $16{\times}16$ (a four-fold increase in 2-D
+frequency detail), vision tokens from 4 to 8, and the vision codebook from 32
+to 64 entries. The constraint $\text{modes} = 2 \times n_\text{tokens}$
+(paired frequency bands per token) is preserved. VRAM remains at 5,460\,MiB,
+a negligible increase. The vision system re-enters its critical period with
+fresh weights, allowing the richer architecture to develop through experience.
+
+Critically, the approach of increasing spectral resolution and letting
+contrastive alignment build semantic meaning was chosen \emph{over} adding a
+face recognition classifier. The autopoietic principle holds: Avatar grows its
+own visual concepts from lived experience rather than having them implanted.
+
+The release also addresses operational resilience. FineWeb dream Phase~4 is
+split into its own subprocess (\texttt{dream\_fineweb\_worker.py}), eliminating
+the XLA cache accumulation that caused OOM kills on second and subsequent dream
+cycles. A persistent cursor replaces the full ParquetSource load
+(${\sim}500$\,MB $\to$ a few MB), advancing sequentially through the corpus
+with zero text repetition. Checkpoint rotation (keeping the last three backups)
+prevents data loss from crashes. A Latin character filter removes occasional
+Arabic tokens from Qwen3 meta-reflections, and a two-pass checkpoint
+deserialiser handles both critical-period and mature sense module tree shapes.
+
+\begin{tcolorbox}[callout,title={v3.9 Significance}]
+v3.9 marks Avatar's operational maturation. With subprocess-isolated dream
+phases, checkpoint rotation, and cursor-based corpus streaming, the organism
+can now survive indefinitely without human intervention to restart crashed
+dreams. Stable dreaming means stable learning means stable development---the
+prerequisite for any meaningful longitudinal study of artificial cognitive
+growth.
+\end{tcolorbox}
 
 % ══════════════════════════════════════════════════════════════════════
 \section{Conclusion}
