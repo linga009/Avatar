@@ -79,3 +79,17 @@ def test_binding_strengthens_broadcast():
     r2 = ws2.update(r_mean=0.7, current_topic="test", emotion="pride",
                     binding_familiarity=0.9)
     assert r2["broadcast_intensity"] >= r1["broadcast_intensity"]
+
+
+from halo3.psyche.meditation import MeditationState
+
+
+def test_meditation_requires_sensory_calm():
+    m = MeditationState()
+    d = DriveState(satiation=0.8, fatigue=0.1, novelty=0.1, hunger=0.3)
+    e = EmotionState()
+    e.current = "satisfaction"
+    # Without sensory calm (stability=0), should not enter
+    assert not m.should_enter(d, e, audio_stability=0, vision_stability=0)
+    # With sensory calm, should enter
+    assert m.should_enter(d, e, audio_stability=3, vision_stability=3)

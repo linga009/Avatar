@@ -63,10 +63,11 @@ class MeditationState:
         self.last_insight: str = ""
         self._cooldown: int = 0  # ticks before next meditation allowed
 
-    def should_enter(self, drives, emotions) -> bool:
+    def should_enter(self, drives, emotions,
+                     audio_stability: int = 99, vision_stability: int = 99) -> bool:
         """Check if conditions are met to enter meditation.
 
-        Requires: satiated + rested + not seeking + not in crisis + cooldown expired
+        Requires: satiated + rested + not seeking + not in crisis + sensory calm + cooldown expired
         """
         if self.is_meditating:
             return False  # already in meditation
@@ -81,8 +82,9 @@ class MeditationState:
         not_seeking = drives.novelty < 0.4
         not_hungry = drives.hunger < 0.5
         calm = emotions.current in ("satisfaction", "curiosity")
+        sensory_calm = audio_stability >= 2 and vision_stability >= 2
 
-        return satiated and rested and not_seeking and not_hungry and calm
+        return satiated and rested and not_seeking and not_hungry and calm and sensory_calm
 
     def enter(self, r_mean: float) -> None:
         """Begin meditation — record entry state for insight detection."""
