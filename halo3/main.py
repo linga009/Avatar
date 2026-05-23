@@ -182,6 +182,10 @@ def main() -> None:
         raw_data = sense_buffer.get_raw_arrays()
         audio_raw = jnp.array(raw_data.audio_np) if raw_data.audio_np is not None else _sense_zero_audio
         vision_raw = jnp.array(raw_data.vision_np) if raw_data.vision_np is not None else _sense_zero_vision
+
+        # Archive audio for dream visitor replay (every 3rd tick to save disk)
+        if raw_data.audio_np is not None and tick % 3 == 0:
+            sense_buffer.archive_audio(raw_data.audio_np, tick)
         sense_label = "[ ][ ]"
         if raw_data.audio_np is not None:
             sense_label = "[A][ ]"

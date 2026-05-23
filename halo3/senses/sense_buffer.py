@@ -88,3 +88,30 @@ class SenseBuffer:
             except Exception as e:
                 log.warning(f"SenseBuffer: failed to load image: {e}")
         return RawSenseData(audio_np, vision_np)
+
+    def archive_audio(self, audio_np: np.ndarray, tick: int,
+                      max_archive: int = 50) -> None:
+        """Save audio snapshot to rolling archive for dream visitor replay."""
+        archive_dir = os.path.join(self._senses_dir, "audio_archive")
+        os.makedirs(archive_dir, exist_ok=True)
+        np.save(os.path.join(archive_dir, f"tick_{tick:06d}.npy"), audio_np)
+        # Prune oldest if over limit
+        files = sorted(f for f in os.listdir(archive_dir) if f.endswith(".npy"))
+        while len(files) > max_archive:
+            os.remove(os.path.join(archive_dir, files.pop(0)))
+
+    @staticmethod
+    def load_audio_archive(data_dir: str = "data") -> list[tuple[str, np.ndarray]]:
+        """Load all archived audio snapshots. Returns list of (filename, audio_array)."""
+        archive_dir = os.path.join(data_dir, "senses", "audio_archive")
+        if not os.path.exists(archive_dir):
+            return []
+        pairs = []
+        for f in sorted(os.listdir(archive_dir)):
+            if f.endswith(".npy"):
+                try:
+                    audio = np.load(os.path.join(archive_dir, f)).astype(np.float32)
+                    pairs.append((f, audio))
+                except Exception:
+                    pass
+        return pairs
