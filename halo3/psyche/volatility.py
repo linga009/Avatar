@@ -64,18 +64,26 @@ class VolatilitySurface:
         strike: float = 0.6,
         window: int = 20,
         min_samples: int = 3,
+        recency_window: int = 30,
+        recency_penalty: float = 0.7,
     ) -> None:
         self._strike = strike          # K: discovery threshold
         self._window = window          # rolling window for σ computation
         self._min_samples = min_samples
+        self._recency_window = recency_window
+        self._recency_penalty = recency_penalty
         # topic_key -> list of (r_mean, fe_delta) observations
         self._history: dict[str, list[tuple[float, float]]] = defaultdict(list)
+        self._recent_topics: list[str] = []  # last N topics explored
         self._ticks_since_dream = 0
         self._dream_interval = 90      # approximate ticks between dreams
 
     def observe(self, topic: str, r_mean: float, fe_delta: float) -> None:
         """Record an observation for a topic. Called every tick."""
         self._ticks_since_dream += 1
+        self._recent_topics.append(topic)
+        if len(self._recent_topics) > self._recency_window:
+            self._recent_topics = self._recent_topics[-self._recency_window:]
         hist = self._history[topic]
         hist.append((r_mean, fe_delta))
         # Keep bounded
@@ -182,6 +190,11 @@ class VolatilitySurface:
                 # Value halves every 20 observations beyond the first 20
                 exhaustion = 0.5 ** ((n_obs - 20) / 20.0)
                 bs_value *= exhaustion
+
+        # Recency penalty: topics explored recently get discounted
+        recency_count = self._recent_topics.count(topic)
+        if recency_count > 0:
+            bs_value *= self._recency_penalty
 
         return bs_value
 

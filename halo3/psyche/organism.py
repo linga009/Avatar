@@ -221,7 +221,7 @@ class Organism:
         # and dead_query tracking would never trigger otherwise).
         _exp = self.self_model.experience.get(topic_key, 0)
         _comp = self.self_model.competence.get(topic_key, 0.5)
-        if (_exp >= 50
+        if (_exp >= 20
                 and abs(_comp - 0.5) < 0.06
                 and topic_key not in self.self_model.dead_queries):
             self.self_model.record_dead_query(topic_key)
