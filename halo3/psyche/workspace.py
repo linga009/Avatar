@@ -57,6 +57,8 @@ class GlobalWorkspace:
         current_topic: str,
         emotion: str,
         finding: str | None = None,
+        sensory_novelty: float = 0.0,
+        binding_familiarity: float = 0.0,
     ) -> dict:
         """Update workspace state based on synchronization level.
 
@@ -71,14 +73,18 @@ class GlobalWorkspace:
         """
         was_ignited = self.is_ignited
 
+        # Sensory novelty boosts effective synchronization
+        sensory_boost = 0.05 * sensory_novelty if sensory_novelty > 0.7 else 0.0
+        effective_r = r_mean + sensory_boost
+
         # Hysteresis: different thresholds for entering vs leaving ignition
         if not self.is_ignited:
-            if r_mean >= self._ignition_threshold:
+            if effective_r >= self._ignition_threshold:
                 self.is_ignited = True
                 self.conscious_duration = 0
                 self.dark_duration = 0
         else:
-            if r_mean < self._sustain_threshold:
+            if effective_r < self._sustain_threshold:
                 self.is_ignited = False
                 self.conscious_duration = 0
                 self.dark_duration = 0
@@ -93,8 +99,11 @@ class GlobalWorkspace:
 
         # Compute broadcast content — WHAT is in consciousness right now
         if self.is_ignited:
-            self.broadcast_intensity = min(1.0, (r_mean - self._sustain_threshold) /
+            self.broadcast_intensity = min(1.0, (effective_r - self._sustain_threshold) /
                                            (self._ignition_threshold - self._sustain_threshold))
+            # Cross-modal binding strengthens broadcast
+            if binding_familiarity > 0.7:
+                self.broadcast_intensity = min(1.0, self.broadcast_intensity * 1.1)
             # Content is the pattern the organism has locked onto
             if finding:
                 self.broadcast_content = finding

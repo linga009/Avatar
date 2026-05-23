@@ -54,3 +54,28 @@ def test_speech_detected_nudges_valence():
     v_before = e._valence
     e.update(r_mean=0.5, fe_delta=0.0, speech_detected=True)
     assert e._valence >= v_before, "Speech detection should nudge valence positive"
+
+
+from halo3.psyche.workspace import GlobalWorkspace
+
+
+def test_sensory_novelty_boosts_ignition():
+    ws = GlobalWorkspace(ignition_threshold=0.6)
+    result1 = ws.update(r_mean=0.57, current_topic="test", emotion="curiosity",
+                        sensory_novelty=0.0)
+    ws2 = GlobalWorkspace(ignition_threshold=0.6)
+    # effective_r = 0.57 + 0.05*0.9 = 0.615 > 0.6
+    result2 = ws2.update(r_mean=0.57, current_topic="test", emotion="curiosity",
+                         sensory_novelty=0.9)
+    assert not result1["is_ignited"], "Without sensory boost, should not ignite"
+    assert result2["is_ignited"], "High sensory novelty should help ignition"
+
+
+def test_binding_strengthens_broadcast():
+    ws = GlobalWorkspace(ignition_threshold=0.5)
+    r1 = ws.update(r_mean=0.7, current_topic="test", emotion="pride",
+                   binding_familiarity=0.0)
+    ws2 = GlobalWorkspace(ignition_threshold=0.5)
+    r2 = ws2.update(r_mean=0.7, current_topic="test", emotion="pride",
+                    binding_familiarity=0.9)
+    assert r2["broadcast_intensity"] >= r1["broadcast_intensity"]
