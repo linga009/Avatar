@@ -9,7 +9,7 @@ def test_fno_config_defaults():
     assert cfg.fno_audio_modes == 32
     assert cfg.fno_vision_modes == 16
     assert cfg.codebook_size_audio == 128
-    assert cfg.codebook_size_vision == 32
+    assert cfg.codebook_size_vision == 64
     assert cfg.codebook_dim == 64
     assert cfg.codebook_ema_decay == 0.99
     assert cfg.commitment_beta == 0.25

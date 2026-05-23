@@ -394,15 +394,15 @@ def main() -> None:
             try:
                 import subprocess as _sp
                 import json as _json
+                # Phases 1-3: body dream (replay + recombine + imagine)
                 result = _sp.run(
                     [sys.executable, "-m", "halo3.training.dream_worker",
                      "--checkpoint", "data/checkpoints/pre_dream",
                      "--output", "data/checkpoints/halo3",
                      "--replay-steps", "10",
                      "--recombine-steps", "5",
-                     "--imagine-steps", "5",
-                     "--fineweb-steps", "10"],
-                    timeout=7200,  # 2 hours max (FineWeb Phase 4 needs extra time)
+                     "--imagine-steps", "5"],
+                    timeout=3600,
                 )
                 if result.returncode == 0:
                     info_path = "data/checkpoints/halo3_dream_info.json"
@@ -415,7 +415,27 @@ def main() -> None:
             except Exception as e:
                 log.warning(f"  ☽ Body dream failed: {e}")
 
-            # GPU is fully free — subprocess released everything on exit
+            # GPU fully free — subprocess released everything on exit.
+            # Phase 4: FineWeb batch in SEPARATE subprocess (isolated XLA state)
+            try:
+                log.info("  ☽ Phase 4: FineWeb dreaming on GPU (subprocess)...")
+                fw_result = _sp.run(
+                    [sys.executable, "-m", "halo3.training.dream_fineweb_worker",
+                     "--checkpoint", "data/checkpoints/halo3",
+                     "--output", "data/checkpoints/halo3",
+                     "--steps", "10"],
+                    timeout=1800,
+                )
+                if fw_result.returncode == 0:
+                    fw_info_path = "data/checkpoints/fineweb_dream_info.json"
+                    if os.path.exists(fw_info_path):
+                        with open(fw_info_path) as f:
+                            fw_info = _json.load(f)
+                        log.info(f"  ☽ FineWeb dream done: {fw_info}")
+                else:
+                    log.warning(f"  ☽ FineWeb subprocess exited with code {fw_result.returncode}")
+            except Exception as e:
+                log.warning(f"  ☽ FineWeb dream failed (non-critical): {e}")
 
             # === PHASE 2: MIND DREAMS (CPU) — LoRA fine-tune ===
             log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")

@@ -568,7 +568,10 @@ class PrefrontalCortex:
         )
         result = self._call_analytical(prompt, max_tokens=80)
         if result and len(result.split()) > 3:
-            return result[:200]
+            # Filter non-Latin characters (Qwen3 occasionally outputs Arabic/CJK)
+            cleaned = "".join(c for c in result if ord(c) < 0x0600 or c in " \t\n")
+            if cleaned and len(cleaned.split()) > 3:
+                return cleaned[:200]
         return None
 
     def generate_exploration_plan(self, seed_topics: list[str], strengths: list[str]) -> list[str]:

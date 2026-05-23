@@ -13,9 +13,27 @@ from halo3.loss import halo3_loss
 log = logging.getLogger(__name__)
 
 
-def save_checkpoint(model, path):
-    os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
-    eqx.tree_serialise_leaves(path + ".eqx", model)
+def save_checkpoint(model, path, keep_versions=3):
+    """Save model checkpoint with rotation — keeps last `keep_versions` backups."""
+    directory = os.path.dirname(path) if os.path.dirname(path) else "."
+    os.makedirs(directory, exist_ok=True)
+    eqx_path = path + ".eqx"
+
+    # Rotate existing backups before overwriting
+    if keep_versions > 0 and os.path.exists(eqx_path):
+        import glob as _glob
+        base = path
+        # Delete oldest if we're at the limit
+        existing = sorted(_glob.glob(base + ".bak*.eqx"))
+        while len(existing) >= keep_versions:
+            os.remove(existing[0])
+            existing.pop(0)
+        # Shift current to next backup slot
+        bak_num = len(existing) + 1
+        import shutil
+        shutil.copy2(eqx_path, f"{base}.bak{bak_num}.eqx")
+
+    eqx.tree_serialise_leaves(eqx_path, model)
 
 
 def load_checkpoint(cfg, path):

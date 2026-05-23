@@ -65,7 +65,7 @@ class Halo3Config:
 
     # VQ-VAE — spectral codebook (split per modality for v3.8)
     codebook_size_audio: int = 128  # v3.8: was 32 (shared)
-    codebook_size_vision: int = 32  # unchanged
+    codebook_size_vision: int = 64  # v3.9: was 32 (doubled to match richer vision tokens)
     codebook_dim: int = 64
     codebook_ema_decay: float = 0.99
     commitment_beta: float = 0.25

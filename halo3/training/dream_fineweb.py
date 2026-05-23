@@ -68,21 +68,24 @@ def _sample_texts_cursor(files: list[str], n: int) -> list[str]:
         while rg_idx < pf.num_row_groups and len(texts) < n:
             batch = pf.read_row_group(rg_idx, columns=["text", "int_score"])
             d = batch.to_pydict()
+            found_enough = False
             for i in range(row_off, len(d["text"])):
                 if len(texts) >= n:
                     row_off = i
+                    found_enough = True
                     break
                 text = d["text"][i]
                 score = d["int_score"][i] or 0
                 if score >= _MIN_SCORE and text and text.strip():
                     texts.append(text)
-            else:
-                # exhausted this row group
+            if not found_enough:
+                # exhausted this row group — advance to next
                 rg_idx += 1
                 row_off = 0
             del batch, d
-        else:
-            # exhausted all row groups in this file
+
+        # Only advance to next file if we truly exhausted all row groups
+        if rg_idx >= pf.num_row_groups:
             file_idx += 1
             rg_idx = 0
             row_off = 0
