@@ -324,6 +324,12 @@ def main() -> None:
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
 
+        # Push proactive notifications to chat UI
+        if psyche_output.get("proactive_message"):
+            from halo3.chat_server import push_proactive_message
+            push_proactive_message(psyche_output["proactive_message"])
+            log.info(f"  Proactive: {psyche_output['proactive_message'][:60]}")
+
         # Update live state for chat server
         update_live_state(
             tick=tick, r_mean=r_mean, fe_delta=fe_delta,

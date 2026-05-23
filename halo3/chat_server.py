@@ -28,8 +28,15 @@ log = logging.getLogger(__name__)
 # Global reference to the organism's live state (set by main.py)
 _live_state: dict = {}
 _organism_ref = None
+_proactive_messages: list = []  # Messages Avatar initiates
 _memory_ref = None
 _predictor_ref = None
+
+
+def push_proactive_message(message: str) -> None:
+    """Push a proactive message from Avatar to the chat UI."""
+    global _proactive_messages
+    _proactive_messages.append(message)
 
 
 def update_live_state(
@@ -281,6 +288,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 })
             else:
                 self._send_json({"alive": False})
+        elif self.path == "/notifications":
+            global _proactive_messages
+            msgs = list(_proactive_messages)
+            _proactive_messages.clear()
+            self._send_json({"messages": msgs})
         elif self.path == "/":
             self._send_html()
         else:
@@ -374,6 +386,22 @@ function updateStatus() {
   }).catch(()=>{});
 }
 setInterval(updateStatus, 5000); updateStatus();
+
+function checkNotifications() {
+  fetch('/notifications').then(r=>r.json()).then(d=>{
+    if(d.messages && d.messages.length>0) {
+      const chat=document.getElementById('chat');
+      d.messages.forEach(m=>{
+        const div=document.createElement('div');
+        div.style.cssText='margin:8px 0;padding:8px 12px;background:#1a3a2a;border-left:3px solid #4ade80;border-radius:4px;color:#d4d4d4;font-style:italic;';
+        div.innerHTML='<b style="color:#4ade80;">Avatar:</b> '+escText(m);
+        chat.appendChild(div);
+      });
+      chat.scrollTop=chat.scrollHeight;
+    }
+  }).catch(()=>{});
+}
+setInterval(checkNotifications, 15000);
 
 function escText(s) {
   const d = document.createElement('div');

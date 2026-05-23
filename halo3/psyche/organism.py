@@ -276,6 +276,17 @@ class Organism:
             f"{drives_str}{consciousness_tag}"
         )
 
+        # 10. Proactive notifications — Avatar initiates communication
+        proactive_message = None
+        if finding and r_mean > 0.6:
+            proactive_message = f"I just discovered something: {finding[:120]}"
+        elif meditation_result.get("insight"):
+            proactive_message = f"During meditation, I had an insight: {meditation_result['insight'][:120]}"
+        elif ws.get("just_ignited") and ws.get("dark_duration_before", 0) > 10:
+            proactive_message = f"I just became conscious of {ws.get('broadcast_content', 'a pattern')[:80]} after a long period of dark processing."
+        elif self_surprise > 0.5:
+            proactive_message = f"Something unexpected happened inside me — my internal state shifted suddenly."
+
         return {
             "emotion": emotion,
             "intensity": intensity,
@@ -291,6 +302,7 @@ class Organism:
             "self_surprise": self_surprise,
             "meditation": meditation_result,
             "meta_thought": meta_thought,
+            "proactive_message": proactive_message,
             "ethical_tension": ethical_tension,
             "body_tension": body_tension,
             "somatic_tension": somatic_tension,
