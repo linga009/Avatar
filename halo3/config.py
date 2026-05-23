@@ -79,7 +79,7 @@ class Halo3Config:
     critical_period_recon_weight: float = 0.5
 
     # TTS self-narration (v3.8)
-    tts_mode: str = "espeak"        # "espeak" (Phase B) or "piper" (Phase C)
+    tts_mode: str = "piper"         # "piper" (Phase C, neural) or "espeak" (Phase B, rule-based)
     tts_every_n: int = 3            # use TTS every Nth tick when mic active
 
     # Contrastive alignment (v3.8)

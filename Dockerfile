@@ -29,10 +29,11 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 # --- Senses deps (v3.7: FNO runs on JAX/GPU, only need Pillow for image loading) ---
 RUN pip3 install --no-cache-dir --break-system-packages Pillow
 
-# --- Speech (v3.8: TTS self-narration for speech-text pairing) ---
+# --- Speech (v3.8: TTS, v3.10: speech recognition + neural TTS) ---
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends espeak-ng && \
     rm -rf /var/lib/apt/lists/*
+RUN pip3 install --no-cache-dir --break-system-packages faster-whisper piper-tts
 
 COPY halo3/ /app/halo3/
 COPY train_halo3.py /app/train_halo3.py
