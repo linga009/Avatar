@@ -40,6 +40,8 @@ class DriveState:
         perception_failed: bool = False,
         topic_changed: bool = False,
         dt: float = 1.0,
+        sensory_arousal: float = 0.0,
+        sensory_novelty: float = 0.0,
     ) -> None:
         """Update drives based on current tick's physics output."""
 
@@ -56,6 +58,7 @@ class DriveState:
 
         # --- Fatigue ---
         fatigue_rate = 0.005 + 0.003 * self.hunger
+        fatigue_rate += 0.002 * sensory_arousal  # sensory load increases tiredness
         self.fatigue = min(1.0, self.fatigue + fatigue_rate * dt)
 
         # --- Satiation ---
@@ -74,6 +77,10 @@ class DriveState:
             self.ticks_zero_input = 0
             self.starvation = max(0.0, self.starvation - 0.3)
 
+        # Senses confirm world exists — dampens starvation
+        if sensory_arousal > 0.3:
+            self.starvation = max(0.0, self.starvation - 0.1)
+
         # --- Novelty (need for fundamentally different topics) ---
         if topic_changed:
             self.novelty = max(0.0, self.novelty - 0.4)
@@ -87,6 +94,10 @@ class DriveState:
         satiation_boost = self.satiation * 0.8
         starvation_boost = self.starvation * 0.5  # starving also drives curiosity
         self.curiosity = min(1.0, base_curiosity + satiation_boost + starvation_boost)
+
+        # High sensory novelty pulls toward exploration
+        if sensory_novelty > 0.7:
+            self.curiosity = min(1.0, self.curiosity + 0.03 * sensory_novelty)
 
     def dream_reset(self) -> None:
         self.fatigue = 0.1
