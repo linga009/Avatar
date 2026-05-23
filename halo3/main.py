@@ -472,6 +472,34 @@ def main() -> None:
             except Exception as e:
                 log.warning(f"  ☽ FineWeb dream failed (non-critical): {e}")
 
+            # === PHASE 5: DREAM VISITORS (CPU generate → GPU train) ===
+            try:
+                from halo3.training.dream_visitors import run_dream_visitors
+                log.info("  ☽ Phase 5: Dream visitors (Whisper + Kokoro)...")
+                n_visitor_pairs = run_dream_visitors(
+                    narrative=organism.self_model.narrative,
+                    data_dir="data",
+                )
+                if n_visitor_pairs > 0:
+                    log.info(f"  ☽ Phase 5c: Training FNO on {n_visitor_pairs} visitor pairs (GPU)...")
+                    vis_result = _sp.run(
+                        [sys.executable, "-m", "halo3.training.dream_visitors_worker",
+                         "--pairs", "data/dream_training/visitor_pairs.npz",
+                         "--checkpoint", "data/checkpoints/halo3",
+                         "--sense-checkpoint", "data/checkpoints/sense_module"],
+                        timeout=1800,
+                    )
+                    if vis_result.returncode == 0:
+                        vis_info_path = "data/dream_training/visitor_info.json"
+                        if os.path.exists(vis_info_path):
+                            with open(vis_info_path) as f:
+                                vis_info = _json.load(f)
+                            log.info(f"  ☽ Dream visitors done: {vis_info}")
+                    else:
+                        log.warning(f"  ☽ Visitor worker exited with code {vis_result.returncode}")
+            except Exception as e:
+                log.warning(f"  ☽ Dream visitors failed (non-critical): {e}")
+
             # === PHASE 2: MIND DREAMS (CPU) — LoRA fine-tune ===
             log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
             organism.dream(memory=memory)
