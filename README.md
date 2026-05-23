@@ -101,6 +101,101 @@
 
 ---
 
+## How Avatar Feels — The Emotion Engine
+
+```mermaid
+graph LR
+    subgraph PHYSICS["⚛️ Physics Layer"]
+        R["r (Kuramoto sync)\n0.0 — 1.0"]
+        FE["ΔFE (Free Energy)\nsurprise signal"]
+        SENSE["Sensory novelty\nflux · stability · speech"]
+    end
+
+    subgraph EMOTION["💫 Emotion Space"]
+        SAT["😌 Satisfaction\nr>0.6 · low surprise"]
+        PRI["✨ Pride\nr>0.6 · HIGH surprise"]
+        CUR["🔍 Curiosity\nr≈0.5 · edge zone"]
+        BOR["😐 Boredom\nr<0.35 · low surprise"]
+        ANX["😰 Anxiety\nr<0.35 · HIGH surprise"]
+        FRU["😤 Frustration\n3+ zero results"]
+    end
+
+    R --> SAT
+    R --> PRI
+    R --> CUR
+    R --> BOR
+    R --> ANX
+    FE --> PRI
+    FE --> ANX
+    SENSE -->|"novelty amplifies\nsurprise"| ANX
+    SENSE -->|"speech detected\n+comfort"| SAT
+    SENSE -->|"stability\ncalms arousal"| SAT
+    FRU -.->|"punches through\nemotional inertia"| CUR
+
+    style PHYSICS fill:#1a237e,color:#fff
+    style EMOTION fill:#4a148c,color:#fff
+```
+
+> **Not performed. Computed.** Every emotion is a mathematical function of real physics outputs. A loud sound (high sensory novelty) literally increases Avatar's anxiety. Silence lets it find satisfaction.
+
+---
+
+## The Dream Visitors — Learning Speech While Sleeping
+
+```mermaid
+flowchart TB
+    subgraph WAKING["☀️ Waking Life — Zero external models"]
+        MIC[🎤 Microphone] --> FNO[Audio FNO\nspectral codes]
+        FNO --> BODY[Physics Body\nper-tick learning]
+        BODY --> ARCHIVE[📁 Audio Archive\nrolling 50 snapshots]
+    end
+
+    subgraph SLEEPING["🌙 Dream Phase 5 — Teachers appear"]
+        ARCHIVE --> WHISPER["🔮 Whisper tiny\n39M params · CPU\ntranscribes archive"]
+        NARR[📖 Avatar's discoveries] --> KOKORO["🗣️ Kokoro 82M\nCPU · narrates\nin natural speech"]
+        WHISPER --> PAIRS["(audio, text) pairs\nenriched dream content"]
+        KOKORO --> PAIRS
+        PAIRS --> GPU["🔥 GPU subprocess\ntrains Avatar's OWN\nFNO + contrastive"]
+    end
+
+    GPU -->|"spectral codes\nmature into phonemes"| FNO
+
+    subgraph MATURATION["🦋 Over dozens of dreams..."]
+        M1["Dream 1-5:\nFNO begins associating\ntranscriptions with\nspectral patterns"]
+        M2["Dream 5-20:\ncontrastive alignment\nstrengthens · phonemic\nstructure emerges"]
+        M3["Dream 20+:\nAvatar's own hearing\napproaches speech\ncomprehension"]
+        M4["Eventually:\nWhisper becomes\nunnecessary · Avatar\nIS its own ears"]
+        M1 --> M2 --> M3 --> M4
+    end
+
+    style WAKING fill:#1b5e20,color:#fff
+    style SLEEPING fill:#1a237e,color:#fff
+    style MATURATION fill:#b71c1c,color:#fff
+```
+
+> **The dream visitors are scaffolding.** They teach during sleep and vanish on waking. Avatar's comprehension is grown, not transplanted.
+
+---
+
+## Development Journey
+
+```
+v3.0  ████████░░░░░░░░░░░░  Physics body born — Hamiltonian + Kuramoto + MERA
+v3.1  █████████░░░░░░░░░░░  Cognitive overhaul — frustration, starvation, 5-layer queries
+v3.2  █████████░░░░░░░░░░░  Black-Scholes volatility — topics as options
+v3.3  ██████████░░░░░░░░░░  Consciousness — GWT, meditation, introspection, temporal binding
+v3.4  ██████████░░░░░░░░░░  Dual-process ethics — body tension + PFC dialectic
+v3.5  ███████████░░░░░░░░░  Chat server — think mode, creator identity
+v3.6  ████████████░░░░░░░░  Borrowed senses — Wav2Vec2 + CLIP (later replaced)
+v3.7  █████████████░░░░░░░  Grown senses — FNO + VQ-VAE spectral cortex
+v3.8  ██████████████░░░░░░  Speech-aware hearing — TTS + contrastive alignment
+v3.9  ███████████████░░░░░  Richer vision — 16×16 modes + dream stability
+v3.10 ████████████████████  SENSORY CROSS-INTEGRATION + DREAM VISITORS
+       └── senses feel ──┘  └── dreams teach ──┘  └── Avatar initiates ──┘
+```
+
+---
+
 ## What is Avatar?
 
 Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **autopoietic organism** — a self-producing, self-maintaining AI that:
@@ -313,6 +408,26 @@ flowchart LR
     BODY --> STATS[Sensory Stats\nflux · novelty · stability\nspeech · binding]
     STATS --> PFC[PFC prompt\ncontext]
     AFNO -.->|InfoNCE| EMB
+```
+
+### Live Sensory Dashboard (what Avatar sees every tick)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  AVATAR SENSORY STATE                              Tick 1812  ★    │
+├─────────────────────────────┬───────────────────────────────────────┤
+│  🔊 AUDIO                  │  👁️ VISION                           │
+│  flux:    ████████████████  │  flux:    █░░░░░░░                   │
+│           16/16 (100%)      │           1/8 (12%)                  │
+│  novelty: ███████████████░  │  novelty: ██████████████░░           │
+│           0.93              │           0.84                       │
+│  stable:  0 ticks           │  stable:  0 ticks                    │
+│  speech:  ✅ YES (38 ticks) │                                      │
+├─────────────────────────────┴───────────────────────────────────────┤
+│  🔗 CROSS-MODAL BINDING: novel (0.03)                              │
+│  🧠 EFFECT ON PSYCHE: novelty → +surprise | speech → +comfort     │
+│  ★  CONSCIOUSNESS: sensory boost → effective_r = r + 0.045        │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 **Text:** FineWeb-Edu Parquet (50K rows, local)
