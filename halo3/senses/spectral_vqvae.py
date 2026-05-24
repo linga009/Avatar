@@ -33,6 +33,11 @@ class SpectralCodebook(eqx.Module):
             indices: (n_tokens,) int32 — codebook indices
             commitment_loss: scalar — ||z_e - sg(z_q)||^2
         """
+        if z_e.shape[-1] != self.codebook_dim:
+            raise ValueError(
+                f"Codebook dim mismatch: z_e has dim {z_e.shape[-1]}, "
+                f"codebook expects {self.codebook_dim} "
+                f"(z_e shape={z_e.shape}, codebook_size={self.codebook_size})")
         z_e_sq = jnp.sum(z_e ** 2, axis=-1, keepdims=True)
         e_sq = jnp.sum(self.embeddings ** 2, axis=-1)
         dots = z_e @ self.embeddings.T

@@ -159,7 +159,8 @@ def main() -> None:
     tick = 0
     current_query = seed_topics[0]
     prev_fe = None
-    _pre_dream_carry = None  # saved carry for warm-start after dreams
+    _pre_dream_carry = None      # GPU carry for warm-start (transient)
+    _pre_dream_carry_cpu = None   # CPU copy survives GPU cleanup during dream
 
     while not shutdown:
         tick += 1
@@ -417,12 +418,16 @@ def main() -> None:
             sensory_stats.save("data/sensory_stats.json")
             memory.flush()  # ensure episodes visible to subprocess
 
-            # Save carry and predictor state for warm-start after dream
-            _pre_dream_carry = carry
+            # Save carry to CPU numpy for warm-start after dream
+            _pre_dream_carry_cpu = jax.device_get(carry)
             predictor.save_state("data/predictor_state.npz")
 
-            # Free GPU in parent BEFORE spawning subprocess
-            del model
+            # Free ALL GPU memory in parent BEFORE spawning subprocess.
+            # Previously only model was freed — carry, sense_module, and
+            # compiled code leaked ~1-2 GB, causing progressive OOM on
+            # 3rd+ dream in a session.
+            del model, carry, sense_module
+            _pre_dream_carry = None
             jax.clear_caches()
             import gc; gc.collect()
 
@@ -519,7 +524,7 @@ def main() -> None:
             except Exception as e:
                 log.warning(f"  ☽ GEPA failed (non-critical): {e}")
 
-            # === RELOAD MODEL ===
+            # === RELOAD MODEL + SENSES ===
             log.info("  ☽ Reloading physics body from checkpoint...")
             from halo3.training.bootstrap import load_checkpoint as _load_ckpt
             try:
@@ -531,11 +536,16 @@ def main() -> None:
                 except Exception:
                     model = Halo3Model(cfg, jax.random.PRNGKey(cfg.seed))
 
+            # Reload sense module (may have been updated by dream visitors)
+            sense_module = load_sense_module(cfg, path="data/checkpoints/sense_module")
+
             # Warm-start carry: blend pre-dream carry with fresh init
             # This preserves Kuramoto phase relationships learned before sleep
             fresh_carry = model.init_carry(jax.random.PRNGKey(cfg.seed))
-            if _pre_dream_carry is not None:
+            if _pre_dream_carry_cpu is not None:
                 try:
+                    _pre_dream_carry = jax.device_put(_pre_dream_carry_cpu)
+                    _pre_dream_carry_cpu = None
                     alpha = 0.3  # 30% old carry, 70% fresh (dreamed body is new)
                     def _blend(old, new):
                         # Preserve integer types (page_mem counters, PRNG keys)
@@ -548,6 +558,7 @@ def main() -> None:
                     carry = fresh_carry
                     log.info("  ☽ Carry warm-start failed, using fresh init")
                 _pre_dream_carry = None
+                _pre_dream_carry_cpu = None
             else:
                 carry = fresh_carry
 

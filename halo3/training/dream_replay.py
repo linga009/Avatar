@@ -132,7 +132,10 @@ def dream_replay_physics(
     # new @eqx.filter_jit per call → 55 recompilations → OOM from XLA cache.
     @eqx.filter_jit
     def _dream_step(model, opt_state_in, carry, tokens, key, scale):
-        loss_fn = lambda m: halo3_loss(m, carry, tokens, key)[0] * scale
+        # jax.checkpoint: don't store 60-layer activations during forward;
+        # recompute them during backward. Trades ~2x compute for ~3 GB VRAM.
+        _ckpt_loss = jax.checkpoint(halo3_loss)
+        loss_fn = lambda m: _ckpt_loss(m, carry, tokens, key)[0] * scale
         loss, grads = eqx.filter_value_and_grad(loss_fn)(model)
         updates, new_opt_state = opt.update(
             eqx.filter(grads, eqx.is_array),
