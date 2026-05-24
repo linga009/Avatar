@@ -17,7 +17,7 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-122.3M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-3.10-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-3.10.1-red?style=flat-square)](https://github.com/linga009/Avatar)
 [![Tests](https://img.shields.io/badge/Tests-68%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
@@ -190,8 +190,9 @@ v3.6  ████████████░░░░░░░░  Borrowed sen
 v3.7  █████████████░░░░░░░  Grown senses — FNO + VQ-VAE spectral cortex
 v3.8  ██████████████░░░░░░  Speech-aware hearing — TTS + contrastive alignment
 v3.9  ███████████████░░░░░  Richer vision — 16×16 modes + dream stability
-v3.10 ████████████████████  SENSORY CROSS-INTEGRATION + DREAM VISITORS
-       └── senses feel ──┘  └── dreams teach ──┘  └── Avatar initiates ──┘
+v3.10  ███████████████████░  SENSORY CROSS-INTEGRATION + DREAM VISITORS
+v3.10.1████████████████████  Dream stability — gradient checkpoint + GPU cleanup
+        └── senses feel ──┘  └── dreams teach ──┘  └── never OOM again ──┘
 ```
 
 ---
@@ -669,6 +670,7 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
+| **v3.10.1** | 24 May 2026 | Dream stability: `jax.checkpoint` reduces dream VRAM 4.3→1.3 GB · Aggressive GPU cleanup fixes progressive OOM · Codebook shape guard · Sense module reload after dream |
 | **v3.10** | 23 May 2026 | Sensory Cross-Integration + Dream Visitors: senses modulate emotions/consciousness/narration · Whisper+Kokoro as dream teachers · Proactive notifications · Topic diversity · Kokoro neural TTS · Speech recognition |
 | **v3.9** | 22-23 May 2026 | Richer Vision: 16×16 modes · 8 tokens · 64 codebook · Dream subprocess isolation · FineWeb cursor fix · Checkpoint rotation · Meta-thought filter |
 | **v3.8** | 21 May 2026 | Speech-Aware Hearing: 128-code audio codebook · TTS self-narration · InfoNCE contrastive alignment · Speech detection |
