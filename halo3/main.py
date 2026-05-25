@@ -110,6 +110,15 @@ def main() -> None:
     from halo3.senses.tts_narration import TTSNarrator, extract_narration_text
     from halo3.senses.contrastive_aligner import ContrastiveAligner
 
+    # Auto-build TopicIndex if parquet exists but index doesn't
+    _index_path = "data/fineweb/topic_index.json"
+    if not os.path.exists(_index_path):
+        import glob as _glob
+        if _glob.glob("data/fineweb/**/*.parquet", recursive=True):
+            log.info("Building TopicIndex for first time (this takes a few minutes)...")
+            from halo3.perception.topic_index import TopicIndex
+            TopicIndex.build("data/fineweb", _index_path)
+
     perception = PerceptionPipeline(cfg.d_model, cfg.n_tokens)
     memory = EpisodeStore()
     organism = Organism(seed_topics)
