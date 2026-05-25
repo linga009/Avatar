@@ -19,4 +19,4 @@ services:
       - XLA_PYTHON_CLIENT_PREALLOCATE=false
       - XLA_PYTHON_CLIENT_MEM_FRACTION=0.85
       - TF_GPU_ALLOCATOR=cuda_malloc_async
-      - HF_HUB_OFFLINE=1
+      - HF_HOME=/app/data/model_cache
