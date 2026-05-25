@@ -457,6 +457,12 @@ def main() -> None:
 
             # GPU fully free — subprocess released everything on exit.
             # Phase 4: FineWeb batch in SEPARATE subprocess (isolated XLA state)
+            # Save BS state for active learning subprocess
+            try:
+                organism.volatility.save_state("data/dream_training/bs_state.json")
+            except Exception as e:
+                log.warning(f"  Failed to save BS state: {e}")
+
             try:
                 log.info("  ☽ Phase 4: FineWeb dreaming on GPU (subprocess)...")
                 fw_result = _sp.run(
