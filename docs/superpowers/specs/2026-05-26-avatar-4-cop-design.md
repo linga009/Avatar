@@ -1,7 +1,7 @@
 # Avatar 4.0 — Critical Order-Parameter Cognition (COP)
 
 **Date**: 2026-05-26
-**Author**: Dr. Linga Murthy Narlagiri / Claude
+**Author**: Dr. Linga Murthy Narlagiri
 **Status**: Design approved, pending implementation
 **Base**: Avatar v3.11 (halo3 worktree)
 
