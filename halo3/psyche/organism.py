@@ -382,7 +382,7 @@ class Organism:
             self._exploit_streak += 1
             if self._exploit_streak > 3:
                 return self._next_seed_topic()
-            # Stay on topic — ParquetSource rotation delivers fresh documents
+            # Stay on topic — TopicIndex rotation delivers fresh documents
             # without compounding the query with document text (which caused
             # topic fragmentation: 50+ amentoflavone/wearable variants)
             return current_query
