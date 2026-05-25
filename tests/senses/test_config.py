@@ -21,7 +21,7 @@ def test_fno_config_defaults():
 
 def test_phase_b_config_defaults():
     cfg = Halo3Config()
-    assert cfg.tts_mode == "espeak"
+    assert cfg.tts_mode == "kokoro"
     assert cfg.tts_every_n == 3
     assert cfg.contrastive_tau == 0.07
     assert cfg.contrastive_weight == 0.3
