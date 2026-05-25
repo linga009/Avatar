@@ -171,7 +171,8 @@ def main() -> None:
 
         # 1. PERCEIVE — text
         try:
-            tokens, texts = perception.perceive(current_query, max_results)
+            key, subkey = jax.random.split(key)
+            tokens, texts = perception.perceive(current_query, max_results, model=model, carry=carry, key=subkey)
         except Exception as e:
             log.warning(f"Perception failed: {e}")
             tokens = jnp.zeros((cfg.n_tokens, cfg.d_model))
