@@ -270,3 +270,17 @@ class TopicIndex:
             except Exception as e:
                 log.warning(f"TopicIndex: read error {path} rg={rg_idx}: {e}")
         return texts
+
+
+if __name__ == "__main__":
+    import argparse
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    parser = argparse.ArgumentParser(description="Build TopicIndex from FineWeb parquet files")
+    parser.add_argument("--build", action="store_true", help="Build index from data/fineweb/")
+    parser.add_argument("--parquet-dir", default="data/fineweb", help="Parquet directory")
+    parser.add_argument("--output", default="data/fineweb/topic_index.json", help="Output index path")
+    args = parser.parse_args()
+    if args.build:
+        TopicIndex.build(args.parquet_dir, args.output)
+    else:
+        parser.print_help()
