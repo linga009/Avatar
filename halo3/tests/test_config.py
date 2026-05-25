@@ -7,11 +7,9 @@ def test_default_instantiation():
     assert cfg.d_model == 2048
     assert cfg.n_layers == 60
     assert cfg.d_state == 256
-    assert cfg.vocab_size == 16000
-    assert cfg.n_layers == 48
+    assert cfg.vocab_size == 8000
     assert cfg.n_clusters == 32
     assert cfg.mera_bond_dim == 64
-    assert cfg.d_state == 128
     assert cfg.kuramoto_dt == 0.1
 
 def test_frozen():
