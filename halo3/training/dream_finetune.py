@@ -278,7 +278,7 @@ def _lora_finetune(examples: list[dict]) -> bool:
 
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
-        BASE_MODEL, torch_dtype=torch.float32, device_map="cpu",
+        BASE_MODEL, torch_dtype=torch.float16, device_map="cpu",
         trust_remote_code=True,
     )
 

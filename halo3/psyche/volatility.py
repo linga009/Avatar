@@ -15,6 +15,7 @@ This replaces heuristic query selection with principled explore/exploit.
 """
 from __future__ import annotations
 import math
+import os
 from collections import defaultdict
 
 
@@ -210,6 +211,38 @@ class VolatilitySurface:
             return None
         ranked = self.rank_topics(candidates)
         return ranked[0][0]
+
+    def save_state(self, path: str) -> None:
+        """Serialize volatility surface state to JSON for subprocess use."""
+        import json
+        state = {
+            "strike": self._strike,
+            "window": self._window,
+            "dream_interval": self._dream_interval,
+            "ticks_since_dream": self._ticks_since_dream,
+            "history": {k: v for k, v in self._history.items()},
+            "recent_topics": self._recent_topics,
+        }
+        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(state, f)
+
+    @classmethod
+    def load_state(cls, path: str) -> "VolatilitySurface":
+        """Deserialize volatility surface from JSON."""
+        import json
+        with open(path) as f:
+            state = json.load(f)
+        vs = cls(
+            strike=state.get("strike", 0.6),
+            window=state.get("window", 20),
+        )
+        vs._dream_interval = state.get("dream_interval", 90)
+        vs._ticks_since_dream = state.get("ticks_since_dream", 0)
+        vs._recent_topics = state.get("recent_topics", [])
+        for topic, hist in state.get("history", {}).items():
+            vs._history[topic] = [tuple(h) for h in hist]
+        return vs
 
     def summary(self) -> dict[str, dict]:
         """Return volatility surface snapshot for logging."""

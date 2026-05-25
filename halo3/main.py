@@ -506,6 +506,9 @@ def main() -> None:
                 log.warning(f"  ☽ Dream visitors failed (non-critical): {e}")
 
             # === PHASE 2: MIND DREAMS (CPU) — LoRA fine-tune ===
+            # Free residual JAX caches and Python heap from Phase 5 in-process loads
+            jax.clear_caches()
+            import gc; gc.collect()
             log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
             organism.dream(memory=memory)
 

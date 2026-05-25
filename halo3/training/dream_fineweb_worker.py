@@ -1,15 +1,7 @@
-"""Subprocess worker for FineWeb Phase 4 dreaming — runs in total memory isolation.
+"""Subprocess worker for FineWeb Phase 4 dreaming — active learning edition.
 
 Spawned by main.py as a SEPARATE process AFTER the body dream worker exits.
-This guarantees that XLA caches from phases 1-3 are fully reclaimed by the OS
-before Phase 4 allocates its own JIT compilations.
-
-Protocol:
-  1. Body dream worker exits (phases 1-3 done, checkpoint saved)
-  2. Parent spawns this worker
-  3. Worker loads checkpoint, runs FineWeb batch training, saves updated model
-  4. Worker writes fineweb_dream_info.json for parent to read
-  5. Worker exits -> OS reclaims everything
+Now uses ActiveSampler for FE-guided curriculum selection instead of sequential cursor.
 """
 from __future__ import annotations
 import argparse
@@ -25,11 +17,13 @@ def main():
     )
     log = logging.getLogger("fineweb_worker")
 
-    parser = argparse.ArgumentParser(description="FineWeb dream subprocess")
+    parser = argparse.ArgumentParser(description="FineWeb dream subprocess (active learning)")
     parser.add_argument("--checkpoint", required=True, help="Input checkpoint path (without .eqx)")
     parser.add_argument("--output", required=True, help="Output checkpoint path (without .eqx)")
     parser.add_argument("--steps", type=int, default=10)
     parser.add_argument("--lr", type=float, default=5e-6)
+    parser.add_argument("--bs-state", default="data/dream_training/bs_state.json")
+    parser.add_argument("--index", default="data/fineweb/topic_index.json")
     args = parser.parse_args()
 
     import jax
@@ -48,12 +42,14 @@ def main():
     model = load_checkpoint(cfg, args.checkpoint)
 
     from halo3.training.dream_fineweb import fineweb_dream_phase
-    log.info(f"FineWeb batch: {args.steps} steps, lr={args.lr}")
+    log.info(f"FineWeb active learning: {args.steps} steps, lr={args.lr}")
     model, fw_info = fineweb_dream_phase(
         model,
         parquet_dir="data/fineweb",
         n_steps=args.steps,
         lr=args.lr,
+        bs_state_path=args.bs_state,
+        index_path=args.index,
     )
 
     save_checkpoint(model, args.output)
