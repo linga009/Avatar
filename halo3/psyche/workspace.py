@@ -50,6 +50,7 @@ class GlobalWorkspace:
         # History for analysis
         self._ignition_history: deque[bool] = deque(maxlen=50)
         self._content_history: deque[str] = deque(maxlen=10)
+        self._chi_recent: deque[float] = deque(maxlen=10)
 
     def update(
         self,
@@ -59,6 +60,7 @@ class GlobalWorkspace:
         finding: str | None = None,
         sensory_novelty: float = 0.0,
         binding_familiarity: float = 0.0,
+        chi_norm: float = 0.5,
     ) -> dict:
         """Update workspace state based on synchronization level.
 
@@ -73,18 +75,22 @@ class GlobalWorkspace:
         """
         was_ignited = self.is_ignited
 
-        # Sensory novelty boosts effective synchronization
-        sensory_boost = 0.05 * sensory_novelty if sensory_novelty > 0.7 else 0.0
-        effective_r = r_mean + sensory_boost
+        # COP ignition: chi dropping while r is rising = crossed into order
+        # System just passed through the critical edge into a coherent state
+        self._chi_recent.append(chi_norm)
 
-        # Hysteresis: different thresholds for entering vs leaving ignition
+        chi_was_high = (len(self._chi_recent) > 3 and
+                        any(c > 0.6 for c in list(self._chi_recent)[-4:-1]))
+        chi_now_low = chi_norm < 0.4
+
         if not self.is_ignited:
-            if effective_r >= self._ignition_threshold:
+            if chi_was_high and chi_now_low and r_mean > 0.45:
                 self.is_ignited = True
                 self.conscious_duration = 0
                 self.dark_duration = 0
         else:
-            if effective_r < self._sustain_threshold:
+            # Sustain while still in ordered phase
+            if chi_norm > 0.6 or r_mean < 0.35:
                 self.is_ignited = False
                 self.conscious_duration = 0
                 self.dark_duration = 0
@@ -99,8 +105,7 @@ class GlobalWorkspace:
 
         # Compute broadcast content — WHAT is in consciousness right now
         if self.is_ignited:
-            self.broadcast_intensity = min(1.0, (effective_r - self._sustain_threshold) /
-                                           (self._ignition_threshold - self._sustain_threshold))
+            self.broadcast_intensity = min(1.0, r_mean)
             # Cross-modal binding strengthens broadcast
             if binding_familiarity > 0.7:
                 self.broadcast_intensity = min(1.0, self.broadcast_intensity * 1.1)
