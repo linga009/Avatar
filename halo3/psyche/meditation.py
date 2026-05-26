@@ -64,27 +64,21 @@ class MeditationState:
         self._cooldown: int = 0  # ticks before next meditation allowed
 
     def should_enter(self, drives, emotions,
+                     chi_norm: float = 0.5,
                      audio_stability: int = 99, vision_stability: int = 99) -> bool:
-        """Check if conditions are met to enter meditation.
-
-        Requires: satiated + rested + not seeking + not in crisis + sensory calm + cooldown expired
-        """
+        """COP: enter meditation when system is rigid (low chi) and rested."""
         if self.is_meditating:
-            return False  # already in meditation
-
+            return False
         if self._cooldown > 0:
             self._cooldown -= 1
             return False
 
-        # Conditions for voluntary meditation
-        satiated = drives.satiation > 0.7
-        rested = drives.fatigue < 0.3
-        not_seeking = drives.novelty < 0.4
-        not_hungry = drives.hunger < 0.5
-        calm = emotions.current in ("satisfaction", "curiosity")
+        rigid = chi_norm < 0.2
+        rested = drives.fatigue < 0.4
+        not_starving = not drives.is_information_starved
         sensory_calm = audio_stability >= 2 and vision_stability >= 2
 
-        return satiated and rested and not_seeking and not_hungry and calm and sensory_calm
+        return rigid and rested and not_starving and sensory_calm
 
     def enter(self, r_mean: float) -> None:
         """Begin meditation — record entry state for insight detection."""
@@ -138,7 +132,7 @@ class MeditationState:
             log.info(f"  ◎ Exiting meditation after {self.meditation_tick} ticks ({exit_reason})")
 
         return {
-            "coupling_override": self._coupling_during if self.is_meditating else None,
+            "coupling_override": 0.02 if self.is_meditating else None,
             "should_exit": should_exit,
             "insight": insight,
         }
