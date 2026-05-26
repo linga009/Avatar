@@ -51,44 +51,55 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
 
 
 def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp.ndarray:
-    """Bohm's quantum potential — prevents Kuramoto collapse to r=1.
+    """Bohmian quantum force on the n-torus.
 
-    Two components:
-    1. Standard Q: pushes conformists outward proportional to deviation
-    2. Collapse guard: when r > 0.8, injects noise to break synchrony
+    Computes F_Q = -dQ/dtheta where Q = -(1/2) nabla^2 sqrt(rho) / sqrt(rho)
+    is the Bohmian quantum potential, using JAX autodiff on the total
+    quantum potential energy.
 
-    Without the collapse guard, aggressive per-tick body learning
-    drives all oscillators to r=1.0 (full sync), killing exploration.
-    The guard ensures the organism maintains healthy diversity.
+    Phase density rho is estimated via von Mises kernel smoothing (the
+    circular analogue of Gaussian KDE), which correctly handles the
+    periodic topology of [0, 2pi).
+
+    Anti-bunching emerges naturally from wavefunction curvature:
+    - Where phases cluster, amplitude curvature is negative, Q is high
+    - The gradient of Q pushes oscillators away from density peaks
+    - At perfect sync, Q is constant (all phases at the same peak),
+      so the gradient (force) is exactly zero
 
     Args:
-        theta: (K, n_hidden) cluster phases
-        key: optional PRNG key for collapse guard noise
+        theta: (K, n_hidden) cluster phases in [0, 2pi)
+        key: unused (kept for interface compatibility)
 
     Returns:
-        Q: (K, n_hidden) quantum potential force
+        F_Q: (K, n_hidden) quantum force (phase velocity contribution)
     """
     K, n_h = theta.shape
-    theta_mean = jnp.mean(theta, axis=0, keepdims=True)  # (1, n_hidden)
-    deviation = theta - theta_mean                         # (K, n_hidden)
+    kappa = 2.0  # von Mises concentration
 
-    # Standard Bohmian Q: pushes based on deviation from mean
-    log_amplitude = -0.5 * jnp.sum(deviation ** 2, axis=-1, keepdims=True)
-    Q_scalar = -(log_amplitude - jnp.mean(log_amplitude))
-    Q_base = Q_scalar * deviation  # (K, n_hidden)
+    def _Q_total(theta_flat: jnp.ndarray) -> jnp.ndarray:
+        """Total quantum potential energy (scalar) for autodiff."""
+        t = theta_flat.reshape(K, n_h)
+        diff = t[:, None, :] - t[None, :, :]  # (K, K, n_h)
+        kernel = jnp.exp(kappa * jnp.cos(diff))  # (K, K, n_h)
+        rho = jnp.mean(kernel, axis=1) + 1e-8  # (K, n_h)
+        sqrt_rho = jnp.sqrt(rho)
 
-    # Collapse guard: when phases converge, inject repulsive noise
-    # The closer to sync (smaller deviation), the stronger the repulsion
-    deviation_magnitude = jnp.sqrt(jnp.sum(deviation ** 2, axis=-1, keepdims=True) + 1e-8)
-    # Repulsion strength: 1.0 when deviation=0, 0.0 when deviation>1
-    repulsion_strength = jnp.exp(-deviation_magnitude)  # (K, 1)
+        d2_kernel = kappa * (kappa * jnp.sin(diff) ** 2
+                             - jnp.cos(diff)) * kernel
+        d1_kernel = -kappa * jnp.sin(diff) * kernel
 
-    # Repulsive direction: push each cluster away from mean along a unique direction
-    # Use cluster index as deterministic "noise" direction
-    cluster_dirs = jnp.sin(jnp.arange(K)[:, None] * 2.397 + jnp.arange(n_h)[None, :] * 1.618)
-    Q_repulsion = repulsion_strength * cluster_dirs * 2.0  # (K, n_hidden)
+        grad_rho = jnp.mean(d1_kernel, axis=1)
+        lapl_rho = jnp.mean(d2_kernel, axis=1)
 
-    return Q_base + Q_repulsion
+        lapl_sqrt_rho = (lapl_rho / (2.0 * sqrt_rho)
+                         - grad_rho ** 2 / (4.0 * rho * sqrt_rho))
+
+        Q = -lapl_sqrt_rho / sqrt_rho
+        return jnp.sum(Q)
+
+    F_Q = -jax.grad(_Q_total)(theta.flatten())
+    return F_Q.reshape(K, n_h)
 
 
 def kuramoto_step(
@@ -115,12 +126,10 @@ def kuramoto_step(
     else:
         obs_drive = jnp.pad(obs, ((0, 0), (0, n_hid - n_obs)))
 
-    # Quantum potential: non-local anti-bunching force + collapse guard
+    # Quantum potential: non-local anti-bunching force from Bohmian Q
     Q = quantum_potential(state.theta)  # (K, n_hidden)
-    # Scale Q stronger when r is high to actively resist collapse
-    r = jnp.abs(jnp.mean(jnp.exp(1j * state.theta), axis=0))  # (n_hidden,)
-    r_mean = jnp.mean(r)
-    Q = Q * (1.0 + 3.0 * r_mean)  # Q grows 4× stronger as r→1
+    # Q strength is naturally proportional to density peakedness
+    # (no artificial scaling needed with real Bohmian Q)
 
     if pilot_wave is not None:
         # Bohmian dynamics: pilot wave (∇S) replaces mean-field coupling
