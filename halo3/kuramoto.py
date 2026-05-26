@@ -53,9 +53,10 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
 def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp.ndarray:
     """Bohmian quantum force on the n-torus.
 
-    Computes F_Q = -Q_scale * dQ/dtheta where Q = -(1/2) nabla^2 sqrt(rho) / sqrt(rho)
-    is the Bohmian quantum potential, using JAX autodiff on the total
-    quantum potential energy.
+    Computes F_Q = -Q_scale * dQ/dtheta where Q = -nabla^2 sqrt(rho) / sqrt(rho).
+    The canonical ½ prefactor is absorbed into Q_scale (0.01), which was
+    empirically tuned to balance anti-bunching with Kuramoto coupling at
+    the critical region (r ~ 0.5, K ~ 0.3).
 
     Phase density rho is estimated via von Mises kernel smoothing (the
     circular analogue of Gaussian KDE), which correctly handles the
@@ -82,7 +83,7 @@ def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp
     """
     K, n_h = theta.shape
     kappa = 2.0   # von Mises concentration (kernel bandwidth)
-    Q_scale = 0.01  # hbar^2/2m equivalent — quantum-to-classical ratio
+    Q_scale = 0.01  # absorbs ½ from canonical Q = -(½)∇²√ρ/√ρ; tuned for K~0.3 balance
 
     def _Q_total(theta_flat: jnp.ndarray) -> jnp.ndarray:
         """Total quantum potential energy (scalar) for autodiff."""
@@ -200,17 +201,21 @@ def dual_order_parameters(theta: jnp.ndarray) -> tuple:
 
 
 def cluster_coherence_matrix(theta: jnp.ndarray) -> jnp.ndarray:
-    """Phase-difference matrix for cluster mean phases.
+    """Complex phase-coherence phasor for cluster mean phases.
+
+    Returns exp(i(psi_k - psi_l)) WITHOUT the modulus, so the caller can
+    time-average the complex values and take |.| afterward. Phase-locked
+    pairs survive averaging (|mean| -> 1); drifting pairs cancel (|mean| -> 0).
 
     Args:
         theta: (K, n_hidden) oscillator phases
 
     Returns:
-        (K, K) matrix of |exp(i(psi_k - psi_l))| where psi_k = mean phase of cluster k.
+        (K, K) complex phasor matrix.
     """
     psi = jnp.angle(jnp.mean(jnp.exp(1j * theta), axis=1))  # (K,)
     diff = psi[:, None] - psi[None, :]  # (K, K)
-    return jnp.abs(jnp.exp(1j * diff))
+    return jnp.exp(1j * diff)  # complex — caller takes |.| after time-averaging
 
 
 def unity_index(C: jnp.ndarray) -> tuple[float, float]:

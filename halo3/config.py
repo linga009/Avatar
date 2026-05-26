@@ -101,7 +101,7 @@ class Halo3Config:
     cop_eta: float = 0.0005
     cop_K_min: float = 0.05
     cop_K_max: float = 2.0
-    cop_coherence_ema: float = 0.1
+    cop_coherence_ema: float = 0.02  # memory ~50 ticks — slow enough to resolve fragmentation
     cop_warmup: int = 5
 
     # Heartbeat

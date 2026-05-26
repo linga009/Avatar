@@ -149,7 +149,11 @@ class CriticalDynamics:
     def _soc_update(self, K: float, r: float, chi: float) -> float:
         """Self-organized criticality controller.
 
-        Drives system toward K* where U = r * chi is maximal.
+        Proportional controller toward the critical set-point r ≈ 0.5,
+        gated by susceptibility χ. When r > 0.5 (over-synchronized),
+        K is reduced; when r < 0.5 (under-synchronized), K is increased.
+        The χ gate ensures corrections are strongest near criticality
+        where the system is most responsive.
 
         Uses max(chi, 0.1) as effective chi so the controller can
         bootstrap from far-from-critical states where chi ~ 0.
@@ -162,21 +166,27 @@ class CriticalDynamics:
         return max(self._K_min, min(self._K_max, new_K))
 
     def _update_unity(self, theta) -> tuple[float, float]:
-        """Update time-averaged coherence matrix and compute unity index."""
+        """Update time-averaged coherence matrix and compute unity index.
+
+        C_instant is complex (no modulus). EMA accumulates complex phasors.
+        Modulus is taken AFTER averaging: locked pairs survive (|mean|->1),
+        drifting pairs cancel (|mean|->0).
+        """
         try:
-            C_instant = np.array(cluster_coherence_matrix(theta))
+            C_instant = np.array(cluster_coherence_matrix(theta))  # complex
         except Exception:
             return 0.5, 0.5
 
         if self._C_avg is None:
-            self._C_avg = C_instant.copy()
+            self._C_avg = C_instant.copy()  # complex accumulator
         else:
             alpha = self._coherence_ema
             self._C_avg = alpha * C_instant + (1.0 - alpha) * self._C_avg
 
         try:
             import jax.numpy as jnp
-            U, gap = unity_index(jnp.array(self._C_avg))
+            C_mod = jnp.abs(jnp.array(self._C_avg))  # modulus AFTER averaging
+            U, gap = unity_index(C_mod)
         except Exception:
             return 0.5, 0.5
 

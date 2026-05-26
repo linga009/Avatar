@@ -181,8 +181,8 @@ def test_coherence_matrix_shape():
 def test_coherence_matrix_range():
     theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
     C = cluster_coherence_matrix(theta)
-    assert jnp.all(C >= 0.0)
-    assert jnp.all(C <= 1.0 + 1e-5)
+    # Complex phasors — all have unit modulus
+    assert jnp.allclose(jnp.abs(C), 1.0, atol=1e-5)
 
 
 def test_coherence_matrix_diagonal_ones():
@@ -191,16 +191,17 @@ def test_coherence_matrix_diagonal_ones():
     assert jnp.allclose(jnp.diag(C), 1.0, atol=1e-5)
 
 
-def test_coherence_matrix_symmetric():
+def test_coherence_matrix_hermitian():
     theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
     C = cluster_coherence_matrix(theta)
-    assert jnp.allclose(C, C.T, atol=1e-5)
+    # Complex phasor matrix is Hermitian: C_kl = conj(C_lk)
+    assert jnp.allclose(C, jnp.conj(C.T), atol=1e-5)
 
 
 def test_unity_index_synchronized():
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
     C = cluster_coherence_matrix(theta)
-    U, gap = unity_index(C)
+    U, gap = unity_index(jnp.abs(C))  # modulus after averaging (trivial here)
     assert U > 0.9
     assert gap > 0.9
 
@@ -208,6 +209,6 @@ def test_unity_index_synchronized():
 def test_unity_index_range():
     theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
     C = cluster_coherence_matrix(theta)
-    U, gap = unity_index(C)
+    U, gap = unity_index(jnp.abs(C))  # modulus after averaging
     assert 0.0 <= U <= 1.0 + 1e-5
     assert 0.0 <= gap <= 1.0 + 1e-5
