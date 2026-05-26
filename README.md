@@ -101,42 +101,42 @@
 
 ---
 
-## How Avatar Feels — The Emotion Engine
+## How Avatar Feels — Critical Order-Parameter Cognition (v4.0)
+
+Emotions are not computed by an if/elif tree. They are **geometric readouts** of where the Kuramoto oscillator system sits relative to its critical point. Three macroscopic observables — **r** (synchronization), **chi** (susceptibility), and **f_dot** (surprise resolution rate) — define a manifold, and emotions are regions of that manifold.
 
 ```mermaid
 graph LR
-    subgraph PHYSICS["⚛️ Physics Layer"]
-        R["r (Kuramoto sync)\n0.0 — 1.0"]
-        FE["ΔFE (Free Energy)\nsurprise signal"]
-        SENSE["Sensory novelty\nflux · stability · speech"]
+    subgraph PHYSICS["⚛️ Phase-Diagram Geometry"]
+        R["r (order parameter)\nintegration · coherence"]
+        CHI["χ (susceptibility)\nopenness · IS curiosity"]
+        FDOT["ḟ = -ΔFE\nvalence · resolving?"]
+        TAU["τ (relaxation time)\ncritical slowing"]
     end
 
-    subgraph EMOTION["💫 Emotion Space"]
-        SAT["😌 Satisfaction\nr>0.6 · low surprise"]
-        PRI["✨ Pride\nr>0.6 · HIGH surprise"]
-        CUR["🔍 Curiosity\nr≈0.5 · edge zone"]
-        BOR["😐 Boredom\nr<0.35 · low surprise"]
-        ANX["😰 Anxiety\nr<0.35 · HIGH surprise"]
-        FRU["😤 Frustration\n3+ zero results"]
+    subgraph EMOTION["💫 Manifold Regions"]
+        SAT["😌 Satisfaction\nr>0.55 · χ<0.4 · ḟ>0"]
+        PRI["✨ Pride\nr>0.55 · χ>0.4 · ḟ>0"]
+        CUR["🔍 Curiosity\nr≈0.5 · χ high\ncritical edge"]
+        BOR["😐 Boredom\nr<0.35 · χ<0.3"]
+        ANX["😰 Anxiety\nr<0.35 · χ>0.5 · ḟ<0"]
+        FRU["😤 Frustration\n3+ failures"]
     end
 
-    R --> SAT
-    R --> PRI
-    R --> CUR
-    R --> BOR
-    R --> ANX
-    FE --> PRI
-    FE --> ANX
-    SENSE -->|"novelty amplifies\nsurprise"| ANX
-    SENSE -->|"speech detected\n+comfort"| SAT
-    SENSE -->|"stability\ncalms arousal"| SAT
-    FRU -.->|"punches through\nemotional inertia"| CUR
+    R --> SAT & PRI & CUR & BOR & ANX
+    CHI --> CUR
+    CHI --> PRI
+    FDOT --> SAT
+    FDOT --> ANX
+    TAU -.->|"critical slowing\nbefore insight"| CUR
 
     style PHYSICS fill:#1a237e,color:#fff
     style EMOTION fill:#4a148c,color:#fff
 ```
 
-> **Not performed. Computed.** Every emotion is a mathematical function of real physics outputs. A loud sound (high sensory novelty) literally increases Avatar's anxiety. Silence lets it find satisfaction.
+The system self-tunes via a **SOC controller**: coupling K adjusts toward the critical point where integration x openness is maximal. Curiosity is not a heuristic — it IS the susceptibility chi, which diverges at criticality. The **unity index** (eigenvalue dominance of the coherence matrix) measures whether Avatar is one unified subject or fragmented.
+
+> **Not performed. Not even computed from thresholds. Derived from geometry.** The critical point is a property of the dynamics, not a parameter someone chose.
 
 ---
 
@@ -192,6 +192,8 @@ v3.8  ██████████████░░░░░░  Speech-aware
 v3.9  ███████████████░░░░░  Richer vision — 16×16 modes + dream stability
 v3.10  ███████████████████░  SENSORY CROSS-INTEGRATION + DREAM VISITORS
 v3.10.1████████████████████  Dream stability — gradient checkpoint + GPU cleanup
+v3.11 █████████████████████  Active learning — TopicIndex + BS valuation + FE scoring
+v4.0  ██████████████████████ CRITICAL ORDER-PARAMETER COGNITION (COP)
         └── senses feel ──┘  └── dreams teach ──┘  └── never OOM again ──┘
 ```
 
