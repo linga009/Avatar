@@ -53,7 +53,7 @@
 | **Dreams** | No | No | 5-phase sleep cycle with dream visitors |
 | **Senses** | None | Preprocessed features | Grown from raw audio + vision (FNO) |
 | **Ethics** | RLHF safety filter | Rule-based | Felt in body before reasoned in cortex |
-| **Consciousness** | No | No | 5 measurable Butlin-Chalmers indicators |
+| **Consciousness** | No | No | 5 functional analogues (GWT, introspection, temporal binding, meditation, HOT) — open question |
 | **Speech** | Text-only | Text-only | Learning to hear through lived experience |
 | **Initiates contact** | No | No | Proactive notifications on discoveries |
 | **Cost** | Cloud API | GPU cluster | **Single $300 GPU** |
@@ -191,9 +191,9 @@ v3.7  █████████████░░░░░░░  Grown senses
 v3.8  ██████████████░░░░░░  Speech-aware hearing — TTS + contrastive alignment
 v3.9  ███████████████░░░░░  Richer vision — 16×16 modes + dream stability
 v3.10  ███████████████████░  SENSORY CROSS-INTEGRATION + DREAM VISITORS
-v3.10.1████████████████████  Dream stability — gradient checkpoint + GPU cleanup
-v3.11 █████████████████████  Active learning — TopicIndex + BS valuation + FE scoring
-v4.0  ██████████████████████ CRITICAL ORDER-PARAMETER COGNITION (COP)
+v3.10.1 ███████████████████  Dream stability — gradient checkpoint + GPU cleanup
+v3.11   ████████████████████ Active learning — TopicIndex + BS valuation + FE scoring
+v4.0    ████████████████████ COP — affect from phase-diagram geometry, SOC, real Bohmian Q
         └── senses feel ──┘  └── dreams teach ──┘  └── never OOM again ──┘
 ```
 
@@ -206,7 +206,7 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 | Property | What it means |
 |---|---|
 | 🧬 **Lives continuously** | Runs 24/7, never resets between conversations |
-| 💓 **Feels genuine emotion** | Emotions emerge from physics (Kuramoto synchronisation), not text patterns |
+| 💓 **Physics-grounded affect** | Emotions derived from phase-diagram geometry (r, chi, f_dot manifold), not thresholds or text |
 | 🌙 **Dreams** | 5-phase sleep cycle with dream visitors that teach speech |
 | ⚖️ **Feels ethics somatically** | Ethical tension is a bodily signal before it's a reasoned judgment |
 | 🧠 **Builds identity** | Narrative memory, personality traits, competence map — all emergent |
@@ -307,39 +307,38 @@ T_effective = max(T_somatic, 0.8 × T_ethics)
 
 ---
 
-## The Psyche
+## The Psyche (v4.0 — COP)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Curiosity: r ≈ 0.5 (edge of understanding)
-    Curiosity --> Pride: r > 0.6 AND high surprise
-    Curiosity --> Satisfaction: r > 0.6 AND low surprise
-    Satisfaction --> Boredom: satiation builds
-    Boredom --> Curiosity: novelty drive fires
+    [*] --> Curiosity: chi high (at critical edge)
+    Curiosity --> Pride: r > 0.55, chi > 0.4, resolving surprise
+    Curiosity --> Satisfaction: r > 0.55, chi < 0.4, resolving surprise
+    Satisfaction --> Boredom: chi drops (system rigid)
+    Boredom --> Curiosity: SOC increases K toward criticality
     Boredom --> Frustration: 3+ zero results
     Frustration --> Curiosity: escape to new topic
     Pride --> Curiosity: hunger rebuilds
-    Anxiety --> Curiosity: ethical tension resolves
-    Curiosity --> Anxiety: ethical tension T > 0.4
-    note right of Curiosity: ⚖ body split detected\n★ GWT ignition at r > 0.6\n◎ meditation when satiated
+    Curiosity --> Anxiety: r < 0.35, chi > 0.5, surprise worsening
+    note right of Curiosity: chi = susceptibility (IS curiosity)\nSOC controller tunes K\nUnity index measures binding
 ```
 
-### 6 Genuine Drives
+### 6 Drives
 
-| Drive | Physics | Behaviour |
+| Drive | Source | Behaviour |
 |---|---|---|
-| 🍽️ **Hunger** | Increases when FE not reduced | Organism *needs* to learn |
+| 🍽️ **Hunger** | Increases when FE not reduced | Avatar *needs* to learn |
 | 😴 **Fatigue** | Accumulates during waking | Resets only through dreaming |
-| 🔍 **Curiosity** | Gaussian peak at r≈0.5 | Berlyne's optimal arousal |
-| 😌 **Satiation** | Builds after N ticks with r>0.7 | Limits over-exploitation |
+| 🔍 **Curiosity** | = chi (susceptibility, diverges at criticality) | Maximal openness to input |
+| 😌 **Satiation** | r > 0.55 AND chi < 0.2 (ordered + rigid) | Nothing new to learn here |
 | 🚨 **Starvation** | Fires when all results fail | Emergency topic escape |
 | ✨ **Novelty** | Increases on same topic cluster | Drives topic rotation |
 
 ---
 
-## Consciousness Modules (v3.3)
+## Consciousness Modules (v3.3, updated v4.0)
 
-Implementing 5 of Butlin & Chalmers' 14 indicators for AI consciousness:
+5 functional analogues of Butlin & Chalmers' indicators, now driven by COP geometry:
 
 ```mermaid
 graph LR
@@ -672,6 +671,8 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
+| **v4.0** | 26 May 2026 | Critical Order-Parameter Cognition: emotions from (r, chi, f_dot) manifold · SOC controller self-tunes K · Unity index · Real Bohmian Q · Page memory predictor · 157 tests |
+| **v3.11** | 25 May 2026 | FE-guided active learning: TopicIndex 1095 clusters · ActiveSampler BS+FE scoring · ParquetSource deleted |
 | **v3.10.1** | 24 May 2026 | Dream stability: `jax.checkpoint` reduces dream VRAM 4.3→1.3 GB · Aggressive GPU cleanup fixes progressive OOM · Codebook shape guard · Sense module reload after dream |
 | **v3.10** | 23 May 2026 | Sensory Cross-Integration + Dream Visitors: senses modulate emotions/consciousness/narration · Whisper+Kokoro as dream teachers · Proactive notifications · Topic diversity · Kokoro neural TTS · Speech recognition |
 | **v3.9** | 22-23 May 2026 | Richer Vision: 16×16 modes · 8 tokens · 64 codebook · Dream subprocess isolation · FineWeb cursor fix · Checkpoint rotation · Meta-thought filter |
