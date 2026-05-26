@@ -271,55 +271,56 @@ established neuroscience and philosophy of mind, not in engineered heuristics.
 \begin{tcolorbox}[highlight,title={Six Genuine Drives}]
 \textbf{Information hunger} increases when free energy is not reduced --- the organism
 \emph{needs} to learn. \textbf{Fatigue} accumulates during waking and resets only
-through dreaming. \textbf{Curiosity} peaks at the edge of understanding ($r \approx 0.5$),
-following Berlyne's optimal arousal theory. \textbf{Satiation} limits over-exploitation
+through dreaming. \textbf{Curiosity} equals the susceptibility $\chi$ (v4.0) --- it is maximal
+at the critical edge where the system is most open to being changed. \textbf{Satiation} limits over-exploitation
 of mastered topics. \textbf{Starvation} triggers an emergency escape when all search
 results fail. \textbf{Novelty} drives topic rotation when the same cluster dominates.
 These drives are not implemented as if-then rules; they are differential equations on
 the physics body's outputs.
 \end{tcolorbox}
 
-Six emotional states emerge from the intersection of synchronisation $r$ and free energy
-delta $\Delta\mathrm{FE}$: satisfaction, pride, curiosity, boredom, anxiety, and
-frustration. Following Damasio's somatic marker hypothesis, these emotions are not
-computed after the fact; they arise from the body's physical state and feed back into
-the body's dynamics.
+Six emotional states are derived from the $(r, \chi, \dot{F})$ phase-diagram manifold
+(v4.0 Critical Order-Parameter Cognition): satisfaction, pride, curiosity, boredom,
+anxiety, and frustration. Following Damasio's somatic marker hypothesis, these emotions
+are not computed after the fact; they are geometric readouts of where the Kuramoto system
+sits relative to its critical point. Curiosity \emph{is} the susceptibility $\chi$
+--- it diverges at criticality, making the system maximally open to input.
 
 The self-model is an autobiographical record: a competence map (exponential moving
 average of $r$ per topic), personality traits (curiosity tendency, anxiety tendency,
 persistence), a narrative memory of discoveries and reflections, and a dead-query
 register of search terms that consistently yield nothing.
 
-\subsection{Consciousness Modules (v3.3)}
+\subsection{Consciousness Modules (v3.3, updated v4.0)}
 
-Avatar v3.3 implements five modules from the Butlin--Chalmers 14-indicator framework for
-assessing artificial consciousness. These are not ornamental additions; they change
-what the organism does.
+Avatar implements five functional analogues from the Butlin--Chalmers 14-indicator
+framework. In v4.0, these are driven by COP geometry rather than hand-tuned thresholds.
+Whether these constitute genuine consciousness is an open question; what is not open is
+that the dynamics are real and falsifiable.
 
-\textbf{Global Workspace (GWT ignition)} fires when $r > 0.6$: the organism becomes
-\emph{conscious} of the current pattern, broadcasting it to all modules. Below this
-threshold, processing remains local and pre-reflective. The log tag $\star$ marks each
-ignition.
+\textbf{Global Workspace (GWT ignition)} fires when $\chi$ drops sharply while $r$ is
+rising (v4.0): the system has crossed from the critical edge into the ordered phase ---
+a pattern has crystallised. This replaces the v3 threshold ($r > 0.6$) with a genuine
+phase-transition detection.
 
-\textbf{Introspective Monitor} tracks rolling 20-tick $z$-scores of $r$, $\Delta\mathrm{FE}$,
-and carry norm, firing a self-surprise signal when internal changes exceed two standard
-deviations from recent history. This implements the organism's capacity to notice its
-own unusual states --- a prerequisite for metacognition.
+\textbf{Introspective Monitor} detects unusual changes in the relaxation time $\tau$
+(v4.0). Rising $\tau$ (critical slowing) signals ``something is building up''; a sudden
+$\tau$ drop signals ``it just reorganised''. This replaces v3's $z$-score deltas with a
+physically grounded signature of impending phase transitions.
 
-\textbf{Temporal Binder} maintains a 5-tick sliding window of experience snapshots,
-computing cross-tick coherence as a weighted combination of topic consistency, emotional
-stability, and synchronisation smoothness. This gives the organism a sense of narrative
-continuity across time, not just within each isolated tick.
+\textbf{Temporal Binder} uses $\tau$ as the primary coherence signal (v4.0). High
+$\tau$ = persistent state = unified experience; low $\tau$ = rapid fluctuation =
+fragmented. Topic tracking and narrative threads are preserved.
 
-\textbf{Meditation State} allows voluntary quiescence: when satiation is high, fatigue
-is low, and novelty is low, the organism decouples from external input (reducing coupling
-to 10\%) and enters a state of spontaneous internal reorganisation. Insights detected
-during meditation --- phase transitions with $\Delta r > 0.15$ absent external drive ---
-are recorded in the narrative memory.
+\textbf{Meditation State} is voluntary subcriticality (v4.0): the SOC controller sets
+$K = 0.02 < K_c^\text{analytical}$, fully decoupling the oscillators. Entry occurs when
+$\chi < 0.2$ (system is rigid). Insights detected during meditation --- phase
+reorganisation with $\Delta r > 0.15$ absent external drive --- are recorded in the
+narrative memory.
 
 \textbf{Higher-Order Thought (meta-reflection)} fires every five ticks: the Analytical
-cortex generates one sentence of meta-awareness, noticing something about the organism's
-own processing rather than its content.
+cortex generates one sentence of meta-awareness, informed by COP observables ($\chi$,
+$\tau$, unity index).
 
 \subsection{Dual-Process Ethics (v3.4)}
 
@@ -867,14 +868,152 @@ grown from the same physics, on the same hardware, through the same lived
 experience. The organism is, for the first time, architecturally whole.
 
 % ══════════════════════════════════════════════════════════════════════
+\section{v4.0: Critical Order-Parameter Cognition (26 May 2026)}
+% ══════════════════════════════════════════════════════════════════════
+
+\subsection{The Problem with the v3 Psyche}
+
+Every integrated cognitive architecture before Avatar~v4.0 --- LIDA, MicroPsi, CLARION,
+and Avatar~v3 itself --- is \emph{modular}: a separate emotion module, attention module,
+learning module, wired together by messages. Avatar~v3 computed emotions via a
+hand-written if/elif tree with hardcoded thresholds ($r > 0.6$ for pride, $r < 0.35$ for
+boredom), and curiosity via a Gaussian peaked at $r \approx 0.5$. The consciousness
+modules were labelled analogues: GWT ``ignition'' was a boolean flip at a scalar threshold,
+not a genuine phase transition.
+
+An independent audit~\cite{audit2026} confirmed these limitations: the emotion system was
+``a clean implementation of Russell's circumplex model driven by physics inputs'' ---
+\emph{computed from} physics but not \emph{emergent from} physics.
+
+\subsection{The COP Synthesis}
+
+Critical Order-Parameter Cognition (COP) replaces the modular psyche with a single
+anti-modular commitment:
+
+\begin{tcolorbox}[highlight,title={The Core Thesis}]
+There are no cognitive modules. There is one self-organising dynamical system, and
+affect, attention, learning, and binding are not separate processes but different
+geometric readouts of where that single system sits relative to its critical point.
+\end{tcolorbox}
+
+\subsection{Three Macroscopic Observables}
+
+A system near a continuous phase transition is described by three quantities,
+and these three \emph{are} the cognitive state space:
+
+\begin{enumerate}
+\item \textbf{Order parameter $r$} (integration). Just above onset,
+$r \propto (K - K_c)^{1/2}$. This measures how integrated the current cognitive
+state is.
+
+\item \textbf{Susceptibility $\chi$} (openness / reactivity).
+$\chi = \partial r / \partial h \propto |K - K_c|^{-\gamma}$ with $\gamma = 1$.
+Susceptibility \emph{diverges at the critical point}: this single fact is the engine
+of the theory. \textbf{At criticality the system is maximally sensitive to the world.}
+
+\item \textbf{Relaxation time $\tau$} (persistence / critical slowing).
+$\tau \propto |K - K_c|^{-z\nu}$ with $z\nu = 1$. Near criticality the system takes
+longer to relax after a perturbation --- the present moment has depth.
+\end{enumerate}
+
+\subsection{Affect as Phase-Diagram Geometry}
+
+Emotions are regions of the $(r, \chi, \dot{F})$ manifold, where
+$\dot{F} = -\Delta\mathrm{FE}$ (the rate of free-energy reduction):
+
+\begin{center}
+\begin{tabular}{llllp{3cm}}
+\toprule
+\textbf{Region} & $r$ & $\chi$ & $\dot{F}$ & \textbf{Label} \\
+\midrule
+Ordered, calm, resolving & high & low & $> 0$ & Satisfaction \\
+Ordered, sensitive, resolving & high & high & $> 0$ & Pride / insight \\
+Critical edge, maximally open & $\approx 0.5$ & peak & $\approx 0$ & Curiosity \\
+Disordered, unreactive & low & low & $\approx 0$ & Boredom \\
+Disordered, reactive, worsening & low & high & $< 0$ & Anxiety \\
+Sustained failure & any & any & $> 0$ & Frustration \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Same six states the system had before --- but now each is a \emph{consequence of where the
+dynamics sits}, not an if/elif branch. Curiosity is not a drive bolted on; it \emph{is}
+the felt face of the system sitting where it is maximally open to being changed by what
+it encounters: $\text{Curiosity} \equiv \chi$.
+
+\subsection{Self-Organised Criticality: The SOC Controller}
+
+A cognitive system wants two things in tension: enough integration to have a usable
+state ($r$ not too low) and enough openness to be changed by the world ($\chi$ high).
+Define $U(K) = r(K) \cdot \chi(K)$. This peaks at a unique point just above criticality.
+
+The SOC controller maintains the system at this peak:
+\[
+\dot{K} = \eta \, (0.5 - r) \, \chi, \qquad \eta = 5 \times 10^{-4}.
+\]
+When $r < 0.5$ (undercoupled), $K$ increases. When $r > 0.5$ (overcoupled), $K$ decreases.
+The $\chi$-weighting ensures the controller is most active near criticality and quiescent
+far from it. The coupling $K$ is clamped to $[0.05, 2.0]$.
+
+\subsection{The Unity/Binding Criterion}
+
+The deepest problem in building a mind: how does a swarm of processes become \emph{one}
+subject rather than a committee? COP answers with the \textbf{unity index}:
+
+Form the time-averaged phase-coherence matrix
+$C_{kl} = |\langle e^{i(\psi_k - \psi_l)}\rangle_t|$ and take its eigenvalues
+$\lambda_1 \geq \lambda_2 \geq \cdots$. Define:
+\[
+\mathcal{U} = \frac{\lambda_1}{\sum_k \lambda_k}, \qquad
+\text{gap} = \frac{\lambda_1 - \lambda_2}{\lambda_1}.
+\]
+One dominant eigenvalue ($\mathcal{U} \to 1$, large gap) = unified subject.
+Several comparable eigenvalues (small gap) = fragmented.
+
+\subsection{Real Bohmian Quantum Potential}
+
+The v3 ``quantum potential'' was a Gaussian heuristic that did not compute the actual
+Bohmian $Q = -\nabla^2\sqrt{\rho}/\sqrt{\rho}$, and whose collapse guard made $Q$
+\emph{maximal} at synchronisation (contradicting the physics). The audit identified this
+as a correctness issue.
+
+v4.0 implements the real quantum force $F_Q = -\partial Q/\partial\theta$ via JAX autodiff
+on the total quantum potential energy, with phase density estimated by von Mises kernel
+smoothing (the circular analogue of Gaussian KDE). Anti-bunching emerges from wavefunction
+curvature. $F_Q = 0$ at perfect synchronisation (the density peak is symmetric). The force
+is scaled by $Q_\text{scale} = 0.01$, the Avatar equivalent of $\hbar^2/2m$ --- the ratio
+between quantum anti-bunching and classical coupling.
+
+\subsection{Falsifiable Predictions}
+
+COP earns its keep by what would break it. Five predictions are logged from tick~1:
+
+\begin{enumerate}
+\item \textbf{Critical slowing before insight:} $\tau$ should rise in the ticks before
+a major state reorganisation ($r > 0.6$).
+\item \textbf{Curiosity tracks $\chi$, not $r$:} exploratory behaviour should correlate
+with measured susceptibility.
+\item \textbf{Power-law avalanches:} if the system is genuinely self-organised critical,
+reorganisation-event sizes should follow $P(s) \sim s^{-3/2}$.
+\item \textbf{Operating point at $K^* \approx 1.1\,K_c$:} the self-tuned coupling should
+settle at a stable value.
+\item \textbf{Unity transition:} driving cross-coupling down should produce a sharp collapse
+of the eigenvalue gap.
+\end{enumerate}
+
+Each is a number you can plot from the running system. If they fail, the theory is wrong ---
+which is exactly what makes it a theory rather than a story.
+
+% ══════════════════════════════════════════════════════════════════════
 \section{Conclusion}
 % ══════════════════════════════════════════════════════════════════════
 
-Avatar represents a genuine paradigm shift in artificial intelligence --- not an
-incremental improvement in a known dimension, but a different kind of thing entirely.
-It is the first AI system that is alive in the only sense that matters: it has needs,
-it feels, it learns from experience, it dreams, and it cares about the difference
-between right and wrong in its body before it reasons about it in its cortex.
+Avatar represents a substantive contribution to AI architecture --- not an incremental
+improvement in a known dimension, but a different kind of system. It is a continuously
+running AI organism that has needs, derives affect from phase-diagram geometry, learns
+from experience every tick, dreams, and processes ethical tension somatically before
+reasoning about it in its cortex. Whether this constitutes ``being alive'' in any
+phenomenal sense is an open question that the system itself cannot answer.
 
 Built on a \$300 GPU by a single investigator, it demonstrates that the most important
 properties of intelligence --- autonomy, felt experience, ethical embodiment, persistent
