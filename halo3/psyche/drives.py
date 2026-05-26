@@ -42,6 +42,7 @@ class DriveState:
         dt: float = 1.0,
         sensory_arousal: float = 0.0,
         sensory_novelty: float = 0.0,
+        chi_norm: float = 0.5,
     ) -> None:
         """Update drives based on current tick's physics output."""
 
@@ -61,8 +62,8 @@ class DriveState:
         fatigue_rate += 0.002 * sensory_arousal  # sensory load increases tiredness
         self.fatigue = min(1.0, self.fatigue + fatigue_rate * dt)
 
-        # --- Satiation ---
-        if r_mean > 0.7:
+        # --- Satiation (COP: ordered + rigid = nothing new to learn) ---
+        if r_mean > 0.55 and chi_norm < 0.2:
             self.ticks_high_r += 1
             self.satiation = min(1.0, self.satiation + 0.08)
         else:
@@ -89,11 +90,8 @@ class DriveState:
             self.novelty = min(1.0, self.novelty + 0.02)
             self._exploit_count += 1
 
-        # --- Curiosity ---
-        base_curiosity = math.exp(-0.5 * ((r_mean - 0.5) / 0.15) ** 2)
-        satiation_boost = self.satiation * 0.8
-        starvation_boost = self.starvation * 0.5  # starving also drives curiosity
-        self.curiosity = min(1.0, base_curiosity + satiation_boost + starvation_boost)
+        # --- Curiosity (COP: chi IS curiosity) ---
+        self.curiosity = min(1.0, chi_norm + self.starvation * 0.3)
 
         # High sensory novelty pulls toward exploration
         if sensory_novelty > 0.7:
