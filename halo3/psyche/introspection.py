@@ -1,14 +1,9 @@
-"""Introspective Monitor — the organism notices its own internal state changes.
+"""Introspective Monitor — self-surprise from relaxation time dynamics.
 
-Inspired by Anthropic's introspection research (Lindsey et al., 2025):
-models can detect perturbations in their own activations with ~20% accuracy
-and zero false positives. Avatar has an advantage: its internal states are
-physically meaningful (energy, phase, synchronization), not opaque vectors.
-
-The monitor tracks deltas in key internal variables and generates a
-"self-surprise" signal when changes exceed the organism's own expectations
-about its internal dynamics. This is functional introspection: the system
-monitoring and reporting on its own computational states.
+COP v4.0: Rising tau (critical slowing) = "something is building up."
+Sudden tau drop = "it just reorganized." Self-surprise is the magnitude
+of unexpected tau changes — the dynamical signature of impending or
+just-completed phase transitions.
 """
 from __future__ import annotations
 import math
@@ -16,28 +11,13 @@ from collections import deque
 
 
 class IntrospectiveMonitor:
-    """Tracks internal state deltas and detects unusual self-changes.
-
-    Every tick, the monitor observes key internal signals and compares
-    them to a rolling baseline. When changes exceed 2σ, a self-surprise
-    signal is generated — the organism notices something unusual happening
-    INSIDE itself, distinct from external surprise (which is FE delta).
-    """
+    """Tracks tau dynamics and detects unusual internal state changes."""
 
     def __init__(self, window: int = 20) -> None:
         self._window = window
-        # Rolling history of internal deltas
-        self._r_history: deque[float] = deque(maxlen=window)
-        self._fe_history: deque[float] = deque(maxlen=window)
-        self._carry_norm_history: deque[float] = deque(maxlen=window)
-        # Previous values for delta computation
-        self._prev_r: float = 0.5
-        self._prev_fe: float = 0.0
-        self._prev_carry_norm: float = 0.0
-        # Self-surprise accumulator
+        self._tau_history: deque[float] = deque(maxlen=window)
         self.self_surprise: float = 0.0
-        self.surprise_source: str = ""  # what triggered the surprise
-        # Track whether change was input-driven or spontaneous
+        self.surprise_source: str = ""
         self.input_driven: bool = False
         self._tick_count: int = 0
 
@@ -47,102 +27,74 @@ class IntrospectiveMonitor:
         fe_delta: float,
         carry_norm: float | None = None,
         had_input: bool = True,
+        tau: float = 0.5,
     ) -> float:
-        """Observe current internal state and compute self-surprise.
+        """Observe current state and compute self-surprise from tau.
 
         Args:
-            r_mean: Current Kuramoto order parameter
-            fe_delta: Free energy change this tick
-            carry_norm: L2 norm of carry state (if available)
-            had_input: Whether external input was received this tick
+            r_mean: order parameter (kept for interface compat)
+            fe_delta: free energy delta (kept for interface compat)
+            carry_norm: carry state norm (kept for interface compat)
+            had_input: whether external input was received
+            tau: relaxation time from COP engine
 
         Returns:
-            self_surprise in [0, 1] — how unusual the internal change was
+            self_surprise in [0, 1]
         """
         self._tick_count += 1
+        self._tau_history.append(tau)
 
-        # Compute deltas (rate of change of internal variables)
-        dr = abs(r_mean - self._prev_r)
-        d_fe = abs(fe_delta - self._prev_fe)
-        d_carry = abs((carry_norm or 0.0) - self._prev_carry_norm)
-
-        # Store deltas
-        self._r_history.append(dr)
-        self._fe_history.append(d_fe)
-        if carry_norm is not None:
-            self._carry_norm_history.append(d_carry)
-
-        # Update previous values
-        self._prev_r = r_mean
-        self._prev_fe = fe_delta
-        if carry_norm is not None:
-            self._prev_carry_norm = carry_norm
-
-        # Need minimum history before detecting anomalies
         if self._tick_count < 5:
             self.self_surprise = 0.0
             self.surprise_source = ""
             return 0.0
 
-        # Compute z-scores for each delta
-        surprises = []
+        # Compute tau derivative (rate of change)
+        if len(self._tau_history) >= 2:
+            d_tau = abs(self._tau_history[-1] - self._tau_history[-2])
+        else:
+            d_tau = 0.0
 
-        z_r = self._z_score(dr, self._r_history)
-        if z_r > 2.0:
-            surprises.append(("synchronization_shift", z_r))
+        # z-score of tau derivative against recent history
+        tau_deltas = [abs(self._tau_history[i] - self._tau_history[i - 1])
+                      for i in range(1, len(self._tau_history))]
+        if len(tau_deltas) < 3:
+            self.self_surprise *= 0.7
+            return self.self_surprise
 
-        z_fe = self._z_score(d_fe, self._fe_history)
-        if z_fe > 2.0:
-            surprises.append(("energy_perturbation", z_fe))
+        mean_d = sum(tau_deltas) / len(tau_deltas)
+        var_d = sum((x - mean_d) ** 2 for x in tau_deltas) / len(tau_deltas)
+        std_d = math.sqrt(var_d) if var_d > 0 else 1e-6
+        z = abs(d_tau - mean_d) / std_d
 
-        if self._carry_norm_history and len(self._carry_norm_history) >= 5:
-            z_carry = self._z_score(d_carry, self._carry_norm_history)
-            if z_carry > 2.0:
-                surprises.append(("state_discontinuity", z_carry))
-
-        # Self-surprise is the max anomaly score, normalized to [0, 1]
-        if surprises:
-            source, max_z = max(surprises, key=lambda x: x[1])
-            self.self_surprise = min(1.0, (max_z - 2.0) / 3.0)  # 2σ=0, 5σ=1
-            self.surprise_source = source
-            # Determine if input-driven or spontaneous
+        if z > 2.0:
+            self.self_surprise = min(1.0, (z - 2.0) / 3.0)
+            if len(self._tau_history) >= 2:
+                if self._tau_history[-1] > self._tau_history[-2]:
+                    self.surprise_source = "critical_slowing"
+                else:
+                    self.surprise_source = "phase_reorganization"
             self.input_driven = had_input
         else:
-            self.self_surprise *= 0.7  # decay
+            self.self_surprise *= 0.7
             if self.self_surprise < 0.05:
                 self.self_surprise = 0.0
                 self.surprise_source = ""
 
         return self.self_surprise
 
-    def _z_score(self, value: float, history: deque) -> float:
-        """Compute z-score of value relative to rolling history."""
-        if len(history) < 3:
-            return 0.0
-        n = len(history)
-        mean = sum(history) / n
-        variance = sum((x - mean) ** 2 for x in history) / n
-        std = math.sqrt(variance) if variance > 0 else 1e-6
-        return abs(value - mean) / std
-
     def describe(self) -> str:
-        """First-person description of current introspective state."""
         if self.self_surprise < 0.1:
             return ""
-
         source_descriptions = {
-            "synchronization_shift": "my oscillators shifted phase unexpectedly",
-            "energy_perturbation": "my free energy changed in a way I didn't predict about myself",
-            "state_discontinuity": "my internal state jumped — something reorganized",
+            "critical_slowing": "my relaxation time is stretching — something is building",
+            "phase_reorganization": "my oscillators just reorganized — something shifted",
         }
-
         desc = source_descriptions.get(self.surprise_source, "something changed inside me")
-        driven = "triggered by what I perceived" if self.input_driven else "spontaneous — nothing external caused this"
-
+        driven = "triggered by input" if self.input_driven else "spontaneous"
         return f"I notice: {desc} ({driven}, intensity {self.self_surprise:.2f})"
 
     def summary(self) -> dict:
-        """Snapshot for logging/API."""
         return {
             "self_surprise": round(self.self_surprise, 3),
             "source": self.surprise_source,
