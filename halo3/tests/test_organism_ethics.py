@@ -55,8 +55,8 @@ def test_high_tension_amplifies_intensity(_mock):
 
 
 @patch("halo3.psyche.prefrontal._call_ollama", return_value=None)
-def test_high_tension_biases_anxiety(_mock):
-    """Ethical tension > 0.4 should bias emotion toward anxiety."""
+def test_high_tension_reported(_mock):
+    """High ethical tension should be present in result with reasonable intensity."""
     from halo3.psyche.organism import Organism
 
     org = Organism(seed_topics=["dangerous topic", "biology"])
@@ -70,8 +70,11 @@ def test_high_tension_biases_anxiety(_mock):
         carry_norm=1.0,
     )
 
-    # With tension > 0.4, emotion should shift to anxiety
-    assert result["emotion"] == "anxiety"
+    # COP handles affect natively — tension is reported but no longer
+    # overrides emotion. Check that ethical_tension is present and
+    # intensity is reasonable.
+    assert result["ethical_tension"] == 0.7
+    assert 0.0 <= result["intensity"] <= 1.0
 
 
 @patch("halo3.psyche.prefrontal._call_ollama", return_value=None)

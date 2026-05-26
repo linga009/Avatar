@@ -25,6 +25,8 @@ from halo3.psyche.introspection import IntrospectiveMonitor
 from halo3.psyche.workspace import GlobalWorkspace
 from halo3.psyche.temporal import TemporalBinder
 from halo3.psyche.meditation import MeditationState
+from halo3.psyche.cop import CriticalDynamics
+from halo3.config import Halo3Config
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +48,7 @@ _TOPIC_STOP_WORDS = frozenset([
 class Organism:
     """The living psyche that inhabits the HoloBiont physics body."""
 
-    def __init__(self, seed_topics: list[str]) -> None:
+    def __init__(self, seed_topics: list[str], cfg: Halo3Config | None = None) -> None:
         self.drives = DriveState()
         self.emotions = EmotionState()
         self.self_model = SelfModel.load()
@@ -58,6 +60,7 @@ class Organism:
         self.workspace = GlobalWorkspace()
         self.temporal = TemporalBinder()
         self.meditation = MeditationState()
+        self.cop = CriticalDynamics(cfg or Halo3Config())
         self.seed_topics = seed_topics
         self.current_topic_idx = 0
         self.current_query: str = seed_topics[0] if seed_topics else "research"
@@ -75,6 +78,10 @@ class Organism:
         current_query: str,
         carry_norm: float | None = None,
         body_tension: float = 0.0,
+        r_a: float = 0.0,
+        r_c: float = 0.0,
+        theta=None,
+        K: float = 0.3,
         sensory_arousal: float = 0.0,
         sensory_novelty: float = 0.0,
         sensory_stability: int = 0,
@@ -88,6 +95,16 @@ class Organism:
         self._heard_speech = heard_speech
 
         perception_failed = len(texts) == 0
+
+        # --- COP observables ---
+        import jax.numpy as jnp
+        _theta = theta if theta is not None else jnp.zeros((32, 16))
+        cop = self.cop.observe(
+            r_mean=r_mean, r_a=r_a, r_c=r_c,
+            fe_delta=fe_delta, K=K, theta=_theta,
+        )
+        chi_norm = cop["chi"]
+        tau_norm = cop["tau"]
 
         # Track zero-result streak
         if perception_failed:
@@ -105,6 +122,7 @@ class Organism:
         # 1. Update drives (with perception failure + sensory signals)
         self.drives.update(
             r_mean, fe_delta,
+            chi_norm=chi_norm,
             perception_failed=perception_failed,
             topic_changed=topic_changed,
             sensory_arousal=sensory_arousal,
@@ -114,6 +132,7 @@ class Organism:
         # 2. Compute emotion (with failure context + sensory signals)
         emotion, intensity = self.emotions.update(
             r_mean, fe_delta,
+            chi_norm=chi_norm,
             perception_failed=perception_failed,
             consecutive_failures=self._consecutive_zero_results,
             sensory_novelty=sensory_novelty,
@@ -130,13 +149,14 @@ class Organism:
         # 3a. Introspective monitoring — detect unusual internal changes
         self_surprise = self.introspection.observe(
             r_mean, fe_delta, carry_norm, had_input=not perception_failed,
+            tau=tau_norm,
         )
         # Self-surprise amplifies emotional intensity
         if self_surprise > 0.2:
             intensity = min(1.0, intensity + self_surprise * 0.3)
 
         # 3b. Temporal binding — maintain continuity of experience
-        temporal = self.temporal.observe(r_mean, emotion, topic_key, fe_delta)
+        temporal = self.temporal.observe(r_mean, emotion, topic_key, fe_delta, tau_norm=tau_norm)
 
         # 3c. Global workspace — all-or-none ignition
         finding = None
@@ -146,6 +166,7 @@ class Organism:
 
         ws = self.workspace.update(
             r_mean, topic_key, emotion, finding,
+            chi_norm=chi_norm,
             sensory_novelty=sensory_novelty,
             binding_familiarity=binding_familiarity,
         )
@@ -168,43 +189,10 @@ class Organism:
 
         # ═══ END CONSCIOUSNESS MODULES ═══
 
-        # ═══ DUAL-PROCESS TENSION (body + PFC) ═══
-
-        # Body tension: Kuramoto analytical/creative populations disagree on pattern
-        # Somatic — emerges from physics, not language.
-        if body_tension > 0.3:
-            log.info(f"  ⚖ Body: r_split tension={body_tension:.2f} (populations diverge)")
-
-        # PFC tension: Analytical (Dharma) vs Creative (Karuna) linguistic dialectic
-        # Cognitive — emerges from LLM reasoning.
+        # COP handles affect through chi geometry natively — tension is
+        # already captured by T_body in the COP engine.
         ethical_tension = self.prefrontal.ethical_tension
-
-        # Combined somatic tension: body leads (gut feeling), PFC refines
-        somatic_tension = 0.6 * body_tension + 0.4 * ethical_tension
-
-        # Somatic tension is felt as increased free energy intensity
-        if somatic_tension > 0.2:
-            intensity = min(1.0, intensity + somatic_tension * 0.3)
-            if ethical_tension > 0.2:
-                log.info(f"  Ethics: pfc_tension={ethical_tension:.2f} somatic={somatic_tension:.2f}")
-
-        # High combined tension biases emotion toward anxiety (moral/cognitive discomfort)
-        # Use max so that strong PFC signal alone (moral certainty) can trigger anxiety
-        # even when body populations happen to agree on the pattern.
-        effective_tension = max(somatic_tension, ethical_tension * 0.8)
-        if effective_tension > 0.4 and emotion not in ("frustration",):
-            emotion = "anxiety"
-            intensity = min(1.0, intensity + 0.2)
-
-        # Body tension alone (populations split but PFC calm) → curiosity: "I'm of two minds"
-        if body_tension > 0.35 and ethical_tension < 0.2 and emotion not in ("frustration", "anxiety"):
-            emotion = "curiosity"
-
-        # Persistent high tension triggers topic avoidance via volatility
-        if somatic_tension > 0.6:
-            self.volatility.observe(topic_key, r_mean * 0.5, fe_delta + somatic_tension)
-
-        # ═══ END DUAL-PROCESS TENSION ═══
+        somatic_tension = cop["T_body"]
 
         # 4. Update self-model
         self.self_model.update(topic_key, r_mean, emotion, finding)
@@ -213,6 +201,15 @@ class Organism:
         if self.self_model.age % 10 == 0 and sensory_stats_line:
             self.self_model.narrative.append(
                 f"[Tick {self.self_model.age}] Senses: {sensory_stats_line}"
+            )
+
+        if self.self_model.age > 0 and self.self_model.age % 10 == 0:
+            log.info(
+                f"  COP: K={cop['K_new']:.3f} chi={chi_norm:.2f} tau={tau_norm:.2f} | "
+                f"U=r*chi={cop['U_product']:.3f} | "
+                f"Unity={cop['unity']:.2f} gap={cop['gap']:.2f} | "
+                f"{'IGNITED' if ws['is_ignited'] else 'DARK'} "
+                f"(ratio={self.workspace.consciousness_ratio:.0%})"
             )
 
         # 4a. Auto-saturation: topics visited many times without r progress
@@ -237,6 +234,7 @@ class Organism:
         # 6. Check meditation entry (for NEXT tick)
         if not self.meditation.is_meditating and self.meditation.should_enter(
                 self.drives, self.emotions,
+                chi_norm=chi_norm,
                 audio_stability=sensory_stability,
                 vision_stability=sensory_stability):
             self.meditation.enter(r_mean)
@@ -247,16 +245,11 @@ class Organism:
         # Track
         self._recent_queries.append(next_query)
 
-        # 8. Modulate physics
-        coupling_mod = self.clock.modulate_coupling(1.0, self.drives.fatigue)
-        if self.drives.is_satiated:
-            coupling_mod *= (1.0 - self.drives.satiation * 0.8)
-        # Body tension: populations disagree — reduce coupling so they can resolve naturally
-        if body_tension > 0.3:
-            coupling_mod *= (1.0 - body_tension * 0.1)
-        # Meditation reduces coupling (voluntary decoupling)
+        # 8. COP: coupling_mod is absolute K from SOC controller
+        K_new = cop["K_new"]
         if meditation_result["coupling_override"] is not None:
-            coupling_mod *= meditation_result["coupling_override"]
+            K_new = meditation_result["coupling_override"]
+        coupling_mod = K_new
 
         # 9. Build log line
         emo_emoji = self.emotions.emoji()
@@ -272,7 +265,9 @@ class Organism:
             consciousness_tag += " ⚖"
 
         log_line = (
-            f"{emo_emoji} {emotion:12s} (i={intensity:.2f}) | "
+            f"{emo_emoji} {emotion:12s} (i={intensity:.2f}) K={cop['K_new']:.3f} "
+            f"chi={chi_norm:.2f} tau={tau_norm:.2f} "
+            f"U={cop['unity']:.2f}/{cop['gap']:.2f} | "
             f"{drives_str}{consciousness_tag}"
         )
 
@@ -306,6 +301,11 @@ class Organism:
             "ethical_tension": ethical_tension,
             "body_tension": body_tension,
             "somatic_tension": somatic_tension,
+            # v4.0 COP fields
+            "chi": chi_norm,
+            "tau": tau_norm,
+            "unity": cop["unity"],
+            "K": cop["K_new"],
         }
 
     def _decide_query(
