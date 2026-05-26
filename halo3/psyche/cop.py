@@ -150,9 +150,14 @@ class CriticalDynamics:
         """Self-organized criticality controller.
 
         Drives system toward K* where U = r * chi is maximal.
+
+        Uses max(chi, 0.1) as effective chi so the controller can
+        bootstrap from far-from-critical states where chi ~ 0.
+        Near criticality chi >> 0.1, so the floor has no effect.
         """
         r_error = 0.5 - r
-        K_dot = self._eta * r_error * chi
+        effective_chi = max(chi, 0.1)  # floor prevents frozen K when subcritical
+        K_dot = self._eta * r_error * effective_chi
         new_K = K + K_dot
         return max(self._K_min, min(self._K_max, new_K))
 
