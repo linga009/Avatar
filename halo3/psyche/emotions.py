@@ -1,20 +1,16 @@
-"""Emotions — 2D valence derived from physics (surprise x confidence).
+"""Emotions — affect derived from COP phase-diagram geometry.
 
-Maps the raw physics outputs (order parameter r, free energy delta)
-into felt emotional states that modulate behavior.
+Maps (r, chi_norm, f_dot) to felt emotional states.
 
-Emotional space:
-  High r + low surprise  -> satisfaction
-  High r + high surprise -> pride (novel discovery confirmed)
-  Low r  + high surprise -> anxiety (overwhelmed)
-  Low r  + low surprise  -> boredom (nothing happening)
-  Mid r  + any surprise  -> curiosity (edge of understanding)
-  Repeated failure       -> frustration (dead-end, must change course)
+COP replaces the if/elif threshold tree with manifold position:
+  High r + low chi + resolving -> satisfaction (ordered, calm)
+  High r + high chi + resolving -> pride (ordered + sensitive)
+  Mid r + high chi -> curiosity (at the critical edge)
+  Low r + low chi -> boredom (disordered, rigid)
+  Low r + high chi + worsening -> anxiety (disordered, reactive)
+  Sustained failure -> frustration (punches through)
 
-v3.1 additions:
-  - Frustration emotion: triggered by sustained zero results
-  - Surprise recalibration: zero input when content expected = high surprise
-  - Emotional inertia: exponential smoothing prevents tick-to-tick flipping
+Emotional inertia (valence/arousal EMA) preserved from v3.11.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -30,77 +26,63 @@ class EmotionState:
     current: str = "curiosity"
     intensity: float = 0.5
     history: deque = field(default_factory=lambda: deque(maxlen=100))
-    _fe_history: deque = field(default_factory=lambda: deque(maxlen=50))
-    # Emotional inertia: smoothed valence and arousal
-    _valence: float = 0.0   # [-1, 1] negative=bad, positive=good
-    _arousal: float = 0.5   # [0, 1] calm to excited
+    _valence: float = 0.0
+    _arousal: float = 0.5
 
     def update(
         self,
         r_mean: float,
         fe_delta: float,
+        chi_norm: float = 0.5,
         perception_failed: bool = False,
         consecutive_failures: int = 0,
         sensory_novelty: float = 0.0,
         sensory_stability: int = 0,
         speech_detected: bool = False,
     ) -> tuple[str, float]:
-        """Compute emotion from physics.
+        """Compute emotion from COP phase-diagram position.
 
         Args:
             r_mean: Kuramoto order parameter (0-1)
-            fe_delta: change in free energy
-            perception_failed: True if last search returned zero results
-            consecutive_failures: how many ticks in a row had zero results
+            fe_delta: free energy change this tick
+            chi_norm: normalized susceptibility from COP engine (0-1)
+            perception_failed: True if search returned zero results
+            consecutive_failures: ticks in a row with zero results
+            sensory_novelty: from sensory stats (0-1)
+            sensory_stability: consecutive stable ticks
+            speech_detected: whether speech was heard
 
         Returns (emotion_name, intensity).
         """
-        self._fe_history.append(abs(fe_delta))
+        f_dot = -fe_delta  # positive when surprise is resolving
 
-        # Surprise: how unusual is this fe_delta relative to recent history
-        if len(self._fe_history) > 1:
-            mean_fe = sum(self._fe_history) / len(self._fe_history)
-            surprise = min(1.0, abs(fe_delta) / (mean_fe + 1e-12))
-        else:
-            surprise = 0.5
-
-        # Recalibrate surprise for zero input: expecting content but getting
-        # nothing IS surprising, not "low surprise"
-        if perception_failed:
-            surprise = max(surprise, 0.6)
-
-        # Sensory novelty amplifies surprise (something unexpected heard/seen)
-        if sensory_novelty > 0.8:
-            surprise = min(1.0, surprise + 0.15 * sensory_novelty)
-
-        confidence = r_mean
+        # Sensory novelty amplifies openness
+        effective_chi = min(1.0, chi_norm + 0.15 * sensory_novelty
+                           if sensory_novelty > 0.8 else chi_norm)
 
         # --- Frustration override ---
-        # Repeated failure is its own emotional state regardless of r or surprise.
-        # This is the organism's immune response to dead-end attractors.
         if consecutive_failures >= 3:
             emotion = "frustration"
             intensity = min(1.0, 0.5 + consecutive_failures * 0.1)
-        elif confidence > 0.6 and surprise < 0.4:
+        # --- COP manifold regions ---
+        elif r_mean > 0.55 and effective_chi < 0.4 and f_dot > 0.005:
             emotion = "satisfaction"
-            intensity = confidence * (1.0 - surprise)
-        elif confidence > 0.6 and surprise >= 0.4:
+            intensity = min(1.0, r_mean * (1.0 - effective_chi))
+        elif r_mean > 0.55 and effective_chi >= 0.4 and f_dot > 0.005:
             emotion = "pride"
-            intensity = min(1.0, confidence * surprise)
-        elif confidence < 0.35 and surprise > 0.5:
+            intensity = min(1.0, r_mean * effective_chi)
+        elif r_mean < 0.35 and effective_chi > 0.5 and f_dot < -0.005:
             emotion = "anxiety"
-            intensity = min(1.0, surprise * (1.0 - confidence))
-        elif confidence < 0.35 and surprise <= 0.5:
+            intensity = min(1.0, effective_chi * (1.0 - r_mean))
+        elif r_mean < 0.35 and effective_chi < 0.3:
             emotion = "boredom"
-            intensity = max(0.1, 1.0 - surprise - confidence)
+            intensity = max(0.1, 1.0 - effective_chi - r_mean)
         else:
             emotion = "curiosity"
             edge_factor = 1.0 - abs(r_mean - 0.5) * 2.0
-            intensity = min(1.0, surprise * 0.4 + edge_factor * 0.6)
+            intensity = min(1.0, effective_chi * 0.6 + edge_factor * 0.4)
 
-        # --- Emotional inertia ---
-        # Smooth transitions so emotions don't flip every tick.
-        # Map current emotion to valence/arousal, then blend with previous.
+        # --- Emotional inertia (EMA smoothing) ---
         _emo_va = {
             "satisfaction": (0.7, 0.2),
             "pride":        (0.9, 0.8),
@@ -110,26 +92,18 @@ class EmotionState:
             "frustration":  (-0.8, 0.8),
         }
         new_v, new_a = _emo_va.get(emotion, (0.0, 0.5))
-        alpha = 0.6  # how much new emotion influences (0=full inertia, 1=no inertia)
+        alpha = 0.6
         self._valence = alpha * new_v + (1.0 - alpha) * self._valence
         self._arousal = alpha * new_a + (1.0 - alpha) * self._arousal
 
-        # Sensory stability dampens arousal (calm environment = calm Avatar)
         if sensory_stability > 3:
             self._arousal *= 0.9
-
-        # Speech detected nudges valence positive (company = comfort)
         if speech_detected:
             self._valence = min(1.0, self._valence + 0.05)
 
-        # Re-derive emotion from smoothed valence/arousal (prevents flipping)
-        # Only override if the smoothed state disagrees strongly
         smoothed = self._emotion_from_va(self._valence, self._arousal)
-        if smoothed != emotion:
-            # If raw and smoothed disagree, use smoothed unless raw is frustration
-            # (frustration should punch through inertia)
-            if emotion != "frustration":
-                emotion = smoothed
+        if smoothed != emotion and emotion != "frustration":
+            emotion = smoothed
 
         self.current = emotion
         self.intensity = intensity
@@ -138,7 +112,6 @@ class EmotionState:
 
     @staticmethod
     def _emotion_from_va(valence: float, arousal: float) -> str:
-        """Map continuous valence/arousal back to discrete emotion."""
         if valence < -0.5 and arousal > 0.5:
             return "frustration" if valence < -0.7 else "anxiety"
         if valence < -0.1 and arousal < 0.3:
@@ -161,10 +134,10 @@ class EmotionState:
 
     def emoji(self) -> str:
         return {
-            "satisfaction": "😌",
-            "pride": "✨",
-            "curiosity": "🔍",
-            "boredom": "😐",
-            "anxiety": "⚡",
-            "frustration": "😤",
+            "satisfaction": "\U0001f60c",
+            "pride": "\u2728",
+            "curiosity": "\U0001f50d",
+            "boredom": "\U0001f610",
+            "anxiety": "\u26a1",
+            "frustration": "\U0001f624",
         }.get(self.current, "?")
