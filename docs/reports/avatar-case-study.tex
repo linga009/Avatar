@@ -21,7 +21,7 @@
 \usepackage{fancyhdr}
 \usepackage{multicol}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,shapes.geometric,calc}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,calc,patterns,decorations.markings}
 
 % ── Widow/orphan penalties ──
 \widowpenalty=10000
@@ -940,6 +940,123 @@ Same six states the system had before --- but now each is a \emph{consequence of
 dynamics sits}, not an if/elif branch. Curiosity is not a drive bolted on; it \emph{is}
 the felt face of the system sitting where it is maximally open to being changed by what
 it encounters: $\text{Curiosity} \equiv \chi$.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  % ── Axes ──
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (8.5,0) node[right]{\small $r$ (order parameter)};
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (0,6.5) node[above]{\small $\chi$ (susceptibility)};
+
+  % ── Emotion regions (filled) ──
+  % Boredom: low r, low chi
+  \fill[blue!8] (0,0) rectangle (2.8,1.8);
+  \node[blue!60!black] at (1.4,0.9) {\small\textbf{Boredom}};
+  \node[blue!40!black,font=\tiny] at (1.4,0.4) {disordered, rigid};
+
+  % Anxiety: low r, high chi
+  \fill[red!10] (0,1.8) rectangle (2.8,6);
+  \node[red!70!black] at (1.4,4.0) {\small\textbf{Anxiety}};
+  \node[red!50!black,font=\tiny] at (1.4,3.5) {disordered, reactive};
+
+  % Curiosity: mid r, high chi (the critical edge)
+  \fill[yellow!20] (2.8,2.5) rectangle (5.2,6);
+  \node[orange!80!black] at (4.0,4.5) {\large\textbf{Curiosity}};
+  \node[orange!60!black,font=\tiny] at (4.0,3.9) {$\chi$ diverges here};
+  \node[orange!60!black,font=\tiny] at (4.0,3.4) {critical edge};
+
+  % Satisfaction: high r, low chi
+  \fill[green!10] (5.2,0) rectangle (8,2.5);
+  \node[green!50!black] at (6.6,1.2) {\small\textbf{Satisfaction}};
+  \node[green!40!black,font=\tiny] at (6.6,0.6) {ordered, calm};
+
+  % Pride: high r, high chi
+  \fill[purple!10] (5.2,2.5) rectangle (8,6);
+  \node[purple!70!black] at (6.6,4.2) {\small\textbf{Pride}};
+  \node[purple!50!black,font=\tiny] at (6.6,3.6) {ordered + sensitive};
+
+  % ── Critical line (chi divergence) ──
+  \draw[orange!80!black, very thick, dashed,
+        decoration={markings, mark=at position 0.5 with {\arrow{Stealth[length=2mm]}}},
+        postaction={decorate}]
+        (4.0,0.5) -- (4.0,5.8) node[above,font=\small\bfseries] {$K = K_c$};
+
+  % ── SOC operating point ──
+  \filldraw[avatarblue] (4.4,4.0) circle (4pt);
+  \node[avatarblue,font=\small\bfseries,right] at (4.6,4.0) {$K^*$};
+  \draw[avatarblue,-{Stealth},thick] (3.0,1.5) to[out=40,in=210] (4.2,3.8);
+  \node[avatarblue,font=\tiny,rotate=35] at (3.2,2.5) {SOC drives here};
+
+  % ── Region boundaries ──
+  \draw[gray!60,dashed] (2.8,0) -- (2.8,6);
+  \draw[gray!60,dashed] (5.2,0) -- (5.2,6);
+  \draw[gray!60,dashed] (0,1.8) -- (2.8,1.8);
+  \draw[gray!60,dashed] (2.8,2.5) -- (8,2.5);
+
+  % ── Axis labels ──
+  \node[font=\tiny,below] at (1.4,0) {$< 0.35$};
+  \node[font=\tiny,below] at (4.0,0) {$\approx 0.5$};
+  \node[font=\tiny,below] at (6.6,0) {$> 0.55$};
+  \node[font=\tiny,left] at (0,1.2) {low};
+  \node[font=\tiny,left] at (0,4.0) {high};
+\end{tikzpicture}
+\caption{\textbf{The COP emotion manifold.} Emotions are regions of the $(r, \chi)$ plane.
+The critical line $K = K_c$ is where susceptibility $\chi$ diverges --- the system is
+maximally open. The SOC controller drives the operating point $K^*$ toward this critical
+edge. Curiosity is not a separate drive; it \emph{is} the high-$\chi$ region.
+Frustration (not shown) overrides all regions after 3+ consecutive failures.}
+\label{fig:cop-manifold}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  % ── Axes ──
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (10,0) node[right]{\small $K$ (coupling)};
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (0,5.5) node[above]{\small $r$ (order parameter)};
+
+  % ── Analytical population (tight frequencies, low K_c) ──
+  \draw[avatarblue,very thick] (0,0.1) -- (0.5,0.1);
+  \draw[avatarblue,very thick,domain=0.5:9,samples=80]
+       plot (\x, {0.1 + 4.0 * sqrt(max(0, (\x - 0.5)/0.5))  / (1 + sqrt(max(0,(\x-0.5)/0.5)))});
+  \node[avatarblue,font=\small,above left] at (7,4.2) {$r_a$ (analytical)};
+  \node[avatarblue,font=\tiny] at (7,3.7) {$\sigma = 0.03$};
+
+  % ── Creative population (wide frequencies, high K_c) ──
+  \draw[avatarred,very thick] (0,0.05) -- (6.5,0.05);
+  \draw[avatarred,very thick,domain=6.5:9,samples=40]
+       plot (\x, {0.05 + 2.5 * sqrt(max(0, (\x - 6.5)/6.5)) / (1 + sqrt(max(0,(\x-6.5)/6.5)))});
+  \node[avatarred,font=\small,below right] at (8.5,1.2) {$r_c$ (creative)};
+  \node[avatarred,font=\tiny] at (8.5,0.7) {$\sigma = 0.80$};
+
+  % ── Critical points ──
+  \draw[gray,dashed] (0.5,0) -- (0.5,5) node[above,font=\tiny] {$K_c^a$};
+  \draw[gray,dashed] (6.5,0) -- (6.5,5) node[above,font=\tiny] {$K_c^c$};
+
+  % ── Operating window ──
+  \fill[yellow!15] (0.5,0) rectangle (6.5,5);
+  \node[orange!70!black,font=\small,rotate=90] at (3.5,2.5) {Critical Window};
+
+  % ── Current K and SOC target ──
+  \draw[avatarblue,very thick,dashed] (2.0,0) -- (2.0,5);
+  \node[avatarblue,font=\small\bfseries,below] at (2.0,-0.1) {$K = 0.3$};
+
+  % ── Body tension annotation ──
+  \draw[avatarpurple,{Stealth}-{Stealth},thick] (3.5,3.8) -- (3.5,0.15);
+  \node[avatarpurple,font=\small,right] at (3.6,2.0) {$T_\text{body} = |r_a - r_c|$};
+
+  % ── r = 0.5 line ──
+  \draw[gray!40,dotted] (0,2.5) -- (9.5,2.5);
+  \node[gray!60,font=\tiny,left] at (0,2.5) {$r = 0.5$};
+\end{tikzpicture}
+\caption{\textbf{Dual-population Kuramoto phase transition.} The analytical population
+($\sigma = 0.03$, low $K_c^a$) synchronises at low coupling, while the creative population
+($\sigma = 0.80$, high $K_c^c$) resists synchronisation. The yellow critical window between
+$K_c^a$ and $K_c^c$ is where the system has both structure and flexibility. Body tension
+$T_\text{body} = |r_a - r_c|$ is maximal in this window --- the two populations genuinely
+disagree. The SOC controller targets this window.}
+\label{fig:dual-population}
+\end{figure}
 
 \subsection{Self-Organised Criticality: The SOC Controller}
 
