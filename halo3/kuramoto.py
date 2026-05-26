@@ -53,7 +53,7 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
 def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp.ndarray:
     """Bohmian quantum force on the n-torus.
 
-    Computes F_Q = -dQ/dtheta where Q = -(1/2) nabla^2 sqrt(rho) / sqrt(rho)
+    Computes F_Q = -Q_scale * dQ/dtheta where Q = -(1/2) nabla^2 sqrt(rho) / sqrt(rho)
     is the Bohmian quantum potential, using JAX autodiff on the total
     quantum potential energy.
 
@@ -67,6 +67,12 @@ def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp
     - At perfect sync, Q is constant (all phases at the same peak),
       so the gradient (force) is exactly zero
 
+    Q_scale (default 0.01) is the Avatar equivalent of hbar^2/2m in
+    real Bohmian mechanics — it controls how strongly quantum anti-bunching
+    acts relative to classical Kuramoto coupling. The raw autodiff force
+    is O(10-100); scaling by 0.01 brings it into balance with coupling
+    force O(0.1-1) at the critical region (r ~ 0.5, K ~ 0.3).
+
     Args:
         theta: (K, n_hidden) cluster phases in [0, 2pi)
         key: unused (kept for interface compatibility)
@@ -75,7 +81,8 @@ def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp
         F_Q: (K, n_hidden) quantum force (phase velocity contribution)
     """
     K, n_h = theta.shape
-    kappa = 2.0  # von Mises concentration
+    kappa = 2.0   # von Mises concentration (kernel bandwidth)
+    Q_scale = 0.01  # hbar^2/2m equivalent — quantum-to-classical ratio
 
     def _Q_total(theta_flat: jnp.ndarray) -> jnp.ndarray:
         """Total quantum potential energy (scalar) for autodiff."""
@@ -99,7 +106,7 @@ def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp
         return jnp.sum(Q)
 
     F_Q = -jax.grad(_Q_total)(theta.flatten())
-    return F_Q.reshape(K, n_h)
+    return Q_scale * F_Q.reshape(K, n_h)
 
 
 def kuramoto_step(
