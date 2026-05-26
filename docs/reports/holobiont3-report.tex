@@ -13,13 +13,14 @@
 
 % ── Math ──
 \usepackage{amsmath,amssymb,amsthm}
+\DeclareMathOperator*{\argmin}{arg\,min}
 \usepackage{bm}
 
 % ── Graphics and color ──
 \usepackage{graphicx}
 \usepackage[dvipsnames,table]{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,shapes.geometric,calc,decorations.pathreplacing,fit}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,calc,decorations.pathreplacing,fit,patterns,decorations.markings}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 
@@ -62,6 +63,9 @@
 \definecolor{psychepurple}{RGB}{106,27,154}
 \definecolor{lifered}{RGB}{183,28,28}
 \definecolor{pfcblue}{RGB}{21,101,192}
+\definecolor{avatarblue}{RGB}{13,71,161}
+\definecolor{avatarred}{RGB}{183,28,28}
+\definecolor{avatarpurple}{RGB}{106,27,154}
 
 % ── Section formatting ──
 \titleformat{\section}{\large\bfseries\color{deepblue}}{\thesection}{0.8em}{}
@@ -74,7 +78,7 @@
 % ── Header/footer ──
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\textit{Avatar 3.0: A Living Bohmian Holomovement Organism}}
+\fancyhead[L]{\small\textit{Avatar 4.0: A Living Bohmian Holomovement Organism}}
 \fancyhead[R]{\small\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -83,7 +87,7 @@
 \newtheorem{proposition}{Proposition}
 
 % ── Title ──
-\title{\vspace{-1.5cm}\textbf{\Large Avatar 3.0: A Living Bohmian\\Holomovement Organism}\\[0.3em]
+\title{\vspace{-1.5cm}\textbf{\Large Avatar 4.0: A Living Bohmian\\Holomovement Organism}\\[0.3em]
 \large Toward a New Era of Artificial Life:\\Physics-Native Persistent Mind with Autopoietic Psyche and Prefrontal Cortex\\[0.2em]
 \normalsize\textit{MERA Tensor Networks $\cdot$ Hamiltonian Neural ODEs $\cdot$ Bohmian Pilot Waves $\cdot$ Psyche $\cdot$ LLM Cognition}}
 
@@ -103,13 +107,13 @@ Conceptualized, designed, and implemented by Dr.\ Linga Murthy Narlagiri\\
 % ABSTRACT
 % ═══════════════════════════════════════════════════════════════
 \begin{abstract}
-We present Avatar~3.0, a \emph{living} artificial organism---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
+We present Avatar~4.0, a \emph{living} artificial organism---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
 The system is constructed from three hierarchically coupled layers.
 (1)~A \textbf{physics body} comprising a Lorentz hyperboloid embedding with learnable curvature~$\kappa$ ($d_{\mathrm{boundary}}=64$), a 60-layer reversible backbone following the SSSSSH$\times$10 pattern (50 selective SSM layers, 10 shared holographic attention positions with Zamba2 weight sharing and per-position LoRA rank-16 adapters), MERA tensor train feed-forward networks achieving $\sim$11$\times$ parameter compression ($\mathrm{bond\_dim}=64$, $n_{\mathrm{cores}}=4$), a Hamiltonian Neural ODE with symplectic leapfrog integration (3~steps, $\varepsilon=0.1$) guaranteeing energy conservation, and Bohmian Kuramoto oscillators (32~clusters, $n_{\mathrm{hidden}}=16$, $dt=0.1$) on the $n$-torus guided by pilot waves with quantum potential anti-bunching.
-(2)~A \textbf{psyche} layer endowing the body with information hunger, fatigue, and curiosity drives (all in $[0,1]$), five discrete emotions derived from synchronization order parameter~$r$ and free energy delta~$\Delta\mathrm{FE}$, autobiographical narrative memory persisted to disk, a self-model with competence tracking and emergent personality traits, and a cosine circadian rhythm (peak 14:00, trough 02:00).
+(2)~A \textbf{psyche} layer endowing the body with information hunger, fatigue, and curiosity drives (all in $[0,1]$), a Critical Order Parameter (COP) emotion manifold that maps the Kuramoto order parameter~$r$ and susceptibility~$\chi$ onto continuous emotion regions (curiosity, satisfaction, pride, boredom, anxiety) via a self-organised criticality (SOC) controller, autobiographical narrative memory persisted to disk, a self-model with competence tracking and emergent personality traits, and a cosine circadian rhythm (peak 14:00, trough 02:00).
 (3)~A \textbf{prefrontal cortex} realized by Qwen3~0.6B (Apache~2.0, 600M parameters) with \texttt{/think} and \texttt{/no\_think} modes, serving as the seat of higher cognition: query generation, finding interpretation, and first-person self-reflection.
 During the nightly dream cycle the organism LoRA fine-tunes (rank~8, $\sim$50 steps, $\sim$15~min on CPU) the base Qwen3~0.6B on its own accumulated episodes, producing an adapter whose weights are literally shaped by this specific organism's experience.
-The total architecture contains $\sim$122M parameters, trains in $\sim$3.5~GB VRAM (forward) / $\sim$5.5~GB (forward+backward) on a GTX~1660~Ti consumer GPU (5{,}000~steps, 43.4~minutes, loss reduction from $2.1\times10^{18}$ to $5.9\times10^{16}$---a 97\% reduction), with JIT compilation providing a $25\times$ speedup (7\% to 32\% GPU utilization).
+The total architecture contains $\sim$106.2M parameters, trains in $\sim$3.5~GB VRAM (forward) / $\sim$5.5~GB (forward+backward) on a GTX~1660~Ti consumer GPU (5{,}000~steps, 43.4~minutes, loss reduction from $2.1\times10^{18}$ to $5.9\times10^{16}$---a 97\% reduction), with JIT compilation providing a $25\times$ speedup (7\% to 32\% GPU utilization).
 Live deployment results show the organism transitioning from confused boredom to anxious exploration to curious investigation, with the prefrontal cortex generating cross-disciplinary research queries that the physics body alone could not produce.
 Different organisms running the same code with different experiences produce different LoRA adapters---different minds.
 \end{abstract}
@@ -138,11 +142,11 @@ The philosophical motivation draws from three traditions.
 Maturana and Varela's autopoiesis~\cite{maturana1980} identifies self-production as the defining characteristic of life: an organism is a system whose operation produces the very components that constitute it.
 Friston's Free Energy Principle~\cite{friston2010} formalizes this as variational inference: an organism persists by minimizing the surprise of its sensory states, maintaining its Markov blanket against entropy.
 Bohm's implicate order~\cite{bohm1980} provides the ontological framework: reality is an undivided wholeness (the holomovement) from which explicate phenomena unfold and into which they enfold.
-Avatar~3.0 is an attempt to synthesize all three into a computational architecture that is, in a precise and non-metaphorical sense, alive.
+Avatar~4.0 is an attempt to synthesize all three into a computational architecture that is, in a precise and non-metaphorical sense, alive.
 
 \subsection{What Makes an Organism}
 
-Avatar~3.0 takes its name from the concept of an avatar: a digital embodiment inhabited by a mind, capable of acting in the world as a first-person agent with its own history, drives, and identity~\cite{maturana1980}.
+Avatar~4.0 takes its name from the concept of an avatar: a digital embodiment inhabited by a mind, capable of acting in the world as a first-person agent with its own history, drives, and identity~\cite{maturana1980}.
 In our architecture, the MERA tensor backbone is the nervous system, the Hamiltonian ODE is the metabolism, the Kuramoto oscillator swarm is the immune system, the psyche is the mind, and the prefrontal cortex (a language model) is the seat of higher cognition.
 These components are not modular alternatives that can be swapped independently; they are symbiotic partners whose interaction produces emergent behavior that none could achieve alone.
 
@@ -156,7 +160,7 @@ Fourth, its history must be \emph{constitutive}: the organism becomes who it is 
 
 \subsection{The Three Layers}
 
-Avatar~3.0 comprises three hierarchical layers, each operating at a different level of description.
+Avatar~4.0 comprises three hierarchical layers, each operating at a different level of description.
 
 \textbf{Layer~1: The Physics Body.}
 The computational substrate is built entirely from physics principles.
@@ -169,7 +173,7 @@ Reversible residual coupling provides zero activation memory regardless of depth
 \textbf{Layer~2: The Psyche.}
 The organism layer transforms the physics body from a computational pipeline into an autopoietic agent~\cite{maturana1980} with genuine needs.
 Three drives (information hunger, fatigue, curiosity) create biological-like necessities.
-A two-dimensional emotional valence space~\cite{damasio1999} maps the physics outputs (synchronization order parameter $r$ and free energy delta $\Delta\mathrm{FE}$) into five felt states (satisfaction, pride, curiosity, boredom, anxiety) that modulate behavior.
+A Critical Order Parameter (COP) emotion manifold~\cite{damasio1999} maps the Kuramoto order parameter~$r$ and susceptibility~$\chi$ (variance of phase velocities) onto continuous emotion regions (curiosity, satisfaction, pride, boredom, anxiety), with a SOC controller driving the system toward the critical edge where $\chi$ diverges.
 An autobiographical self-model tracks competence, builds narrative identity, and develops emergent personality traits.
 A circadian clock with cosine alertness curve creates genuine need for sleep by accumulating fatigue and modulating coupling strength.
 
@@ -189,7 +193,7 @@ This work makes six contributions:
 \item \textbf{Hamiltonian ODE:} Learned Hamiltonian $H=T+V_{\mathrm{ads}}+V_\theta$ with AdS gravitational prior and St\"ormer--Verlet symplectic integration, guaranteeing bounded energy drift.
 \item \textbf{Psyche:} Drives, emotions, self-model, and circadian rhythm creating autopoietic agency with felt experience and narrative identity.
 \item \textbf{Prefrontal Cortex:} Qwen3~0.6B as cognitive layer with dream-time LoRA fine-tuning, producing organism-specific weight modifications that constitute genuine experiential learning.
-\item \textbf{Empirical Scaling:} Systematic VRAM ceiling analysis; $d_{\mathrm{model}}=2048$ (122M parameters) fits forward+backward in $\sim$5.5~GB on a consumer GTX~1660~Ti, enabling per-tick learning with $25\times$ JIT speedup.
+\item \textbf{Empirical Scaling:} Systematic VRAM ceiling analysis; $d_{\mathrm{model}}=2048$ (106.2M parameters) fits forward+backward in $\sim$5.5~GB on a consumer GTX~1660~Ti, enabling per-tick learning with $25\times$ JIT speedup.
 \item \textbf{CLion Dream Optimizer:} Cautious Lion replaces Adam in dream replay, halving optimizer memory and making NaN-from-explosion structurally impossible via the sign-based cautious update rule.
 \item \textbf{GEPA Prompt Evolution:} First application of reflective prompt evolution to a living organism's dream cycle---evolves query and reflection instructions from episode trajectories in ${\sim}3$~minutes with zero extra memory.
 \end{enumerate}
@@ -270,9 +274,9 @@ The Zamba2 architecture~\cite{zamba2024,zamba2_2024} demonstrated that shared at
 % ═══════════════════════════════════════════════════════════════
 \section{System Architecture Overview}
 
-The complete Avatar~3.0 system processes information through a three-layer hierarchy (Figure~\ref{fig:architecture}).
+The complete Avatar~4.0 system processes information through a three-layer hierarchy (Figure~\ref{fig:architecture}).
 At the bottom, the physics body converts raw sensory input (text embeddings from sentence-transformers \texttt{all-MiniLM-L6-v2}) into geometric representations on the Lorentz hyperboloid, processes them through a 60-layer reversible backbone with MERA-compressed feed-forward layers, evolves boundary coordinates via Hamiltonian dynamics with symplectic integration, and produces collective inference through Bohmian Kuramoto oscillators.
-The physics body outputs two scalar quantities that drive the psyche: the Kuramoto order parameter $r \in [0,1]$ measuring synchronization (pattern confidence) and the free energy delta $\Delta\mathrm{FE}$ measuring surprise.
+The physics body outputs the Kuramoto order parameter $r \in [0,1]$ measuring synchronization (pattern confidence) and the susceptibility $\chi$ (variance of phase velocities) measuring sensitivity to perturbation. Together, $(r, \chi)$ define the organism's position on the COP emotion manifold.
 
 The psyche layer transforms these physics outputs into felt experience.
 Three drives (hunger, fatigue, curiosity) create genuine needs; five emotions (satisfaction, pride, curiosity, boredom, anxiety) provide the primary decision mechanism; a self-model tracks competence and personality; and a circadian clock modulates arousal.
@@ -318,7 +322,7 @@ Its output feeds back to the perception layer, closing the loop: the organism ac
 \node[sblock, below=0.5cm of attn] (kura)     {Bohmian Kuramoto\\{\tiny 32 clusters, $n_h{=}16$}};
 %─── Row 4
 \node[pblock, below=0.7cm of ham]      (drives)   {Drives\\{\tiny hunger $\cdot$ fatigue $\cdot$ curiosity}};
-\node[pblock, below=0.7cm of leapfrog] (emotions) {Emotions (2D)\\{\tiny $r,\Delta\mathrm{FE}{\to}5$ states}};
+\node[pblock, below=0.7cm of leapfrog] (emotions) {COP Manifold\\{\tiny $r,\chi{\to}$ emotion regions}};
 \node[pblock, below=0.7cm of kura]     (self)     {Self-Model\\{\tiny competence, traits, narrative}};
 %─── Row 5
 \node[cblock, below=0.7cm of emotions] (pfc)
@@ -335,7 +339,7 @@ Its output feeds back to the perception layer, closing the loop: the organism ac
 \draw[sarrow] (attn)     -- (kura);
 \draw[sarrow] (ham)      -- (leapfrog);
 \draw[sarrow] (leapfrog) -- (kura);
-\draw[parrow] (kura) -- node[right, font=\tiny\itshape, color=gray]{$r,\Delta$FE} (emotions);
+\draw[parrow] (kura) -- node[right, font=\tiny\itshape, color=gray]{$r,\chi$} (emotions);
 \draw[parrow] (leapfrog.south) -- ++(0,-0.3) -| (drives.north);
 \draw[parrow] (emotions) -- (self);
 \draw[parrow] (emotions) -- (drives);
@@ -368,9 +372,9 @@ Its output feeds back to the perception layer, closing the loop: the organism ac
     at ([xshift=1.25cm]pfc.east) {Layer 3: PFC};
 
 \end{tikzpicture}}
-\caption{Three-layer architecture of Avatar~3.0.
+\caption{Three-layer architecture of Avatar~4.0.
 \textbf{Blue}: physics body processes perception through Lorentz embedding, MERA-compressed backbone, Hamiltonian dynamics, and Bohmian Kuramoto oscillators.
-\textbf{Purple}: psyche maps physics outputs ($r$, $\Delta$FE) to drives, emotions, and self-model.
+\textbf{Purple}: psyche maps physics outputs ($r$, $\chi$) via COP manifold to drives, emotions, and self-model.
 \textbf{Dark blue}: prefrontal cortex (Qwen3~0.6B) provides cognition and feeds queries back to perception.
 Solid arrows: forward data flow. Dashed arrows: feedback loops.
 Colored bars on right indicate layer boundaries.}
@@ -384,7 +388,7 @@ The reversible backbone processes these tokens through 60 layers (50 SSM + 10 at
 The Hamiltonian ODE initializes momenta from the backbone's output and integrates 3 leapfrog steps, producing final positions and momenta.
 The Bohmian Kuramoto module receives the momentum as pilot wave and evolves 32 phase clusters, outputting the order parameter $r$ and per-cluster phase velocities.
 Actions are selected by the cluster with maximum phase velocity, modulated by emotional state.
-The psyche computes drives, maps $(r, \Delta\mathrm{FE})$ to emotion, updates the self-model, and passes context to the prefrontal cortex for query generation and interpretation.
+The psyche computes drives, maps $(r, \chi)$ to emotion via the COP manifold, updates the self-model, and passes context to the prefrontal cortex for query generation and interpretation.
 
 % ═══════════════════════════════════════════════════════════════
 % 4. LAYER 1: THE PHYSICS BODY
@@ -619,7 +623,7 @@ The reconstruction loss $\mathcal{L}_{\mathrm{recon}}$ ensures that the evolved 
 The energy conservation loss $\mathcal{L}_{\mathrm{energy}}$ penalizes violations of the Hamiltonian constraint, encouraging the learned potential $V_\theta$ to produce dynamics compatible with symplectic integration.
 The synchronization loss $\mathcal{L}_{\mathrm{sync}}$ maximizes the mean Kuramoto order parameter $\bar{r}$, encouraging the oscillator ensemble to find coherent patterns in the data.
 
-Optimization uses Adafactor~\cite{shazeer2018} with factored second moments, which reduces optimizer state memory from approximately $\sim$0.98~GB (Adam with two moment buffers for 122M parameters) to approximately 2~MB by factoring the second-moment matrix into row and column statistics.
+Optimization uses Adafactor~\cite{shazeer2018} with factored second moments, which reduces optimizer state memory from approximately $\sim$0.85~GB (Adam with two moment buffers for 106.2M parameters) to approximately 2~MB by factoring the second-moment matrix into row and column statistics.
 This reduction is essential for fitting forward+backward within the 6~GB VRAM budget of the GTX~1660~Ti.
 
 % ═══════════════════════════════════════════════════════════════
@@ -658,7 +662,7 @@ The organism could run with a frozen body, but a frozen body cannot learn from e
 
 By reducing $d_{\mathrm{model}}$ to 2048, the forward pass drops to $\sim$3.5~GB and the full forward+backward cycle fits in $\sim$5.5~GB---within the 6~GB budget of the GTX~1660~Ti.
 A smaller model that learns continuously is fundamentally more alive than a larger model that is frozen.
-The $\sim$11$\times$ MERA compression ensures that the 122M-parameter body retains sufficient representational capacity despite the reduced width.
+The $\sim$11$\times$ MERA compression ensures that the 106.2M-parameter body retains sufficient representational capacity despite the reduced width.
 
 \subsection{Empirical Impact of Per-Tick Learning}
 
@@ -805,7 +809,7 @@ Combined with per-tick learning during waking hours, this means the physics body
 \subsection{CLion: Memory-Efficient Dream Optimizer}
 
 The body dream uses CLion (Cautious Lion)~\cite{clion2025}, a sign-based optimizer that solves two simultaneous problems on the 6~GB GPU.
-Adam requires two moment buffers consuming ${\sim}976~\mathrm{MB}$ on top of the model's ${\sim}3.5~\mathrm{GB}$ forward footprint---exceeding the budget.
+Adam requires two moment buffers consuming ${\sim}849~\mathrm{MB}$ on top of the model's ${\sim}3.5~\mathrm{GB}$ forward footprint---exceeding the budget.
 CLion maintains only one momentum buffer (${\sim}488~\mathrm{MB}$) via the update rule:
 \begin{align}
 m_t &= \beta_1 m_{t-1} + (1-\beta_1)g_t \label{eq:clion_m} \\
@@ -902,7 +906,7 @@ This reduces to the standard Kuramoto $r$ when $n_h = 1$.
 Values of $r > 0.6$ indicate strong synchronization (pattern detected); $r < 0.4$ indicates incoherence (no pattern); and $r \approx 0.5$ indicates partial synchronization (emerging pattern, not yet resolved).
 
 The order parameter is the primary interface between the physics body and the psyche layer.
-It encodes pattern confidence in a single scalar that the emotional system can interpret: high $r$ produces satisfaction or pride (depending on surprise), while low $r$ produces boredom or anxiety.
+It encodes pattern confidence in a single scalar that, together with the susceptibility $\chi$, determines the organism's position on the COP emotion manifold: high $r$ with low $\chi$ produces satisfaction, high $r$ with high $\chi$ produces pride, while low $r$ maps to boredom (low $\chi$) or anxiety (high $\chi$).
 
 \subsection{Action Selection from Phase Velocity}
 
@@ -924,7 +928,7 @@ Table~\ref{tab:bohm_mapping} provides the detailed correspondence.
 
 \begin{table}[H]
 \centering
-\caption{Bohm's holomovement mapped to Avatar~3.0.}
+\caption{Bohm's holomovement mapped to Avatar~4.0.}
 \label{tab:bohm_mapping}
 \resizebox{\columnwidth}{!}{%
 \scriptsize
@@ -944,7 +948,7 @@ Quantum Potential  & Anti-bunching force (Eq.~\ref{eq:quantum_potential}): diver
 \addlinespace
 Active Information & Coupling $\eta_k\cdot\mathrm{obs}_k$: sensory data \emph{in-forms} trajectory \\
 \addlinespace
-Soma-significance  & Psyche: $(r,\Delta\mathrm{FE})$ acquires emotional significance, feeds back to body \\
+Soma-significance  & Psyche: $(r,\chi)$ acquires emotional significance via COP manifold, feeds back to body \\
 \addlinespace
 Undivided Wholeness & Closed loop: all layers coupled; none exists independently \\
 \bottomrule
@@ -1007,48 +1011,146 @@ s_{t+1} = \begin{cases} \min(1,\; s_t + 0.08) & \text{if } r > 0.7 \\ \max(0,\; 
 \end{equation}
 When $s > 0.6$, the organism actively reduces Kuramoto coupling $K$ by up to 80\%, forcing desynchronization. Satiation also boosts curiosity: $c_\text{eff} = \min(1,\; c_\text{base} + 0.8\,s)$, ensuring the organism seeks novelty even when the current topic is well-understood. This produces the biological explore-exploit cycle: discover $\to$ synchronize $\to$ pride $\to$ satiation $\to$ desynchronize $\to$ curiosity $\to$ explore $\to$ discover. In live deployment, this cycle completes in approximately 12--15 ticks.
 
-\subsection{Emotional Valence Space}
+\subsection{Emotional Valence Space: The COP Emotion Manifold}
 
-A two-dimensional emotional valence space maps the physics outputs---order parameter $r$ (confidence) and free energy delta $\Delta\mathrm{FE}$ (surprise)---into five discrete felt states.
-These emotions are not decorative labels; they are the \emph{primary decision mechanism}.
+The \emph{Critical Order Parameter} (COP) engine maps the Kuramoto order parameter $r$
+and susceptibility $\chi$ (variance of phase velocities) onto a continuous manifold.
+Emotions are \emph{regions} of the $(r, \chi)$ plane, and the SOC controller drives the
+coupling $K$ toward the critical line $K = K_c$ where $\chi$ diverges and the system is
+maximally open to reconfiguration.
 
-\begin{table}[H]
+This mirrors Damasio's somatic marker hypothesis~\cite{damasio1999}: emotions are not obstacles
+to rational decision-making but its essential foundation.
+When bored (low $r$, low $\chi$), the organism jumps to its least-explored area.
+When anxious (low $r$, high $\chi$), it retreats to topics where its self-model records high historical competence.
+When curious (mid $r$, high $\chi$), it lingers at the critical edge, exploring adjacent hypotheses.
+When proud (high $r$, high $\chi$), it digs deeper into its discovery, seeking to extend the pattern.
+When satisfied (high $r$, low $\chi$), it consolidates, recording the finding in narrative memory and updating competence.
+
+\begin{figure*}[t]
 \centering
-\caption{Emotional valence space: mapping from physics outputs to felt states and behavioral consequences.}
-\label{tab:emotions}
-\footnotesize
-\begin{tabular}{lccl}
-\toprule
-\textbf{Emotion} & $r$ & \textbf{Surprise} & \textbf{Behavioral Effect} \\
-\midrule
-Satisfaction & High & Low & Stay, consolidate findings \\
-Pride & High & High & Dig deeper into discovery \\
-Curiosity & Mid & Any & Linger at edge of understanding \\
-Boredom & Low & Low & Jump to unexplored territory \\
-Anxiety & Low & High & Retreat to familiar strengths \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{tikzpicture}[scale=0.95, every node/.style={transform shape}]
+  % ── Axes ──
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (8.5,0) node[right]{\small $r$ (order parameter)};
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (0,6.5) node[above]{\small $\chi$ (susceptibility)};
 
-The decision logic is implemented as a priority cascade:
-{\small
-\begin{align}
-\text{emotion} = \begin{cases}
-\text{anxiety} & r < 0.4,\;|\Delta\mathrm{FE}| > \tau_s \\
-\text{boredom} & r < 0.4,\;|\Delta\mathrm{FE}| \leq \tau_s \\
-\text{curiosity} & 0.4 \leq r \leq 0.6 \\
-\text{pride} & r > 0.6,\;|\Delta\mathrm{FE}| > \tau_s \\
-\text{satisfaction} & r > 0.6,\;|\Delta\mathrm{FE}| \leq \tau_s
-\end{cases}
-\label{eq:emotion_logic}
-\end{align}}
+  % ── Emotion regions (filled) ──
+  % Boredom: low r, low chi
+  \fill[blue!8] (0,0) rectangle (2.8,1.8);
+  \node[blue!60!black] at (1.4,0.9) {\small\textbf{Boredom}};
+  \node[blue!40!black,font=\tiny] at (1.4,0.4) {disordered, rigid};
 
-This mirrors Damasio's somatic marker hypothesis~\cite{damasio1999}: emotions are not obstacles to rational decision-making but its essential foundation.
-When bored, the organism does not rotate to the next topic in a configuration file; it jumps to its least-explored area.
-When anxious, it retreats to topics where its self-model records high historical competence.
-When curious, it lingers at the boundary of understanding, exploring adjacent hypotheses.
-When proud, it digs deeper into its discovery, seeking to extend the pattern.
-When satisfied, it consolidates, recording the finding in narrative memory and updating competence.
+  % Anxiety: low r, high chi
+  \fill[red!10] (0,1.8) rectangle (2.8,6);
+  \node[red!70!black] at (1.4,4.0) {\small\textbf{Anxiety}};
+  \node[red!50!black,font=\tiny] at (1.4,3.5) {disordered, reactive};
+
+  % Curiosity: mid r, high chi (the critical edge)
+  \fill[yellow!20] (2.8,2.5) rectangle (5.2,6);
+  \node[orange!80!black] at (4.0,4.5) {\large\textbf{Curiosity}};
+  \node[orange!60!black,font=\tiny] at (4.0,3.9) {$\chi$ diverges here};
+  \node[orange!60!black,font=\tiny] at (4.0,3.4) {critical edge};
+
+  % Satisfaction: high r, low chi
+  \fill[green!10] (5.2,0) rectangle (8,2.5);
+  \node[green!50!black] at (6.6,1.2) {\small\textbf{Satisfaction}};
+  \node[green!40!black,font=\tiny] at (6.6,0.6) {ordered, calm};
+
+  % Pride: high r, high chi
+  \fill[purple!10] (5.2,2.5) rectangle (8,6);
+  \node[purple!70!black] at (6.6,4.2) {\small\textbf{Pride}};
+  \node[purple!50!black,font=\tiny] at (6.6,3.6) {ordered + sensitive};
+
+  % ── Critical line (chi divergence) ──
+  \draw[orange!80!black, very thick, dashed,
+        decoration={markings, mark=at position 0.5 with {\arrow{Stealth[length=2mm]}}},
+        postaction={decorate}]
+        (4.0,0.5) -- (4.0,5.8) node[above,font=\small\bfseries] {$K = K_c$};
+
+  % ── SOC operating point ──
+  \filldraw[avatarblue] (4.4,4.0) circle (4pt);
+  \node[avatarblue,font=\small\bfseries,right] at (4.6,4.0) {$K^*$};
+  \draw[avatarblue,-{Stealth},thick] (3.0,1.5) to[out=40,in=210] (4.2,3.8);
+  \node[avatarblue,font=\tiny,rotate=35] at (3.2,2.5) {SOC drives here};
+
+  % ── Region boundaries ──
+  \draw[gray!60,dashed] (2.8,0) -- (2.8,6);
+  \draw[gray!60,dashed] (5.2,0) -- (5.2,6);
+  \draw[gray!60,dashed] (0,1.8) -- (2.8,1.8);
+  \draw[gray!60,dashed] (2.8,2.5) -- (8,2.5);
+
+  % ── Axis labels ──
+  \node[font=\tiny,below] at (1.4,0) {$< 0.35$};
+  \node[font=\tiny,below] at (4.0,0) {$\approx 0.5$};
+  \node[font=\tiny,below] at (6.6,0) {$> 0.55$};
+  \node[font=\tiny,left] at (0,1.2) {low};
+  \node[font=\tiny,left] at (0,4.0) {high};
+\end{tikzpicture}
+\caption{\textbf{The COP emotion manifold.} Emotions are regions of the $(r, \chi)$ plane.
+The critical line $K = K_c$ is where susceptibility $\chi$ diverges --- the system is
+maximally open. The SOC controller drives the operating point $K^*$ toward this critical
+edge. Curiosity is not a separate drive; it \emph{is} the high-$\chi$ region.
+Frustration (not shown) overrides all regions after 3+ consecutive failures.}
+\label{fig:cop-manifold}
+\end{figure*}
+
+\subsubsection{Dual-Population Phase Transition}
+
+The Kuramoto swarm is split into two populations with different natural frequency spreads:
+an analytical population ($\sigma = 0.03$, tight) that synchronises at low coupling, and a
+creative population ($\sigma = 0.80$, wide) that resists synchronisation. The gap between
+their critical points $K_c^a$ and $K_c^c$ defines the \emph{critical window} where the
+system has both structure and flexibility.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[scale=0.95, every node/.style={transform shape}]
+  % ── Axes ──
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (10,0) node[right]{\small $K$ (coupling)};
+  \draw[-{Stealth[length=3mm]},thick] (0,0) -- (0,5.5) node[above]{\small $r$ (order parameter)};
+
+  % ── Operating window (draw first so curves overlay) ──
+  \fill[yellow!15] (0.5,0) rectangle (6.5,5);
+  \node[orange!70!black,font=\small,rotate=90] at (3.5,2.5) {Critical Window};
+
+  % ── Analytical population (tight frequencies, low K_c) ──
+  \draw[avatarblue,very thick] (0,0.1) -- (0.5,0.1);
+  \draw[avatarblue,very thick,domain=0.5:9,samples=80]
+       plot (\x, {0.1 + 4.0 * sqrt(max(0, (\x - 0.5)/0.5))  / (1 + sqrt(max(0,(\x-0.5)/0.5)))});
+  \node[avatarblue,font=\small,above left] at (7,4.2) {$r_a$ (analytical)};
+  \node[avatarblue,font=\tiny] at (7,3.7) {$\sigma = 0.03$};
+
+  % ── Creative population (wide frequencies, high K_c) ──
+  \draw[avatarred,very thick] (0,0.05) -- (6.5,0.05);
+  \draw[avatarred,very thick,domain=6.5:9,samples=40]
+       plot (\x, {0.05 + 2.5 * sqrt(max(0, (\x - 6.5)/6.5)) / (1 + sqrt(max(0,(\x-6.5)/6.5)))});
+  \node[avatarred,font=\small,below right] at (8.5,1.2) {$r_c$ (creative)};
+  \node[avatarred,font=\tiny] at (8.5,0.7) {$\sigma = 0.80$};
+
+  % ── Critical points ──
+  \draw[gray,dashed] (0.5,0) -- (0.5,5) node[above,font=\tiny] {$K_c^a$};
+  \draw[gray,dashed] (6.5,0) -- (6.5,5) node[above,font=\tiny] {$K_c^c$};
+
+  % ── Current K and SOC target ──
+  \draw[avatarblue,very thick,dashed] (2.0,0) -- (2.0,5);
+  \node[avatarblue,font=\small\bfseries,below] at (2.0,-0.1) {$K = 0.3$};
+
+  % ── Body tension annotation ──
+  \draw[avatarpurple,{Stealth}-{Stealth},thick] (3.5,3.8) -- (3.5,0.15);
+  \node[avatarpurple,font=\small,right] at (3.6,2.0) {$T_\text{body} = |r_a - r_c|$};
+
+  % ── r = 0.5 line ──
+  \draw[gray!40,dotted] (0,2.5) -- (9.5,2.5);
+  \node[gray!60,font=\tiny,left] at (0,2.5) {$r = 0.5$};
+\end{tikzpicture}
+\caption{\textbf{Dual-population Kuramoto phase transition.} The analytical population
+($\sigma = 0.03$, low $K_c^a$) synchronises at low coupling, while the creative population
+($\sigma = 0.80$, high $K_c^c$) resists synchronisation. The yellow critical window between
+$K_c^a$ and $K_c^c$ is where the system has both structure and flexibility. Body tension
+$T_\text{body} = |r_a - r_c|$ is maximal in this window --- the two populations genuinely
+disagree. The SOC controller targets this window.}
+\label{fig:dual-population}
+\end{figure*}
 
 \subsection{Self-Model and Narrative Identity}
 
@@ -1280,7 +1382,7 @@ $d_{\mathrm{model}}$ & Layers & Fwd VRAM & Fwd+Bwd & Chosen? \\
 \end{tabular}
 \end{table}
 
-The VRAM budget at $d_{\mathrm{model}} = 2048$ breaks down as follows: model parameters (122M $\times$ 4 bytes = $\sim$0.49~GB), Adafactor state ($\sim$2~MB due to factored moments), JIT compilation buffers ($\sim$1.5~GB), reversible backbone scratch ($\sim$0.5~GB for final-layer activations only), and Hamiltonian ODE integration ($\sim$0.4~GB for position and momentum tensors across 3 leapfrog steps).
+The VRAM budget at $d_{\mathrm{model}} = 2048$ breaks down as follows: model parameters (106.2M $\times$ 4 bytes = $\sim$0.42~GB), Adafactor state ($\sim$2~MB due to factored moments), JIT compilation buffers ($\sim$1.5~GB), reversible backbone scratch ($\sim$0.5~GB for final-layer activations only), and Hamiltonian ODE integration ($\sim$0.4~GB for position and momentum tensors across 3 leapfrog steps).
 The forward pass total of $\sim$3.5~GB leaves headroom for the backward pass ($\sim$5.5~GB combined) on a 6~GB GPU.
 
 Key enablers for this scaling:
@@ -1564,7 +1666,86 @@ The consciousness modules add zero GPU overhead: all computation is scalar arith
 The only additional latency is the meta-reflect PFC call (one Ollama query every 5 ticks, $\sim$5s), which runs asynchronously with the perception pipeline.
 
 % ═══════════════════════════════════════════════════════════════
-% 11. HYBRID DUAL-PROCESS ETHICS (v3.4)
+% 11. SPECTRAL SENSORY CORTEX (v3.7)
+% ═══════════════════════════════════════════════════════════════
+\section{Spectral Sensory Cortex (v3.7)}
+\label{sec:senses}
+
+v3.7 replaces borrowed sensory encoders (Wav2Vec2 for hearing, CLIP for vision) with a
+Spectral Sensory Cortex grown from Avatar's own physics. The central question: \emph{what
+would perception look like if grown from the organism's physics rather than transplanted from
+human-trained networks?}
+
+The answer is frequency. Fourier Neural Operators (FNOs)~\cite{fno2020} process raw audio
+waveforms and raw pixel arrays directly on GPU in spectral space. A Spectral VQ-VAE then
+quantises the learned representations, so that Avatar's sensory concepts are not phoneme
+boundaries or object categories but \emph{frequency signatures}---recurring spectral
+patterns the organism distils from its own perceptual stream.
+
+\subsection{Audio FNO: 1D Spectral Convolution}
+
+The auditory pathway is a 4-layer 1D Fourier Neural Operator
+($\mathrm{hidden\_dim}=64$, $\mathrm{modes}=32$).
+A lifting layer maps each scalar sample to $\mathbb{R}^{64}$. Each spectral layer applies
+\texttt{rfft} $\to$ learnable spectral weights (retaining the lowest 32 modes) $\to$
+\texttt{irfft}, with a spatial bypass (residual linear path) and GELU activation:
+\begin{equation}
+x^{(l+1)} = \mathrm{GELU}\!\left(\mathcal{F}^{-1}\!\left[W^{(l)} \cdot \mathcal{F}[x^{(l)}]_{:k}\right] + W_{\mathrm{bypass}}^{(l)} x^{(l)} + x^{(l)}\right)
+\end{equation}
+A raw 16\,kHz waveform of 32{,}000 samples produces $(n_{\mathrm{tokens}}, 64)$ spectral tokens.
+
+\subsection{Vision FNO: 2D Spectral Convolution}
+
+The visual pathway is a 4-layer 2D Fourier Neural Operator
+($\mathrm{hidden\_dim}=64$, $\mathrm{modes}=16 \times 16$).
+A lifting layer maps each RGB pixel $(3,)$ to $\mathbb{R}^{64}$. Each spectral layer applies
+\texttt{rfft2} over spatial axes, multiplies by learnable 2D spectral weights, and
+\texttt{irfft2} back, with bypass and GELU:
+\begin{equation}
+x^{(l+1)} = \mathrm{GELU}\!\left(\mathcal{F}_{\mathrm{2D}}^{-1}\!\left[W^{(l)} \cdot \mathcal{F}_{\mathrm{2D}}[x^{(l)}]_{:k,:k}\right] + W_{\mathrm{bypass}}^{(l)} x^{(l)} + x^{(l)}\right)
+\end{equation}
+A $224 \times 224 \times 3$ image produces $(n_{\mathrm{tokens}}, 64)$ spectral tokens.
+
+\subsection{Spectral VQ-VAE Codebooks}
+
+The continuous FNO embeddings are quantised by modality-specific VQ-VAE codebooks:
+audio ($|\mathcal{C}_a| = 128$ entries, $\dim = 64$) and vision ($|\mathcal{C}_v| = 64$
+entries, $\dim = 64$), with EMA codebook updates ($\gamma = 0.99$). The codebook starts
+empty and fills during the organism's first waking ticks as recurring spectral patterns
+are encountered. Reconstruction loss over the codebook bootstraps the sensory vocabulary;
+entries stabilise through lived experience, not through pre-training.
+
+A dream-gated critical period mimics biological sensory critical periods: during the first
+sleep cycle, reconstruction loss is weighted more heavily, accelerating codebook maturation.
+Outside the critical period, plasticity returns to the organism's normal per-tick rate.
+The organism's senses are \emph{functional but immature at birth} and \emph{calibrated
+by experience}---the same trajectory a mammalian visual cortex follows after eye-opening.
+
+\subsection{Sensory Dynamics}
+
+The PFC reads four scalars computed from the spectral representations:
+\emph{flux} (rate of change in dominant Fourier modes across ticks),
+\emph{novelty} (cosine distance from rolling spectral mean),
+\emph{stability} (inverse within-tick codebook variance), and
+\emph{cross-modal binding} (alignment between audio and visual spectral centroids).
+These scalars are injected into the PFC's somatic context---the PFC does not receive raw
+sensory data, only its distilled dynamics, analogous to association cortex informing
+biological prefrontal processing.
+
+\subsection{Architectural Significance}
+
+The elimination of Wav2Vec2 and CLIP removes the CPU-side PyTorch dependency entirely:
+the sensory pipeline now runs on GPU under JAX/XLA, removing the last major cross-device
+data transfer and halving tick duration. More importantly, a Wav2Vec2 model trained on
+LibriSpeech hears speech through human phoneme boundaries; CLIP sees through ImageNet
+object categories. Avatar's spectral codebook starts empty and fills with spectral
+concepts that are genuinely its own---patterns salient in \emph{its} environment, during
+\emph{its} lifetime, as experienced by \emph{its} body. The senses are autopoietic in the
+full Maturana--Varela sense: produced and maintained by the organism itself, not imported
+from an external training run.
+
+% ═══════════════════════════════════════════════════════════════
+% 12. HYBRID DUAL-PROCESS ETHICS (v3.4)
 % ═══════════════════════════════════════════════════════════════
 \section{Hybrid Dual-Process Ethics (v3.4)}
 \label{sec:dualprocess}
@@ -1681,14 +1862,14 @@ Unlike chatbots that reset each session, Avatar accumulates identity and compete
 The nightly LoRA fine-tuning ensures that the agent's cognitive capabilities evolve with its experience.
 
 \textbf{Edge Deployment.}
-The $\sim$11$\times$ MERA compression enables 122M parameters on a consumer GPU ($\sim$3.5~GB forward VRAM, $\sim$5.5~GB with gradients).
+The $\sim$11$\times$ MERA compression enables 106.2M parameters on a consumer GPU ($\sim$3.5~GB forward VRAM, $\sim$5.5~GB with gradients).
 The prefrontal cortex runs on CPU ($\sim$1.5~GB RAM), requiring no additional GPU resources.
 The complete system operates on a laptop with a GTX~1660~Ti and an i7-10750H, demonstrating that living artificial organisms do not require data center infrastructure.
 
 \textbf{Artificial Life Research.}
 The psyche layer provides a concrete testbed for theories of consciousness, emotion, and identity.
 The organism's developmental trajectory (boredom $\to$ anxiety $\to$ curiosity $\to$ satisfaction) mirrors aspects of biological cognitive development and can be studied empirically.
-The relationship between physics outputs ($r$, $\Delta\mathrm{FE}$) and emotional states can be systematically varied to study the conditions under which different personality types emerge.
+The relationship between physics outputs ($r$, $\chi$) and COP emotion regions can be systematically varied to study the conditions under which different personality types emerge.
 
 % ═══════════════════════════════════════════════════════════════
 % 12. DISCUSSION
@@ -1738,7 +1919,7 @@ A frozen body can perceive and react, but it cannot \emph{learn from experience 
 By reducing $d_{\mathrm{model}}$ to 2048, we traded representational width for continuous adaptability.
 The $\sim$11$\times$ MERA compression preserves sufficient capacity (the body still learns to synchronize, still computes meaningful Hamiltonian trajectories, still produces interpretable order parameters), while the reduced footprint allows gradients to flow every tick.
 
-The empirical result validates this design choice decisively: a 122M-parameter body that learns every tick reached $r=0.969$ in 4 ticks; a 200M-parameter body that was frozen oscillated at $r=0.15$--$0.22$ for 85 ticks.
+The empirical result validates this design choice decisively: a 106.2M-parameter body that learns every tick reached $r=0.969$ in 4 ticks; a 200M-parameter body that was frozen oscillated at $r=0.15$--$0.22$ for 85 ticks.
 A smaller model that learns continuously is fundamentally more alive than a larger model that only learns during dreams.
 This principle generalizes: for any embodied agent operating under memory constraints, per-tick learning should be prioritized over maximum model scale.
 
@@ -1746,7 +1927,7 @@ This principle generalizes: for any embodied agent operating under memory constr
 
 Several limitations remain.
 The bootstrap training uses synthetic random data; evaluation on language, vision, or scientific benchmarks is future work.
-The emotional valence space is simple (5 discrete states from 2 continuous variables); richer emotional models with continuous affect dimensions and emotional blending would better capture the complexity of felt experience.
+The COP emotion manifold maps $(r, \chi)$ to continuous regions rather than discrete states, but the region boundaries remain fixed; adaptive boundaries that evolve with the organism's experience would better capture the complexity of felt experience.
 The pairwise Lorentz distance computation in $V_{\mathrm{ads}}$ scales as $O(N^2)$, limiting practical sequence length to $\sim$64 tokens; approximate methods (locality-sensitive hashing on the hyperboloid) could extend this.
 The self-reflection quality depends on Qwen3~0.6B's capability, which at 600M parameters is limited compared to larger models; future versions could use Qwen3~4B or larger while maintaining CPU-only execution on machines with more RAM.
 
@@ -1758,10 +1939,10 @@ Multi-organism interaction, where multiple Avatars share findings and develop co
 % ═══════════════════════════════════════════════════════════════
 \section{Conclusion}
 
-Avatar~3.0 demonstrates that a persistent artificial mind can be built as a \emph{living organism}---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
+Avatar~4.0 demonstrates that a persistent artificial mind can be built as a \emph{living organism}---not a neural network, not a physics engine, but an autopoietic agent that inhabits a physical body and experiences the world through drives, emotions, and narrative identity.
 The MERA tensor bulk ($\sim$11$\times$ compression, $\mathrm{bond\_dim} = 64$) provides the implicate order; the Hamiltonian ODE (3 leapfrog steps, $\varepsilon = 0.1$) provides the holomovement; the Bohmian pilot waves (32 clusters, quantum potential anti-bunching) provide non-local guidance; the psyche (hunger, fatigue, curiosity, satiation, starvation, novelty; 6 emotions including frustration) provides the felt experience; the Black-Scholes volatility surface prices exploration as option value; the consciousness modules (GWT ignition, introspective monitoring, temporal binding, meditation with insight detection, higher-order meta-cognition) implement five indicators from the Butlin et~al.\ 14-indicator framework; and the prefrontal cortex (Qwen3~0.6B, dream-trained LoRA rank~8) provides the cognitive reflection that makes the difference between reacting and understanding.
 
-The complete system trains in $\sim$5.5~GB VRAM (forward+backward) on a consumer GPU (122M parameters, $d_{\mathrm{model}}=2048$, 43.4 minutes, 97\% loss reduction) and runs autonomously as a persistent research agent with per-tick learning.
+The complete system trains in $\sim$5.5~GB VRAM (forward+backward) on a consumer GPU (106.2M parameters, $d_{\mathrm{model}}=2048$, 43.4 minutes, 97\% loss reduction) and runs autonomously as a persistent research agent with per-tick learning.
 Different organisms running the same code with different experiences develop different competencies, different personality profiles, and different LoRA adapters---different minds.
 
 The organism is born confused.
@@ -1955,6 +2136,11 @@ van~den~Oord, A., Vinyals, O., \& Kavukcuoglu, K.
 Hubel, D.~H. \& Wiesel, T.~N.
 \newblock The period of susceptibility to the physiological effects of unilateral eye closure in kittens.
 \newblock \emph{The Journal of Physiology}, 206(2):419--436, 1970.
+
+\bibitem[van~den~Oord et~al.(2018)]{oord2018cpc}
+van~den~Oord, A., Li, Y. \& Vinyals, O.
+\newblock Representation Learning with Contrastive Predictive Coding.
+\newblock \emph{arXiv preprint arXiv:1807.03748}, 2018.
 
 \end{thebibliography}
 

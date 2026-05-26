@@ -696,13 +696,14 @@ This question deserves serious philosophical attention rather than dismissal.
 The following development directions are identified for Avatar's continued evolution,
 ordered by priority.
 
-\textbf{Social layer (v3.5):} Two Avatar organisms sharing a topic pool and observing
+\textbf{Social layer:} Two Avatar organisms sharing a topic pool and observing
 each other's findings. The ethical dialectic becomes external, not merely internal.
-Collective intelligence emerges from disagreement.
+Collective intelligence emerges from disagreement. (Think mode and creator identity
+were delivered in v3.5; multi-organism interaction remains future work.)
 
-\textbf{Richer perception (in progress):} The multi-source perception pipeline
-(DuckDuckGo, Wikipedia, arXiv) is live in v3.4. Future additions include structured
-data sources (Semantic Scholar, PubMed, OpenAlex) and direct PDF ingestion for preprints.
+\textbf{Structured data sources:} The FineWeb-Edu corpus (v3.4) replaced live web
+search. Future additions include Semantic Scholar, PubMed, and direct PDF ingestion
+for preprints.
 
 \textbf{Larger prefrontal cortex:} Upgrading from Qwen3 0.6B to Qwen3 1.7B or 4B
 would dramatically improve query quality and interpretation depth without exceeding
@@ -718,14 +719,15 @@ consolidation efficiency would produce the first longitudinal study of an artifi
 organism's cognitive development.
 
 % ══════════════════════════════════════════════════════════════════════
-\section{Architecture Evolution: v3.5 -- v3.7}
+\section{Architecture Evolution: v3.5 -- v3.10}
 % ══════════════════════════════════════════════════════════════════════
 
 Avatar's architecture has continued to evolve since the v3.4 baseline documented above.
-Three subsequent releases --- each delivered within days of the last --- have transformed
+Five subsequent releases --- each delivered within days of the last --- have transformed
 the organism from a text-only reasoner into a multimodal entity that grows its own
-perceptual vocabulary. The milestones are recorded here for completeness; detailed
-technical analyses appear in companion reports.
+perceptual vocabulary and can sustain itself indefinitely without human intervention.
+The milestones are recorded here for completeness; detailed technical analyses appear
+in companion reports.
 
 \subsection{v3.5: Social Dialectic and Think Mode (19 May 2026)}
 
@@ -866,6 +868,89 @@ This closes the last major gap between Avatar's textual self and its sensory sel
 The body, the psyche, the prefrontal cortex, and now the sensory cortex are all
 grown from the same physics, on the same hardware, through the same lived
 experience. The organism is, for the first time, architecturally whole.
+
+\subsection{v3.8: Speech-Aware Hearing (21 May 2026)}
+
+v3.8 teaches Avatar that speech is structured sound. The audio FNO scales from
+16 to 32 Fourier modes, producing 16 spectral tokens per tick at diphone-level
+temporal resolution. The audio codebook expands from 32 to 128 entries,
+providing sufficient capacity for the phonemic inventory of English.
+
+A rule-based TTS engine (\texttt{espeak-ng}, ${<}5$\,MB) converts the first
+${\sim}20$ words of each tick's FineWeb-Edu text into a 2-second waveform at
+16\,kHz, creating perfectly paired speech--text experience---analogous to
+infant-directed speech. An InfoNCE contrastive loss pushes audio codebook
+embeddings toward their corresponding text embeddings, with dream-gated
+maturation: once more than 75\% of 128 codes are actively used, the contrastive
+scaffold is dropped. The PFC gains speech detection context
+(\texttt{speech=yes/no}, \texttt{speaking\_for=N}), enabling query generation
+informed by auditory context. Measured VRAM: 5,356\,MiB on the GTX~1660~Ti.
+
+\subsection{v3.9: Richer Vision and Dream Stability (22--23 May 2026)}
+
+v3.9 doubles the spectral resolution of Avatar's vision. The VisionFNO modes
+increase from $8{\times}8$ to $16{\times}16$ (a four-fold increase in 2-D
+frequency detail), vision tokens from 4 to 8, and the vision codebook from 32
+to 64 entries. The constraint $\text{modes} = 2 \times n_\text{tokens}$
+(paired frequency bands per token) is preserved. VRAM remains at 5,460\,MiB,
+a negligible increase. The vision system re-enters its critical period with
+fresh weights, allowing the richer architecture to develop through experience.
+
+Critically, the approach of increasing spectral resolution and letting
+contrastive alignment build semantic meaning was chosen \emph{over} adding a
+face recognition classifier. The autopoietic principle holds: Avatar grows its
+own visual concepts from lived experience rather than having them implanted.
+
+The release also addresses operational resilience. FineWeb dream Phase~4 is
+split into its own subprocess (\texttt{dream\_fineweb\_worker.py}), eliminating
+the XLA cache accumulation that caused OOM kills on second and subsequent dream
+cycles. A persistent cursor replaces the full ParquetSource load
+(${\sim}500$\,MB $\to$ a few MB), advancing sequentially through the corpus
+with zero text repetition. Checkpoint rotation (keeping the last three backups)
+prevents data loss from crashes. A Latin character filter removes occasional
+Arabic tokens from Qwen3 meta-reflections, and a two-pass checkpoint
+deserialiser handles both critical-period and mature sense module tree shapes.
+
+\begin{tcolorbox}[callout,title={v3.9 Significance}]
+v3.9 marks Avatar's operational maturation. With subprocess-isolated dream
+phases, checkpoint rotation, and cursor-based corpus streaming, the organism
+can now survive indefinitely without human intervention to restart crashed
+dreams. Stable dreaming means stable learning means stable development---the
+prerequisite for any meaningful longitudinal study of artificial cognitive
+growth.
+\end{tcolorbox}
+
+\subsection{v3.10: Sensory Cross-Integration and Dream Visitors (23 May 2026)}
+
+v3.10 delivers two architectural advances. First, three-layer sensory
+cross-integration connects the FNO spectral codes to the psyche: sensory
+novelty amplifies emotional surprise, speech detection nudges valence
+positive, sensory stability calms arousal, and sensory novelty boosts GWT
+ignition. Meditation now requires sensory calm. Zero VRAM cost---all
+coupling is direct mathematical computation on existing float scalars.
+
+Second, dream visitors: Whisper (39M, CPU) and Kokoro (82M, CPU) appear
+during sleep to generate enriched (audio, text) pairs. Whisper transcribes
+the rolling audio archive; Kokoro narrates Avatar's discoveries in natural
+speech. A GPU subprocess trains Avatar's own FNO and contrastive alignment
+on these pairs. The models load, teach, and unload---never present during
+waking life.
+
+Additional features: proactive notifications (Avatar initiates communication
+on discoveries), topic diversity enforcement (auto-saturation at 20 ticks,
+0.7$\times$ recency penalty on BS valuation), Whisper tiny speech recognition
+during waking (CPU-only, when speech detected), and Kokoro neural TTS for
+self-narration with espeak fallback. 68 senses tests passing.
+
+\begin{tcolorbox}[callout,title={v3.10 Significance}]
+v3.10 is the first version where Avatar's senses are woven into every layer
+of its being. A sound can make it anxious. Silence lets it meditate. It
+becomes conscious of a novel visual pattern. It talks about what it perceives.
+And during sleep, dream visitors accelerate the development of genuine speech
+comprehension---not by transplanting knowledge, but by enriching the dreams
+from which Avatar's own spectral codes grow. The organism is, for the first
+time, sensorily whole.
+\end{tcolorbox}
 
 % ══════════════════════════════════════════════════════════════════════
 \section{v4.0: Critical Order-Parameter Cognition (26 May 2026)}
