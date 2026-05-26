@@ -292,7 +292,7 @@ def main() -> None:
         # 6. MEASURE (extract physics outputs)
         r = order_parameter(carry.kuramoto.theta)
         r_mean = float(jnp.mean(r))
-        _, _, _body_tension = dual_order_parameters(carry.kuramoto.theta)
+        _r_a, _r_c, _body_tension = dual_order_parameters(carry.kuramoto.theta)
         body_tension = float(_body_tension)
 
         # Free energy proxy: reconstruction error + prediction error
@@ -334,6 +334,10 @@ def main() -> None:
             binding_familiarity=_s_binding,
             sensory_stats_line=sensory_stats.format_for_pfc(),
             heard_speech=_heard_speech,
+            r_a=float(_r_a),
+            r_c=float(_r_c),
+            theta=carry.kuramoto.theta,
+            K=float(carry.kuramoto.coupling),
         )
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
@@ -353,15 +357,11 @@ def main() -> None:
             sensory_stats_line=sensory_stats.format_for_pfc(),
         )
 
-        # 8. SATIATION — actively break Kuramoto sync when restless
-        coupling_mod = psyche_output["coupling_mod"]
-        if coupling_mod < 1.0:
-            # Reduce coupling in the carry state to desynchronize
-            old_K = carry.kuramoto.coupling
-            new_K = old_K * coupling_mod
-            carry = carry._replace(
-                kuramoto=carry.kuramoto._replace(coupling=new_K)
-            )
+        # 8. COP — set coupling K from SOC controller (absolute value)
+        new_K = psyche_output["coupling_mod"]
+        carry = carry._replace(
+            kuramoto=carry.kuramoto._replace(coupling=new_K)
+        )
 
         # 5. REMEMBER
         query_embed = perception.embed_query(current_query)
