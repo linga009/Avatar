@@ -51,31 +51,35 @@ class PredictiveProcessor:
         self._sense_opt_state = None
 
     def predict(self, model, carry, key) -> jnp.ndarray:
-        """Generate predicted boundary coordinates from current state.
+        """Generate predicted boundary coordinates from recent experience.
 
-        Uses the backbone + Hamiltonian to predict what q_data SHOULD
-        look like for the organism's current internal state.
+        Uses the Page memory ring buffer: the organism predicts that
+        the next observation will resemble recent observations. This is
+        a genuine temporal prediction — if the environment is stable,
+        prediction error is low; if something new appears, error spikes.
+
         Returns q_predicted: (n_tokens, d_boundary).
         """
-        from halo3.hamiltonian import leapfrog_integrate
-        from halo3.kuramoto import kuramoto_action
-
         cfg = model.cfg
+        page_mem = carry.page_mem
 
-        # Use current Kuramoto state to condition the backbone
-        actions = kuramoto_action(carry.kuramoto, cfg.n_actions)
-        delta_v = model.belief_bridge(carry.kuramoto.theta)
+        # Number of valid entries in the ring buffer
+        n_valid = jnp.minimum(page_mem.n_cached, cfg.max_cache)
 
-        # Generate prediction from internal state (no external input)
-        # Use the mean of recent backbone output as "expected" input
-        k1, k2 = jax.random.split(key)
-        # Internal prediction: random noise shaped by internal state
-        h_internal = jax.random.normal(k1, (cfg.n_tokens, cfg.d_model)) * 0.1
-        h_internal = h_internal + delta_v
+        # Use the most recent n_tokens entries as the prediction
+        # (circular buffer: write pointer is at n_cached % max_cache)
+        write_ptr = page_mem.n_cached % cfg.max_cache
+        indices = (write_ptr - jnp.arange(1, cfg.n_tokens + 1)) % cfg.max_cache
+        h_predicted = page_mem.cache[indices]  # (n_tokens, d_model)
 
-        # Run through backbone to get predicted representation
-        q_predicted, _ = model.lorentz_embed(h_internal)
+        # Fallback for empty buffer (first tick)
+        is_empty = n_valid < cfg.n_tokens
+        k1, _ = jax.random.split(key)
+        h_fallback = jax.random.normal(k1, (cfg.n_tokens, cfg.d_model)) * 0.01
+        h_predicted = jnp.where(is_empty, h_fallback, h_predicted)
 
+        # Project to boundary coordinates
+        q_predicted, _ = model.lorentz_embed(h_predicted)
         return q_predicted
 
     def compute_prediction_error(
