@@ -5,6 +5,7 @@ from halo3.config import Halo3Config
 from halo3.kuramoto import (
     KuramotoState, init_kuramoto, kuramoto_step, kuramoto_action,
     order_parameter, quantum_potential, dual_order_parameters,
+    cluster_coherence_matrix, unity_index,
 )
 
 _CFG = Halo3Config(d_model=64, n_heads=4, d_head=16, n_layers=6, d_state=8, d_boundary=8, n_clusters=4, n_tokens=4, n_hidden=4, n_obs=4, n_actions=4, layer_pattern="SSSSSH", lora_rank=4, mera_bond_dim=4, mera_n_cores=2, n_leapfrog_steps=2, meta_n_hidden=4, meta_n_actions=2, meta_k=3, max_cache=8, island_size=4)
@@ -169,3 +170,44 @@ def test_analytical_omega_tighter_than_creative():
         f"Creative std {omega_c_std:.4f} must exceed desync threshold "
         f"{_CFG.init_coupling / 1.6:.4f}"
     )
+
+
+def test_coherence_matrix_shape():
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    C = cluster_coherence_matrix(theta)
+    assert C.shape == (_CFG.n_clusters, _CFG.n_clusters)
+
+
+def test_coherence_matrix_range():
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    C = cluster_coherence_matrix(theta)
+    assert jnp.all(C >= 0.0)
+    assert jnp.all(C <= 1.0 + 1e-5)
+
+
+def test_coherence_matrix_diagonal_ones():
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    C = cluster_coherence_matrix(theta)
+    assert jnp.allclose(jnp.diag(C), 1.0, atol=1e-5)
+
+
+def test_coherence_matrix_symmetric():
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    C = cluster_coherence_matrix(theta)
+    assert jnp.allclose(C, C.T, atol=1e-5)
+
+
+def test_unity_index_synchronized():
+    theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+    C = cluster_coherence_matrix(theta)
+    U, gap = unity_index(C)
+    assert U > 0.9
+    assert gap > 0.9
+
+
+def test_unity_index_range():
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    C = cluster_coherence_matrix(theta)
+    U, gap = unity_index(C)
+    assert 0.0 <= U <= 1.0 + 1e-5
+    assert 0.0 <= gap <= 1.0 + 1e-5

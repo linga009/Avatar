@@ -190,3 +190,40 @@ def dual_order_parameters(theta: jnp.ndarray) -> tuple:
     r_c = jnp.mean(order_parameter(theta[:, mid:]))
     body_tension = jnp.abs(r_a - r_c)
     return r_a, r_c, body_tension
+
+
+def cluster_coherence_matrix(theta: jnp.ndarray) -> jnp.ndarray:
+    """Phase-difference matrix for cluster mean phases.
+
+    Args:
+        theta: (K, n_hidden) oscillator phases
+
+    Returns:
+        (K, K) matrix of |exp(i(psi_k - psi_l))| where psi_k = mean phase of cluster k.
+    """
+    psi = jnp.angle(jnp.mean(jnp.exp(1j * theta), axis=1))  # (K,)
+    diff = psi[:, None] - psi[None, :]  # (K, K)
+    return jnp.abs(jnp.exp(1j * diff))
+
+
+def unity_index(C: jnp.ndarray) -> tuple[float, float]:
+    """Unity index and eigenvalue gap from coherence matrix.
+
+    U = lambda_1 / sum(lambda_k)  — dominance of leading mode.
+    gap = (lambda_1 - lambda_2) / lambda_1  — separation.
+
+    U -> 1 with large gap = unified cognitive state (one subject).
+    Multiple comparable eigenvalues = fragmented.
+
+    Args:
+        C: (K, K) symmetric coherence matrix
+
+    Returns:
+        (U, gap) both in [0, 1]
+    """
+    eigenvalues = jnp.linalg.eigvalsh(C)
+    eigenvalues = jnp.flip(eigenvalues)  # descending
+    total = jnp.sum(eigenvalues)
+    U = eigenvalues[0] / (total + 1e-8)
+    gap = (eigenvalues[0] - eigenvalues[1]) / (eigenvalues[0] + 1e-8)
+    return float(U), float(gap)
