@@ -59,6 +59,7 @@ class TemporalBinder:
         emotion: str,
         topic: str,
         fe_delta: float,
+        tau_norm: float = 0.5,
     ) -> dict:
         """Record this tick and compute temporal binding signals.
 
@@ -83,9 +84,9 @@ class TemporalBinder:
 
         # Weighted combination
         self.temporal_coherence = (
-            0.4 * topic_coherence +
-            0.3 * emotion_coherence +
-            0.3 * r_smoothness
+            0.5 * tau_norm +
+            0.3 * topic_coherence +
+            0.2 * r_smoothness
         )
 
         # --- Sustained attention ---
