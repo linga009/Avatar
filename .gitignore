@@ -25,6 +25,7 @@ htmlcov/
 *.pdf
 .claude/
 .worktrees/
+.superpowers/
 
 # Runtime data — never commit large binaries or ephemeral state
 data/checkpoints/
