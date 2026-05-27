@@ -106,8 +106,9 @@ class Organism:
         chi_norm = cop["chi"]
         tau_norm = cop["tau"]
 
-        # Track zero-result streak
-        if perception_failed:
+        # Track zero-result streak (low-r success counts as failure too —
+        # search returning irrelevant docs is not meaningful perception)
+        if perception_failed or r_mean < 0.25:
             self._consecutive_zero_results += 1
         else:
             # Record dead query if it failed many times then we moved on

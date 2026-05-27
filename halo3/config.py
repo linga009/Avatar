@@ -98,7 +98,7 @@ class Halo3Config:
 
     # COP (Critical Order-Parameter Cognition) — v4.0
     cop_window: int = 20
-    cop_eta: float = 0.0005
+    cop_eta: float = 0.005
     cop_K_min: float = 0.05
     cop_K_max: float = 2.0
     cop_coherence_ema: float = 0.02  # memory ~50 ticks — slow enough to resolve fragmentation

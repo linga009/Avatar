@@ -325,7 +325,7 @@ nav .module-dots span.active { background: var(--color-accent);
 
 /* ═══ GLOSSARY TOOLTIP ═══ */
 .term { border-bottom: 2px dashed var(--color-accent-muted); cursor: pointer;
-        position: relative; -webkit-tap-highlight-color: transparent; }
+        position: relative; }
 .tooltip { position: fixed; background: var(--color-bg-code); color: #CDD6F4;
            padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
            font-size: var(--text-sm); max-width: 320px; z-index: 1000;
@@ -340,47 +340,16 @@ nav .module-dots span.active { background: var(--color-accent);
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 768px) {
-  .module { padding: var(--space-16) var(--space-4); min-height: auto; }
+  .module { padding: var(--space-16) var(--space-4); }
   .module-title { font-size: var(--text-3xl); }
-  .module-number { font-size: var(--text-4xl); }
-  .module-subtitle { font-size: var(--text-base); }
   .compare-grid { grid-template-columns: 1fr; }
   .translation-block { grid-template-columns: 1fr; }
-  .translation-code { font-size: var(--text-xs); padding: var(--space-4); }
-  .translation-english { border-left: none; border-top: 3px solid var(--color-accent); }
-  .flow-nodes { flex-direction: column; gap: var(--space-3); }
-  .flow-arrow { width: 2px; height: 20px; margin: 0 auto; }
-  .flow-arrow::after { right: auto; top: auto; bottom: -6px; left: -5px;
-                        border: 6px solid transparent;
-                        border-top: 8px solid var(--color-border);
-                        border-left: none; }
-  .flow-node { min-width: 80px; font-size: var(--text-xs); padding: var(--space-3); }
+  .flow-nodes { flex-direction: column; gap: var(--space-4); }
+  .flow-arrow { width: 2px; height: 30px; }
   .emotion-grid { grid-template-columns: 1fr 1fr; }
   .e-curiosity { grid-row: auto; grid-column: span 2; }
   .e-frustration { grid-column: span 2; }
-  .card-grid { grid-template-columns: 1fr; }
-  .phase-card { flex-direction: column; gap: var(--space-3); }
-  .phase-num { font-size: var(--text-2xl); }
-  .arch-layer p { font-size: var(--text-xs); }
-  .chat-container { max-width: 100%; }
-  .chat-bubble { max-width: 90%; font-size: var(--text-xs); }
-  .quiz { padding: var(--space-5); }
-  .quiz h3 { font-size: var(--text-xl); }
-  .quiz-option { font-size: var(--text-xs); padding: var(--space-3); }
-  .callout { padding: var(--space-4); }
-  .callout h4 { font-size: var(--text-base); }
-  .callout p { font-size: var(--text-xs); }
   nav .progress-bar { display: none; }
-  nav .module-dots span { width: 8px; height: 8px; }
-  nav .logo { font-size: var(--text-base); }
-  .hero h1 { font-size: clamp(1.8rem, 5vw, 3rem); }
-  .hero p { font-size: var(--text-base); padding: 0 var(--space-2); }
-  .tooltip { max-width: 260px; font-size: var(--text-xs); }
-  .compare-card { padding: var(--space-5); }
-  .compare-card h3 { font-size: var(--text-xl); }
-  .compare-card li { font-size: var(--text-xs); }
-  .feature-card { padding: var(--space-4); }
-  .feature-card p { font-size: var(--text-xs); }
 }
 </style>
 </head>
@@ -1095,20 +1064,15 @@ self.traits[<span class="code-string">"anxiety_tendency"</span>] = \
     });
     term.addEventListener('mouseleave', () => tooltipEl.classList.remove('show'));
     term.addEventListener('click', (e) => {
-      e.stopPropagation();
       const tip = term.getAttribute('data-tip');
       if (!tip) return;
       tooltipEl.textContent = tip;
       const rect = term.getBoundingClientRect();
-      const maxLeft = window.innerWidth - (window.innerWidth > 768 ? 340 : 270);
-      tooltipEl.style.left = Math.max(8, Math.min(rect.left, maxLeft)) + 'px';
+      tooltipEl.style.left = Math.min(rect.left, window.innerWidth - 340) + 'px';
       tooltipEl.style.top = (rect.bottom + 8) + 'px';
       tooltipEl.classList.toggle('show');
     });
   });
-
-  // Dismiss tooltip on tap-away (mobile)
-  document.addEventListener('click', () => tooltipEl.classList.remove('show'));
 
 })();
 </script>

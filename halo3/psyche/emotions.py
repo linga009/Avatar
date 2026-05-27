@@ -60,8 +60,8 @@ class EmotionState:
         effective_chi = min(1.0, chi_norm + 0.15 * sensory_novelty
                            if sensory_novelty > 0.8 else chi_norm)
 
-        # --- Frustration override ---
-        if consecutive_failures >= 3:
+        # --- Frustration override (also triggers on sustained low r) ---
+        if consecutive_failures >= 3 or (r_mean < 0.2 and consecutive_failures >= 2):
             emotion = "frustration"
             intensity = min(1.0, 0.5 + consecutive_failures * 0.1)
         # --- COP manifold regions ---
