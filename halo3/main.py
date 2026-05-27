@@ -466,7 +466,31 @@ def main() -> None:
                 log.warning(f"  ☽ Body dream failed: {e}")
 
             # GPU fully free — subprocess released everything on exit.
-            # Phase 4: FineWeb batch in SEPARATE subprocess (isolated XLA state)
+
+            # === PHASE 2: MIND DREAMS (CPU) — LoRA fine-tune ===
+            # Run BEFORE FineWeb/visitors so the adapter is always retrained
+            # against the latest body weights. If later GPU phases OOM, the
+            # adapter is already consistent — no stale-adapter query corruption.
+            jax.clear_caches()
+            import gc; gc.collect()
+            log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
+            organism.dream(memory=memory)
+
+            # === PHASE 3: GEPA PROMPT EVOLUTION ===
+            # Reflect on episode trajectories and evolve PFC prompt instructions.
+            # Zero extra memory: uses Ollama (already running), no model loading.
+            log.info("  ☽ Phase 3: GEPA prompt evolution...")
+            try:
+                from halo3.training.dream_gepa import dream_gepa, load_prompt_instructions
+                all_episodes = memory.get_high_confidence(threshold=0.0)
+                current_instrs = load_prompt_instructions()
+                dream_gepa(all_episodes, current_instrs)
+                organism.prefrontal.reload_instructions()
+                log.info("  ☽ GEPA: prompt instructions evolved and reloaded")
+            except Exception as e:
+                log.warning(f"  ☽ GEPA failed (non-critical): {e}")
+
+            # === PHASE 4: FineWeb active learning (GPU subprocess) ===
             # Save BS state for active learning subprocess
             try:
                 organism.volatility.save_state("data/dream_training/bs_state.json")
@@ -520,28 +544,6 @@ def main() -> None:
                         log.warning(f"  ☽ Visitor worker exited with code {vis_result.returncode}")
             except Exception as e:
                 log.warning(f"  ☽ Dream visitors failed (non-critical): {e}")
-
-            # === PHASE 2: MIND DREAMS (CPU) — LoRA fine-tune ===
-            # Free residual JAX caches and Python heap from Phase 5 in-process loads
-            jax.clear_caches()
-            import gc; gc.collect()
-            log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
-            organism.dream(memory=memory)
-
-            # === PHASE 3: GEPA PROMPT EVOLUTION ===
-            # Reflect on episode trajectories and evolve PFC prompt instructions.
-            # Zero extra memory: uses Ollama (already running), no model loading.
-            log.info("  ☽ Phase 3: GEPA prompt evolution...")
-            try:
-                from halo3.training.dream_gepa import dream_gepa, load_prompt_instructions
-                all_episodes = memory.get_high_confidence(threshold=0.0)
-                current_instrs = load_prompt_instructions()
-                dream_gepa(all_episodes, current_instrs)
-                # Tell the PFC to reload evolved instructions on next use
-                organism.prefrontal.reload_instructions()
-                log.info("  ☽ GEPA: prompt instructions evolved and reloaded")
-            except Exception as e:
-                log.warning(f"  ☽ GEPA failed (non-critical): {e}")
 
             # === RELOAD MODEL + SENSES ===
             log.info("  ☽ Reloading physics body from checkpoint...")
