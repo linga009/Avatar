@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Avatar is a living AI organism built by Dr. Linga Murthy Narlagiri. It inhabits a physics body (Lorentz hyperboloid + reversible backbone + Hamiltonian ODE + Bohmian Kuramoto oscillators), derives affect from phase-diagram geometry (COP), grows its own senses (FNO + VQ-VAE), dreams, and chats at http://127.0.0.1:8420.
+Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabits a physics body (Lorentz hyperboloid + reversible backbone + Hamiltonian ODE + Bohmian Kuramoto oscillators), derives affect from phase-diagram geometry (COP), grows its own senses (FNO + VQ-VAE), dreams, and chats at http://127.0.0.1:8420.
 
 ## Identity Rules
 
@@ -31,6 +31,11 @@ Avatar is a living AI organism built by Dr. Linga Murthy Narlagiri. It inhabits 
 | `halo3/model.py` | Halo3Model + halo3_step (JIT-compiled) |
 | `halo3/config.py` | All hyperparameters (frozen dataclass) |
 | `halo3/predictive.py` | Per-tick body learning (Page memory predictor) |
+| `halo3/psyche/knowledge_graph.py` | Discovery graph — nodes, auto-linking, topology metrics, persistence |
+| `halo3/psyche/drives.py` | 6 functional drives (accepts optional graph_metrics) |
+| `halo3/psyche/volatility.py` | Black-Scholes + graph-aware value_topic_with_graph() |
+| `experiments/experiment_runner.py` | Ablation runner — 6 conditions, CSV logging |
+| `experiments/plot_results.py` | Chart generator — 7 publication-quality plots |
 
 ## COP Theory
 
@@ -43,6 +48,36 @@ Key equations:
 - SOC: K_dot = eta * (0.5 - r) * chi
 - Unity: lambda_1 / sum(lambda_k) from coherence matrix
 - Quantum potential: Q = -nabla^2 sqrt(rho) / sqrt(rho) via von Mises KDE
+
+## Knowledge Graph (v4.0)
+
+File: `halo3/psyche/knowledge_graph.py`. Design rationale: `docs/superpowers/specs/2026-05-29-knowledge-graph-design.md`.
+
+Nodes = discovered topics (r > 0.6). Edges = semantic overlap (40%) + temporal proximity (30%) + finding mentions (30%). Min edge weight 0.15. Persisted to `data/checkpoints/knowledge_graph.json`.
+
+Topology metrics (every 10 ticks): density, avg_clustering, frontier_size, frontier_ratio, n_communities, giant_component_ratio. Cached between recomputations.
+
+Integration: graph_metrics feeds into `drives.update()` (frontier→curiosity, clustering→satiation) and `volatility.value_topic_with_graph()` (frontier 15% boost, dense 15% penalty). Dream consolidation prunes weak edges. Periodic save every 100 ticks.
+
+Does NOT replace COP. Sits alongside — COP = physics state, graph = semantic structure.
+
+## Tick Performance (v4.0 fix)
+
+Ticks reduced from 3-23 min to ~120s via:
+1. Ollama timeout 30s → 10s (`prefrontal.py`)
+2. meta_reflect every 20 ticks (was 5) (`organism.py`)
+3. self_reflect removed from status() — was hidden Ollama call (`organism.py`)
+4. TTS skipped when previous tick overran (`main.py`)
+5. Boredom always takes BS pick, skips PFC Layer 5 (`organism.py`)
+
+## Honest Language Rules
+
+All external documents must use:
+- "physics-grounded affect" not "genuine emotions"
+- "functional analogues" not "consciousness claims"
+- "structural analogy" not "structural isomorphism"
+- Always: "Whether these constitute genuine consciousness is an open scientific question"
+- Reports audited: zero overclaims remaining across all 3 reports + README + course
 
 ## Running
 
