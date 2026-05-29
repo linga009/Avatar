@@ -55,3 +55,8 @@ def test_compute_tension_none_inputs():
 
     tension2 = pfc._compute_tension("valid output", None)
     assert tension2 == 0.3
+
+
+def test_timeout_is_10_seconds():
+    from halo3.psyche.prefrontal import TIMEOUT
+    assert TIMEOUT == 10

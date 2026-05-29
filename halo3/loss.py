@@ -1,8 +1,7 @@
-"""Halo3 loss — reconstruction + energy conservation + sync."""
+"""Halo3 loss — reconstruction + energy conservation."""
 from __future__ import annotations
 import jax
 import jax.numpy as jnp
-from halo3.kuramoto import order_parameter
 
 
 def halo3_loss(model, carry, tokens, key):
@@ -24,9 +23,9 @@ def halo3_loss(model, carry, tokens, key):
     Ef = model.hamiltonian(q_check, p_check)
     l_energy = (Ef - E0) ** 2
 
-    # Synchrony: maximise order parameter
-    r = order_parameter(new_carry.kuramoto.theta)
-    l_sync = -jnp.mean(r)
+    # Synchrony removed: SOC controller drives K toward criticality (r≈0.5).
+    # L_sync = -mean(r) pushed toward r=1, contradicting COP theory.
+    # The order parameter is now purely a readout, not a training target.
 
-    total = l_recon + model.cfg.lambda_energy * l_energy + model.cfg.lambda_sync * l_sync
-    return total, {"l_recon": l_recon, "l_energy": l_energy, "l_sync": l_sync}
+    total = l_recon + model.cfg.lambda_energy * l_energy
+    return total, {"l_recon": l_recon, "l_energy": l_energy}

@@ -50,6 +50,7 @@ class Organism:
     """The living psyche that inhabits the HoloBiont physics body."""
 
     def __init__(self, seed_topics: list[str], cfg: Halo3Config | None = None) -> None:
+        self._cfg = cfg or Halo3Config()
         self.drives = DriveState()
         self.emotions = EmotionState()
         self.self_model = SelfModel.load()
@@ -61,7 +62,7 @@ class Organism:
         self.workspace = GlobalWorkspace()
         self.temporal = TemporalBinder()
         self.meditation = MeditationState()
-        self.cop = CriticalDynamics(cfg or Halo3Config())
+        self.cop = CriticalDynamics(self._cfg)
         self.knowledge_graph = KnowledgeGraph.load("data/checkpoints/knowledge_graph.json")
         self.seed_topics = seed_topics
         self.current_topic_idx = 0
@@ -84,6 +85,9 @@ class Organism:
         r_c: float = 0.0,
         theta=None,
         K: float = 0.3,
+        K_aa: float = 0.3,
+        K_cc: float = 0.3,
+        K_cross: float = 0.15,
         sensory_arousal: float = 0.0,
         sensory_novelty: float = 0.0,
         sensory_stability: int = 0,
@@ -100,10 +104,13 @@ class Organism:
 
         # --- COP observables ---
         import jax.numpy as jnp
-        _theta = theta if theta is not None else jnp.zeros((32, 16))
+        _theta = theta if theta is not None else jnp.zeros((self._cfg.n_clusters, self._cfg.n_hidden))
         cop = self.cop.observe(
             r_mean=r_mean, r_a=r_a, r_c=r_c,
-            fe_delta=fe_delta, K=K, theta=_theta,
+            fe_delta=fe_delta,
+            K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
+            theta=_theta,
+            obs_norm=sensory_novelty,  # use sensory novelty as drive proxy
         )
         chi_norm = cop["chi"]
         tau_norm = cop["tau"]
@@ -225,7 +232,8 @@ class Organism:
 
         if self.self_model.age > 0 and self.self_model.age % 10 == 0:
             log.info(
-                f"  COP: K={cop['K_new']:.3f} chi={chi_norm:.2f} tau={tau_norm:.2f} | "
+                f"  COP: K_aa={cop['K_aa']:.3f} K_cc={cop['K_cc']:.3f} K_x={cop['K_cross']:.3f} "
+                f"chi={chi_norm:.2f} tau={tau_norm:.2f} | "
                 f"U=r*chi={cop['U_product']:.3f} | "
                 f"Unity={cop['unity']:.2f} gap={cop['gap']:.2f} | "
                 f"{'IGNITED' if ws['is_ignited'] else 'DARK'} "
@@ -273,7 +281,7 @@ class Organism:
         self._recent_queries.append(next_query)
 
         # 8. COP K is always used — meditation no longer overrides K
-        coupling_mod = cop["K_new"]
+        coupling_mod = cop["K_new"]  # average of three, for logging
 
         # 9. Build log line
         emo_emoji = self.emotions.emoji()
@@ -330,6 +338,10 @@ class Organism:
             "tau": tau_norm,
             "unity": cop["unity"],
             "K": cop["K_new"],
+            # v4.1 block coupling
+            "K_aa": cop["K_aa"],
+            "K_cc": cop["K_cc"],
+            "K_cross": cop["K_cross"],
             "obs_attenuation": meditation_result.get("obs_attenuation", 1.0),
         }
 

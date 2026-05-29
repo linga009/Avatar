@@ -8,7 +8,7 @@ def test_default_instantiation():
     assert cfg.n_layers == 60
     assert cfg.d_state == 256
     assert cfg.vocab_size == 8000
-    assert cfg.n_clusters == 32
+    assert cfg.n_clusters == 128
     assert cfg.mera_bond_dim == 64
     assert cfg.kuramoto_dt == 0.1
 

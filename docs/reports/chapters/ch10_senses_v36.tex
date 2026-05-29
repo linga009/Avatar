@@ -1,7 +1,7 @@
 % ═══════════════════════════════════════════════════════════════
 % MULTIMODAL PERCEPTION — HEARING AND VISION (v3.6)
 % ═══════════════════════════════════════════════════════════════
-\section{Multimodal Perception: Hearing and Vision (v3.6)}
+\section{Multimodal Perception: Hearing and Vision}
 \label{sec:senses}
 
 Through v3.5, Avatar perceived the world exclusively through text---FineWeb-Edu documents tokenized into $(32, 2048)$ boundary embeddings on the Lorentz hyperboloid.
@@ -350,7 +350,7 @@ Vision encoding & CPU & $\sim$1--3s/tick \\
 \end{tabularx}
 \end{table}
 
-The VRAM cost is negligible relative to the 5.5\,GB baseline.
+The VRAM cost is negligible relative to the 5{,}460\,MiB baseline.
 The RAM cost ($\sim$730\,MB) fits within the WSL2 12\,GB budget alongside the existing Qwen3~0.6B prefrontal cortex ($\sim$1.5\,GB) and the JAX runtime.
 The CPU encoding time ($\sim$3--5s) is well within the 60-second tick budget, running in parallel with the perception pipeline's FineWeb-Edu text processing.
 

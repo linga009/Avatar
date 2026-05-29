@@ -32,7 +32,7 @@ OLLAMA_URL_LOCAL = "http://localhost:11434/api/generate"
 # Both processes use the same model — diversity from persona, not architecture
 MODEL = "qwen3:0.6b"
 MODEL_HF = "Qwen/Qwen3-0.6B"
-TIMEOUT = 30
+TIMEOUT = 10
 
 ADAPTER_PATH = "data/pfc_adapter"
 

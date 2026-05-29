@@ -3,15 +3,25 @@
 Collective inference via pilot-wave-guided synchronization.
 
 Standard Kuramoto uses mean-field coupling: dθ/dt = ω + K·sin(θ_mean - θ).
-Bohmian Kuramoto replaces this with a pilot wave from the Hamiltonian's
-momentum field plus a quantum potential Q that maintains diversity:
+Bohmian Kuramoto replaces this with an endogenous pilot wave from the
+complex order parameter z = (1/K) sum exp(i*theta_k), plus a quantum
+potential Q that maintains diversity:
 
-  dθ/dt = ω + pilot_wave + Q(θ) + obs
+  dθ/dt = ω + coupling * pilot_self + Q(θ) + obs
 
-The pilot wave ∇S is the phase gradient of the collective wave function ψ,
-derived from the Hamiltonian backbone's momentum output. Q is the Bohmian
-quantum potential: -∇²|ψ|/|ψ|, which pushes clusters apart when they
-converge (anti-bunching), preventing the swarm from collapsing.
+The pilot wave is now primarily self-consistent from the oscillator state:
+the velocity field v_k = Im(exp(-i*theta_k) / (K * z)) depends on ALL
+oscillator phases through z, making it genuinely endogenous. The
+Hamiltonian's momentum output p_final serves as secondary modulation
+(0.1x scale), providing exogenous guidance without dominating.
+
+Block coupling: K_aa (analytical self-coupling), K_cc (creative
+self-coupling), K_cross (cross-population coupling). Three independent
+controllers target each population toward r ≈ 0.5.
+
+Q is the Bohmian quantum potential: -∇²|ψ|/|ψ|, which pushes clusters
+apart when they converge (anti-bunching), preventing the swarm from
+collapsing.
 """
 from __future__ import annotations
 from typing import NamedTuple
@@ -23,7 +33,9 @@ from halo3.config import Halo3Config
 class KuramotoState(NamedTuple):
     theta: jnp.ndarray       # (K, n_hidden) phases in [0, 2π)
     omega: jnp.ndarray       # (K, n_hidden) natural frequencies
-    coupling: float           # scalar K
+    coupling_aa: float        # analytical-to-analytical coupling
+    coupling_cc: float        # creative-to-creative coupling
+    coupling_cross: float     # cross-population coupling
     key: jnp.ndarray
 
 
@@ -45,7 +57,9 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
     return KuramotoState(
         theta=jax.random.uniform(k1, (cfg.n_clusters, cfg.n_hidden)) * 2 * jnp.pi,
         omega=omega,
-        coupling=cfg.init_coupling,
+        coupling_aa=cfg.init_coupling,
+        coupling_cc=cfg.init_coupling,
+        coupling_cross=cfg.init_coupling * 0.5,  # cross-coupling starts weaker
         key=key,
     )
 
@@ -116,16 +130,18 @@ def kuramoto_step(
     cfg: Halo3Config,
     pilot_wave: jnp.ndarray | None = None,
 ) -> KuramotoState:
-    """One Euler step of Bohmian Kuramoto on n-torus.
+    """One RK2 (midpoint) step of Bohmian Kuramoto on n-torus.
 
     Args:
         state: current KuramotoState
         obs: (K, n_obs) observations as phase kicks
         cfg: config
         pilot_wave: (K, n_hidden) momentum field from Hamiltonian (optional).
-                    If None, falls back to classical mean-field coupling.
+                    Secondary modulation (0.1x) on the endogenous pilot wave.
     """
     n_hid = state.theta.shape[1]
+    K_clusters = state.theta.shape[0]
+    mid_k = K_clusters // 2
 
     # Observation drive: project obs to n_hidden dims
     n_obs = obs.shape[1]
@@ -135,24 +151,63 @@ def kuramoto_step(
         obs_drive = jnp.pad(obs, ((0, 0), (0, n_hid - n_obs)))
 
     # Quantum potential: non-local anti-bunching force from Bohmian Q
-    Q = quantum_potential(state.theta)  # (K, n_hidden)
-    # Q strength is naturally proportional to density peakedness
-    # (no artificial scaling needed with real Bohmian Q)
+    if cfg.disable_quantum_potential:
+        Q = jnp.zeros_like(state.theta)
+    else:
+        Q = quantum_potential(state.theta)
+
+    # Block coupling: different K for within-population and cross-population
+    # Build per-cluster coupling strength based on population membership
+    # For analytical clusters (first half): K_aa for self
+    # For creative clusters (second half): K_cc for self
+    coupling_self = jnp.concatenate([
+        jnp.full((mid_k,), state.coupling_aa),
+        jnp.full((K_clusters - mid_k,), state.coupling_cc),
+    ])  # (K_clusters,)
+
+    # Endogenous pilot wave: self-consistent from collective order parameter
+    pilot_self = self_consistent_pilot_wave(state.theta)
+
+    # The coupling force uses the per-cluster coupling strength
+    coupling_force = coupling_self[:, None] * pilot_self
+
+    # Add cross-population mean-field coupling
+    theta_a_mean = jnp.mean(state.theta[:mid_k], axis=0)  # (n_h,)
+    theta_c_mean = jnp.mean(state.theta[mid_k:], axis=0)  # (n_h,)
+    cross_a = state.coupling_cross * jnp.sin(theta_c_mean[None, :] - state.theta[:mid_k])
+    cross_c = state.coupling_cross * jnp.sin(theta_a_mean[None, :] - state.theta[mid_k:])
+    cross_force = jnp.concatenate([cross_a, cross_c], axis=0)
+
+    coupling_force = coupling_force + cross_force
 
     if pilot_wave is not None:
-        # Bohmian dynamics: pilot wave (∇S) replaces mean-field coupling
-        # pilot_wave is the momentum field from the Hamiltonian, projected to n_hidden
+        # External modulation from Hamiltonian p_final (secondary, scaled down)
         pw = pilot_wave[:, :n_hid] if pilot_wave.shape[1] >= n_hid else \
             jnp.pad(pilot_wave, ((0, 0), (0, n_hid - pilot_wave.shape[1])))
-        coupling_force = state.coupling * pw
-    else:
-        # Classical fallback: standard Kuramoto mean-field
-        theta_mean = jnp.mean(state.theta, axis=0)
-        coupling_force = state.coupling * jnp.sin(theta_mean[None, :] - state.theta)
+        coupling_force = coupling_force + 0.1 * coupling_self[:, None] * pw
 
-    # Euler step: ω + pilot_wave + Q + obs
-    dtheta = state.omega + coupling_force + Q + obs_drive
-    new_theta = (state.theta + cfg.kuramoto_dt * dtheta) % (2 * jnp.pi)
+    # RK2 midpoint method (more accurate than Euler for oscillator dynamics)
+    # k1: derivative at current state
+    k1 = state.omega + coupling_force + Q + obs_drive
+    theta_mid = (state.theta + 0.5 * cfg.kuramoto_dt * k1) % (2 * jnp.pi)
+
+    # k2 at midpoint: recompute self-consistent pilot wave from theta_mid
+    pilot_self_mid = self_consistent_pilot_wave(theta_mid)
+    coupling_mid = coupling_self[:, None] * pilot_self_mid
+
+    # Cross-population at midpoint
+    theta_a_mean_mid = jnp.mean(theta_mid[:mid_k], axis=0)
+    theta_c_mean_mid = jnp.mean(theta_mid[mid_k:], axis=0)
+    cross_a_mid = state.coupling_cross * jnp.sin(theta_c_mean_mid[None, :] - theta_mid[:mid_k])
+    cross_c_mid = state.coupling_cross * jnp.sin(theta_a_mean_mid[None, :] - theta_mid[mid_k:])
+    coupling_mid = coupling_mid + jnp.concatenate([cross_a_mid, cross_c_mid], axis=0)
+
+    if pilot_wave is not None:
+        coupling_mid = coupling_mid + 0.1 * coupling_self[:, None] * pw
+
+    # k2: derivative at midpoint
+    k2 = state.omega + coupling_mid + Q + obs_drive
+    new_theta = (state.theta + cfg.kuramoto_dt * k2) % (2 * jnp.pi)
 
     return state._replace(
         theta=new_theta,
@@ -176,6 +231,31 @@ def order_parameter(theta: jnp.ndarray) -> jnp.ndarray:
     r=1 means full synchronization, r=0 means uniform spread.
     """
     return jnp.abs(jnp.mean(jnp.exp(1j * theta), axis=0))
+
+
+def self_consistent_pilot_wave(theta: jnp.ndarray) -> jnp.ndarray:
+    """Endogenous pilot wave from the collective order parameter.
+
+    In Bohmian mechanics, the pilot wave nabla_S depends on the wave function
+    psi which depends on all particle positions. Here, the complex order
+    parameter z = (1/K) sum exp(i*theta_k) serves as the collective wave
+    function. The velocity field v_k = Im(exp(-i*theta_k) / (K * z))
+    depends on ALL oscillator phases through z.
+
+    This makes the pilot wave genuinely endogenous — oscillators guide
+    themselves through their collective field.
+
+    Args:
+        theta: (K, n_hidden) oscillator phases
+
+    Returns:
+        (K, n_hidden) pilot wave velocity field
+    """
+    K = theta.shape[0]
+    z = jnp.mean(jnp.exp(1j * theta), axis=0)  # (n_hidden,) complex order parameter
+    # Velocity field: gradient of the collective phase with respect to each oscillator
+    pilot = jnp.imag(jnp.exp(-1j * theta) / (K * z[None, :] + 1e-8))
+    return pilot
 
 
 def dual_order_parameters(theta: jnp.ndarray) -> tuple:

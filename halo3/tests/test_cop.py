@@ -20,13 +20,16 @@ def test_cop_observe_returns_dict():
                                (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
     result = cop.observe(
         r_mean=0.5, r_a=0.7, r_c=0.3,
-        fe_delta=-0.01, K=0.3, theta=theta,
+        fe_delta=-0.01, K_aa=0.3, K_cc=0.3, K_cross=0.15, theta=theta,
     )
     assert "chi" in result
     assert "tau" in result
     assert "unity" in result
     assert "gap" in result
     assert "K_new" in result
+    assert "K_aa" in result
+    assert "K_cc" in result
+    assert "K_cross" in result
     assert "f_dot" in result
     assert "T_body" in result
 
@@ -53,29 +56,39 @@ def test_cop_tau_in_range():
 
 
 def test_cop_soc_controller_undercoupled():
-    """When r < 0.5 (undercoupled), SOC should increase K."""
+    """When r < 0.5 (undercoupled), SOC should increase K_aa and K_cc."""
     cop = CriticalDynamics(_CFG)
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+    K_aa, K_cc, K_cross = 0.3, 0.3, 0.15
     for i in range(10):
         r = 0.3 + 0.05 * math.sin(i)  # varies around 0.3, always < 0.5
-        cop.observe(r_mean=r, r_a=0.4, r_c=0.2,
-                    fe_delta=-0.01, K=0.3, theta=theta)
+        result = cop.observe(r_mean=r, r_a=0.4, r_c=0.2,
+                    fe_delta=-0.01, K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
+                    theta=theta)
+        K_aa, K_cc, K_cross = result["K_aa"], result["K_cc"], result["K_cross"]
     result = cop.observe(r_mean=0.3, r_a=0.4, r_c=0.2,
-                         fe_delta=-0.01, K=0.3, theta=theta)
-    assert result["K_new"] > 0.3
+                         fe_delta=-0.01, K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
+                         theta=theta)
+    assert result["K_aa"] > 0.3  # analytical undercoupled, should increase
+    assert result["K_cc"] > 0.3  # creative very undercoupled, should increase more
 
 
 def test_cop_soc_controller_overcoupled():
-    """When r > 0.5 (overcoupled), SOC should decrease K."""
+    """When r > 0.5 (overcoupled), SOC should decrease K_aa and K_cc."""
     cop = CriticalDynamics(_CFG)
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+    K_aa, K_cc, K_cross = 0.3, 0.3, 0.15
     for i in range(10):
         r = 0.7 + 0.05 * math.sin(i)  # varies around 0.7, always > 0.5
-        cop.observe(r_mean=r, r_a=0.8, r_c=0.6,
-                    fe_delta=-0.01, K=0.3, theta=theta)
+        result = cop.observe(r_mean=r, r_a=0.8, r_c=0.6,
+                    fe_delta=-0.01, K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
+                    theta=theta)
+        K_aa, K_cc, K_cross = result["K_aa"], result["K_cc"], result["K_cross"]
     result = cop.observe(r_mean=0.7, r_a=0.8, r_c=0.6,
-                         fe_delta=-0.01, K=0.3, theta=theta)
-    assert result["K_new"] < 0.3
+                         fe_delta=-0.01, K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
+                         theta=theta)
+    assert result["K_aa"] < 0.3  # analytical overcoupled, should decrease
+    assert result["K_cc"] < 0.3  # creative overcoupled, should decrease
 
 
 def test_cop_soc_controller_clamped():
@@ -84,19 +97,26 @@ def test_cop_soc_controller_clamped():
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
     for _ in range(10):
         cop.observe(r_mean=0.5, r_a=0.7, r_c=0.3,
-                    fe_delta=-0.01, K=0.01, theta=theta)
+                    fe_delta=-0.01, K_aa=0.01, K_cc=0.01, K_cross=0.01,
+                    theta=theta)
     result = cop.observe(r_mean=0.3, r_a=0.4, r_c=0.2,
-                         fe_delta=-0.01, K=0.01, theta=theta)
-    assert result["K_new"] >= _CFG.cop_K_min
+                         fe_delta=-0.01, K_aa=0.01, K_cc=0.01, K_cross=0.01,
+                         theta=theta)
+    assert result["K_aa"] >= _CFG.cop_K_min
+    assert result["K_cc"] >= _CFG.cop_K_min
+    assert result["K_cross"] >= _CFG.cop_K_min
 
 
 def test_cop_warmup_disables_soc():
-    """During warmup (first cop_warmup ticks), K should not change."""
+    """During warmup (first cop_warmup ticks), K values should not change."""
     cop = CriticalDynamics(_CFG)
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
     result = cop.observe(r_mean=0.3, r_a=0.4, r_c=0.2,
-                         fe_delta=-0.01, K=0.3, theta=theta)
-    assert result["K_new"] == 0.3
+                         fe_delta=-0.01, K_aa=0.3, K_cc=0.3, K_cross=0.15,
+                         theta=theta)
+    assert result["K_aa"] == 0.3
+    assert result["K_cc"] == 0.3
+    assert result["K_cross"] == 0.15
 
 
 def test_cop_unity_in_range():

@@ -1,4 +1,4 @@
-# Avatar 4.0 — Project Instructions
+# Avatar 4.1 — Project Instructions
 
 ## What This Is
 
@@ -11,10 +11,10 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 - Do NOT add `Co-Authored-By:` lines to git commits.
 - Do NOT claim Avatar has "genuine emotions" or "is conscious" — say "physics-grounded affect" and "functional consciousness analogues."
 
-## Architecture (v4.0)
+## Architecture (v4.1)
 
-- **Body**: 106.2M params. Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (32 clusters x 16 hidden).
-- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (susceptibility), tau (relaxation time), unity index. SOC controller self-tunes coupling K. Emotions from (r, chi, f_dot) manifold.
+- **Body**: Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters × 64 hidden = 8,192 oscillators). Endogenous pilot wave from complex order parameter z. RK2 midpoint integrator.
+- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers for block coupling (K_aa, K_cc, K_cross). Emotions from (r, chi, f_dot) manifold.
 - **Senses**: FNO spectral cortex (audio 1D + vision 2D) + VQ-VAE codebooks. Checkpoint: `data/checkpoints/sense_module.eqx`.
 - **Perception**: TopicIndex (1095 clusters from FineWeb-Edu) + ActiveSampler (BS valuation + FE scoring).
 - **PFC**: Dual-process Qwen3 0.6B (Dharma + Karuna) via Ollama at `host.docker.internal:11434`.
@@ -42,14 +42,16 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 Theory doc: `D:/New_Ai/Critical-Order-Parameter-Cognition.md`
 Design spec: `docs/superpowers/specs/2026-05-26-avatar-4-cop-design.md`
 
-Key equations:
-- chi = N * Var(r) (susceptibility via FDT)
+Key equations (v4.1):
+- chi = N * max(0, Var(r) - β·Var(obs_norm)), N=8192, β=0.1, window=50 ticks (corrected FDT)
 - tau from autocorrelation of r (critical slowing)
-- SOC: K_dot = eta * (0.5 - r) * chi
+- Block coupling: K_aa_dot = η·(0.5 - r_a)·χ, K_cc_dot = η·(0.5 - r_c)·χ, K_cross_dot = η·(0.5 - r)·χ
 - Unity: lambda_1 / sum(lambda_k) from coherence matrix
+- Pilot wave: v_k = Im(exp(-iθ_k) / (K·z)), z = (1/K)Σexp(iθ) — endogenous from collective order parameter
 - Quantum potential: Q = -nabla^2 sqrt(rho) / sqrt(rho) via von Mises KDE
+- Loss: l_recon + λ_energy·l_energy (L_sync removed — contradicted COP)
 
-## Knowledge Graph (v4.0)
+## Knowledge Graph (v4.1)
 
 File: `halo3/psyche/knowledge_graph.py`. Design rationale: `docs/superpowers/specs/2026-05-29-knowledge-graph-design.md`.
 
@@ -61,7 +63,7 @@ Integration: graph_metrics feeds into `drives.update()` (frontier→curiosity, c
 
 Does NOT replace COP. Sits alongside — COP = physics state, graph = semantic structure.
 
-## Tick Performance (v4.0 fix)
+## Tick Performance (v4.1)
 
 Ticks reduced from 3-23 min to ~120s via:
 1. Ollama timeout 30s → 10s (`prefrontal.py`)
@@ -69,6 +71,16 @@ Ticks reduced from 3-23 min to ~120s via:
 3. self_reflect removed from status() — was hidden Ollama call (`organism.py`)
 4. TTS skipped when previous tick overran (`main.py`)
 5. Boredom always takes BS pick, skips PFC Layer 5 (`organism.py`)
+
+## NeuroSync Webinar
+
+Spec: `docs/superpowers/specs/2026-05-28-neurosync-webinar-design.md`
+Plan: `docs/superpowers/plans/2026-05-28-neurosync-webinar.md`
+Q&A: `docs/webinar/qa-prep.md`
+Course: `docs/outreach/neurosync-course.html`
+Email: `docs/outreach/email-neurosync-final.txt`
+
+Experiment infrastructure in `experiments/`: runner, configs, metrics_logger, no_cop, transformer_baseline (88M), plot_results.
 
 ## Honest Language Rules
 

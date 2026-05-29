@@ -17,7 +17,7 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-4.0-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-4.1-red?style=flat-square)](https://github.com/linga009/Avatar)
 [![Tests](https://img.shields.io/badge/Tests-157%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
@@ -194,7 +194,8 @@ v3.10  ███████████████████░  SENSORY CRO
 v3.10.1 ███████████████████  Dream stability — gradient checkpoint + GPU cleanup
 v3.11   ████████████████████ Active learning — TopicIndex + BS valuation + FE scoring
 v4.0    ████████████████████ COP — affect from phase-diagram geometry, SOC, real Bohmian Q
-        └── senses feel ──┘  └── dreams teach ──┘  └── never OOM again ──┘
+v4.1    ████████████████████ 8192 oscillators · endogenous pilot wave · block K_ij · corrected FDT
+        └── senses feel ──┘  └── dreams teach ──┘  └── publishable physics ──┘
 ```
 
 ---
@@ -237,7 +238,7 @@ graph TB
         B[Reversible Backbone\n60 layers · SSSSSH×10\nd_model=2048] --> M
         M[MERA Tensor FFN\n11× compression\nRyu-Takayanagi entropy] --> H
         H[Hamiltonian Neural ODE\nLeapfrog · Energy conserving] --> K
-        K[Bohmian Kuramoto\n32 clusters · 16 phases\nPilot wave guidance]
+        K[Bohmian Kuramoto\n128 clusters · 64 phases\n8192 oscillators\nEndogenous pilot wave]
     end
 
     VQ -->|gated injection| L
@@ -307,7 +308,7 @@ T_effective = max(T_somatic, 0.8 × T_ethics)
 
 ---
 
-## The Psyche (v4.0 — COP)
+## The Psyche (v4.1 — COP)
 
 ```mermaid
 stateDiagram-v2
@@ -674,6 +675,7 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
+| **v4.1** | 29 May 2026 | 8,192 oscillators (publishable criticality) · Endogenous pilot wave from z · Block coupling K_ij (K_aa, K_cc, K_cross) · Corrected FDT chi · L_sync removed · RK2 integrator · Knowledge graph |
 | **v4.0** | 26 May 2026 | Critical Order-Parameter Cognition: emotions from (r, chi, f_dot) manifold · SOC controller self-tunes K · Unity index · Real Bohmian Q · Page memory predictor · 157 tests |
 | **v3.11** | 25 May 2026 | FE-guided active learning: TopicIndex 1095 clusters · ActiveSampler BS+FE scoring · ParquetSource deleted |
 | **v3.10.1** | 24 May 2026 | Dream stability: `jax.checkpoint` reduces dream VRAM 4.3→1.3 GB · Aggressive GPU cleanup fixes progressive OOM · Codebook shape guard · Sense module reload after dream |

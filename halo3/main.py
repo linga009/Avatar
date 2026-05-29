@@ -342,7 +342,9 @@ def main() -> None:
             r_a=float(_r_a),
             r_c=float(_r_c),
             theta=carry.kuramoto.theta,
-            K=float(carry.kuramoto.coupling),
+            K_aa=float(carry.kuramoto.coupling_aa),
+            K_cc=float(carry.kuramoto.coupling_cc),
+            K_cross=float(carry.kuramoto.coupling_cross),
         )
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
@@ -364,9 +366,12 @@ def main() -> None:
         )
 
         # 8. COP — set coupling K from SOC controller (absolute value)
-        new_K = psyche_output["coupling_mod"]
         carry = carry._replace(
-            kuramoto=carry.kuramoto._replace(coupling=new_K)
+            kuramoto=carry.kuramoto._replace(
+                coupling_aa=psyche_output["K_aa"],
+                coupling_cc=psyche_output["K_cc"],
+                coupling_cross=psyche_output["K_cross"],
+            )
         )
 
         # 5. REMEMBER

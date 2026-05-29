@@ -31,8 +31,8 @@ class Halo3Config:
     lambda_energy: float = 0.1
 
     # Kuramoto
-    n_clusters: int = 32
-    n_hidden: int = 16
+    n_clusters: int = 128
+    n_hidden: int = 64
     kuramoto_dt: float = 0.1
     init_coupling: float = 0.3
     lambda_sync: float = 0.01
@@ -97,12 +97,15 @@ class Halo3Config:
     homeo_blend_clip: float = 1.0
 
     # COP (Critical Order-Parameter Cognition) — v4.0
-    cop_window: int = 20
+    cop_window: int = 50
     cop_eta: float = 0.005
     cop_K_min: float = 0.05
     cop_K_max: float = 2.0
     cop_coherence_ema: float = 0.02  # memory ~50 ticks — slow enough to resolve fragmentation
     cop_warmup: int = 5
+
+    # Experiment flags (ablation study)
+    disable_quantum_potential: bool = False
 
     # Heartbeat
     tick_interval: int = 60
