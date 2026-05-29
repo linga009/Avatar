@@ -43,6 +43,7 @@ class DriveState:
         sensory_arousal: float = 0.0,
         sensory_novelty: float = 0.0,
         chi_norm: float = 0.5,
+        graph_metrics: dict | None = None,
     ) -> None:
         """Update drives based on current tick's physics output."""
 
@@ -69,6 +70,16 @@ class DriveState:
         else:
             self.ticks_high_r = 0
             self.satiation = max(0.0, self.satiation - 0.1)
+
+        # Graph topology modulates satiation and curiosity
+        if graph_metrics:
+            # Dense local graph = well-understood → satiate faster
+            if graph_metrics.get("avg_clustering", 0) > 0.7:
+                self.satiation = min(1.0, self.satiation + 0.04)
+            # Many frontier nodes = more to explore → boost curiosity
+            frontier_ratio = graph_metrics.get("frontier_ratio", 0.5)
+            if frontier_ratio > 0.3:
+                self.curiosity = min(1.0, self.curiosity + 0.05 * frontier_ratio)
 
         # --- Starvation (emergency: no information flowing in) ---
         if perception_failed:

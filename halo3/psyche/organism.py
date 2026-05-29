@@ -26,6 +26,7 @@ from halo3.psyche.workspace import GlobalWorkspace
 from halo3.psyche.temporal import TemporalBinder
 from halo3.psyche.meditation import MeditationState
 from halo3.psyche.cop import CriticalDynamics
+from halo3.psyche.knowledge_graph import KnowledgeGraph
 from halo3.config import Halo3Config
 
 log = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ class Organism:
         self.temporal = TemporalBinder()
         self.meditation = MeditationState()
         self.cop = CriticalDynamics(cfg or Halo3Config())
+        self.knowledge_graph = KnowledgeGraph.load("data/checkpoints/knowledge_graph.json")
         self.seed_topics = seed_topics
         self.current_topic_idx = 0
         self.current_query: str = seed_topics[0] if seed_topics else "research"
@@ -120,6 +122,11 @@ class Organism:
         topic_changed = current_query != self._prev_query
         self._prev_query = current_query
 
+        # Compute graph metrics every 10 ticks
+        _graph_metrics = None
+        if self.self_model.age % 10 == 0 and self.knowledge_graph.node_count > 0:
+            _graph_metrics = self.knowledge_graph.get_topology_metrics(tick=self.self_model.age)
+
         # 1. Update drives (with perception failure + sensory signals)
         self.drives.update(
             r_mean, fe_delta,
@@ -128,6 +135,7 @@ class Organism:
             topic_changed=topic_changed,
             sensory_arousal=sensory_arousal,
             sensory_novelty=sensory_novelty,
+            graph_metrics=_graph_metrics,
         )
 
         # 2. Compute emotion (with failure context + sensory signals)
@@ -165,6 +173,16 @@ class Organism:
             pfc_finding = self.prefrontal.interpret_finding(texts, current_query, r_mean)
             finding = pfc_finding or f"{'; '.join(texts[:3])}"
 
+        # Record discovery in knowledge graph
+        if finding and r_mean > 0.6:
+            self.knowledge_graph.add_discovery(
+                topic_key=topic_key,
+                finding=finding,
+                r_mean=r_mean,
+                chi=chi_norm,
+                emotion=emotion,
+            )
+
         ws = self.workspace.update(
             r_mean, topic_key, emotion, finding,
             chi_norm=chi_norm,
@@ -183,9 +201,10 @@ class Organism:
                 f"{meditation_result['insight'][:120]}"
             )
 
-        # 3e. Higher-order thought — meta-reflection every 5 ticks
+        # 3e. Higher-order thought — meta-reflection every 20 ticks
+        # (reduced from 5 to avoid PFC call stacking — each call is 2-10s)
         meta_thought = None
-        if self.self_model.age > 0 and self.self_model.age % 5 == 0:
+        if self.self_model.age > 0 and self.self_model.age % 20 == 0:
             meta_thought = self._higher_order_reflect(temporal, self_surprise)
 
         # ═══ END CONSCIOUSNESS MODULES ═══
@@ -212,6 +231,13 @@ class Organism:
                 f"{'IGNITED' if ws['is_ignited'] else 'DARK'} "
                 f"(ratio={self.workspace.consciousness_ratio:.0%})"
             )
+            if self.knowledge_graph.node_count > 0:
+                gm = self.knowledge_graph.get_topology_metrics(tick=self.self_model.age)
+                log.info(
+                    f"  Graph: {gm['n_nodes']} nodes, {gm['n_edges']} edges | "
+                    f"density={gm['density']:.3f} clustering={gm['avg_clustering']:.3f} | "
+                    f"frontier={gm['frontier_size']}"
+                )
 
         # 4a. Auto-saturation: topics visited many times without r progress
         # are stuck — mark dead so PFC/BS avoid them, then force escape.
@@ -246,11 +272,8 @@ class Organism:
         # Track
         self._recent_queries.append(next_query)
 
-        # 8. COP: coupling_mod is absolute K from SOC controller
-        K_new = cop["K_new"]
-        if meditation_result["coupling_override"] is not None:
-            K_new = meditation_result["coupling_override"]
-        coupling_mod = K_new
+        # 8. COP K is always used — meditation no longer overrides K
+        coupling_mod = cop["K_new"]
 
         # 9. Build log line
         emo_emoji = self.emotions.emoji()
@@ -307,6 +330,7 @@ class Organism:
             "tau": tau_norm,
             "unity": cop["unity"],
             "K": cop["K_new"],
+            "obs_attenuation": meditation_result.get("obs_attenuation", 1.0),
         }
 
     def _decide_query(
@@ -341,17 +365,20 @@ class Organism:
             log.info(f"Following exploration plan: '{planned}'")
             return planned
 
-        # --- Layer 4: Satiation → option-valued topic switch ---
+        # --- Layer 4: Satiation/boredom → option-valued topic switch ---
         if self.drives.is_satiated or emotion == "boredom":
             current_value = self.volatility.value_topic(self._extract_topic(current_query))
             best = self._highest_value_topic(exclude=current_query)
             best_value = self.volatility.value_topic(self._extract_topic(best))
-            if best_value > current_value * 1.2:  # switch only if 20% better
+            if best_value > current_value * 1.1:  # switch if 10% better (was 20%)
                 log.info(
                     f"BS VALUATION: {self._extract_topic(current_query)} "
                     f"V={current_value:.4f} → {self._extract_topic(best)} "
                     f"V={best_value:.4f}"
                 )
+                return best
+            # Even if not 10% better, skip PFC when bored — just switch
+            if emotion == "boredom":
                 return best
 
         # --- Layer 5: PFC generation ---
@@ -461,6 +488,16 @@ class Organism:
             [self._extract_topic(c) for c in candidates]
         )
 
+        # Boost frontier topics via knowledge graph
+        if self.knowledge_graph.node_count > 0 and ranked:
+            adjusted = []
+            for topic_key_r, value in ranked:
+                nm = self.knowledge_graph.get_node_metrics(topic_key_r)
+                adj_value = self.volatility.value_topic_with_graph(topic_key_r, nm)
+                adjusted.append((topic_key_r, adj_value))
+            adjusted.sort(key=lambda x: x[1], reverse=True)
+            ranked = adjusted
+
         # Map back to full topic string
         key_to_full = {self._extract_topic(c): c for c in candidates}
         if ranked:
@@ -546,6 +583,13 @@ class Organism:
     def dream(self, memory=None) -> None:
         """Called after nightly dreaming — fine-tune PFC, reset fatigue, reflect."""
 
+        # Consolidate knowledge graph during dream
+        if self.knowledge_graph.node_count > 0:
+            pruned = self.knowledge_graph.prune_weak_edges(threshold=0.1)
+            if pruned:
+                log.info(f"Dream: pruned {pruned} weak graph edges")
+            self.knowledge_graph.save("data/checkpoints/knowledge_graph.json")
+
         # Merge duplicate topics before dreaming
         n_merged = self.self_model.merge_topics()
         if n_merged:
@@ -614,23 +658,9 @@ class Organism:
         log.info(f"Awoke. {self.self_model.identity_statement}")
 
     def status(self) -> str:
-        base = (
+        """Return status string. No PFC calls — self_reflect moved to dream()."""
+        return (
             f"Age: {self.self_model.age} ticks | "
             f"{self.emotions.emoji()} {self.emotions.current} | "
             f"{self.self_model.identity_statement}"
         )
-        if self.self_model.age > 0 and self.self_model.age % 10 == 0:
-            reflection = self.prefrontal.self_reflect(
-                age=self.self_model.age,
-                emotion_history=list(self.emotions.history),
-                strengths=self.self_model.strengths,
-                weaknesses=self.self_model.weaknesses,
-                n_findings=sum(1 for n in self.self_model.narrative if "Discover" in n),
-                narrative=self.self_model.narrative,
-            )
-            if reflection:
-                self.self_model.narrative.append(
-                    f"[Tick {self.self_model.age}] Reflection: {reflection}"
-                )
-                log.info(f"  Self-narrative: {reflection}")
-        return base

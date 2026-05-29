@@ -11,10 +11,15 @@ critical functions:
 - Self-integration (updating the self-model)
 - Emotional regulation (processing without reaction)
 
-Avatar's meditation state reduces observation coupling to near-zero,
-letting the Kuramoto oscillators evolve freely. If the phases reorganize
-significantly during this period, an "insight" signal is generated —
-the organism discovered something about itself without external input.
+Avatar's meditation state attenuates external observation input,
+letting the Kuramoto oscillators evolve with their SOC-controlled coupling
+intact. If the phases reorganize significantly during this period, an
+"insight" signal is generated — the organism discovered something about
+itself without external input.
+
+Note: meditation reduces external observation coupling, not inter-oscillator
+coupling K. K stays at whatever the SOC controller sets. This prevents
+coupling collapse and thousand-tick recovery after meditation ends.
 """
 from __future__ import annotations
 import logging
@@ -31,8 +36,8 @@ class MeditationState:
     - Not novelty-seeking (no external pull)
 
     During meditation:
-    - External input coupling drops to 10%
-    - Kuramoto phases evolve freely (no observation forcing)
+    - External observation input is attenuated to 10% (obs_attenuation=0.1)
+    - Inter-oscillator coupling K stays SOC-controlled (never overridden)
     - Internal state changes are monitored for "insight"
     - Duration is limited (3-5 ticks max)
     """
@@ -41,12 +46,12 @@ class MeditationState:
         self,
         max_duration: int = 5,
         min_duration: int = 2,
-        coupling_during: float = 0.1,
+        obs_attenuation_during: float = 0.1,
         insight_threshold: float = 0.15,
     ) -> None:
         self._max_duration = max_duration
         self._min_duration = min_duration
-        self._coupling_during = coupling_during
+        self._obs_attenuation = obs_attenuation_during
         self._insight_threshold = insight_threshold
 
         # State
@@ -93,10 +98,10 @@ class MeditationState:
         """Process one tick of meditation.
 
         Returns:
-            dict with coupling_override, should_exit, insight
+            dict with coupling_override (always None), obs_attenuation, should_exit, insight
         """
         if not self.is_meditating:
-            return {"coupling_override": None, "should_exit": False, "insight": None}
+            return {"coupling_override": None, "obs_attenuation": 1.0, "should_exit": False, "insight": None}
 
         self.meditation_tick += 1
 
@@ -132,7 +137,8 @@ class MeditationState:
             log.info(f"  ◎ Exiting meditation after {self.meditation_tick} ticks ({exit_reason})")
 
         return {
-            "coupling_override": 0.02 if self.is_meditating else None,
+            "coupling_override": None,  # K stays SOC-controlled — meditation attenuates obs, not K
+            "obs_attenuation": self._obs_attenuation if self.is_meditating else 1.0,
             "should_exit": should_exit,
             "insight": insight,
         }

@@ -199,6 +199,19 @@ class VolatilitySurface:
 
         return bs_value
 
+    def value_topic_with_graph(self, topic: str, node_metrics: dict | None = None) -> float:
+        """Adjust BS value based on knowledge graph position."""
+        base_value = self.value_topic(topic)
+        if not node_metrics:
+            return base_value
+        degree = node_metrics.get("degree", 0)
+        if degree <= 1:
+            base_value *= 1.15
+        clustering = node_metrics.get("clustering_coeff", 0.0)
+        if clustering > 0.8:
+            base_value *= 0.85
+        return base_value
+
     def rank_topics(self, candidates: list[str]) -> list[tuple[str, float]]:
         """Rank candidate topics by option value. Best first."""
         valued = [(topic, self.value_topic(topic)) for topic in candidates]

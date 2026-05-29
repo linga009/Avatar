@@ -171,6 +171,8 @@ def main() -> None:
     _pre_dream_carry = None      # GPU carry for warm-start (transient)
     _pre_dream_carry_cpu = None   # CPU copy survives GPU cleanup during dream
 
+    _last_tick_overran = False
+    organism._obs_attenuation = 1.0  # meditation attenuates obs, not K
     while not shutdown:
         tick += 1
         tick_start = time.time()
@@ -206,7 +208,7 @@ def main() -> None:
         # TTS self-narration mixing (v3.8)
         import numpy as _np
         text_paired = False
-        if tts.available and not contrastive_aligner.matured:
+        if tts.available and not contrastive_aligner.matured and not _last_tick_overran:
             use_tts = (raw_data.audio_np is None) or (tick % cfg.tts_every_n == 0)
             if use_tts and texts:
                 narration_text = extract_narration_text(texts, max_words=20)
@@ -223,6 +225,9 @@ def main() -> None:
         sensory_stats.update(sense_info["audio_indices"], sense_info["vision_indices"])
 
         # 2. PHYSICS (the body processes input)
+        # Meditation attenuates external input (obs), not coupling K
+        if hasattr(organism, '_obs_attenuation'):
+            tokens = tokens * organism._obs_attenuation
         key, sk = jax.random.split(key)
         try:
             carry, (h_out, obs, q_final, q_data) = halo3_step(model, carry, tokens, sk)
@@ -342,6 +347,7 @@ def main() -> None:
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
+        organism._obs_attenuation = psyche_output.get("obs_attenuation", 1.0)
 
         # Push proactive notifications to chat UI
         if psyche_output.get("proactive_message"):
@@ -412,6 +418,10 @@ def main() -> None:
                 f"meditations={organism.meditation.total_meditations} "
                 f"insights={organism.meditation.total_insights}"
             )
+
+        # Save knowledge graph every 100 ticks
+        if tick % 100 == 0 and organism.knowledge_graph.node_count > 0:
+            organism.knowledge_graph.save("data/checkpoints/knowledge_graph.json")
 
         # 8. DREAM (when the body needs it)
         if psyche_output["needs_dream"]:
@@ -604,7 +614,8 @@ def main() -> None:
         # 9. SLEEP (the body rests between ticks)
         elapsed = time.time() - tick_start
         sleep_time = max(0.0, tick_interval - elapsed)
-        if elapsed > 1.5 * tick_interval:
+        _last_tick_overran = elapsed > tick_interval * 1.5
+        if _last_tick_overran:
             log.warning(f"Tick overrun: {elapsed:.1f}s (interval={tick_interval:.0f}s)")
         time.sleep(sleep_time)
 
