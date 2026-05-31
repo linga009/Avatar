@@ -58,6 +58,7 @@ class CriticalDynamics:
         K_cross: float = 0.15,
         theta=None,
         obs_norm: float = 0.0,
+        H_mean: float | None = None,
         # Legacy single-K parameter for backward compatibility
         K: float | None = None,
     ) -> dict:
@@ -106,6 +107,27 @@ class CriticalDynamics:
 
         U_product = r_mean * chi
 
+        # Thermodynamic diagnostic: Helmholtz free energy
+        F_thermo = None
+        if H_mean is not None and theta is not None:
+            # Phase entropy from cluster mean phases (histogram-based)
+            psi = jnp.angle(jnp.mean(jnp.exp(1j * _theta), axis=1))  # (K,)
+            n_bins = 16
+            # Manual histogram for JAX compatibility
+            bin_edges = jnp.linspace(-jnp.pi, jnp.pi, n_bins + 1)
+            counts = jnp.zeros(n_bins)
+            for b in range(n_bins):
+                counts = counts.at[b].set(
+                    jnp.sum((psi >= bin_edges[b]) & (psi < bin_edges[b + 1]))
+                )
+            probs = counts / (jnp.sum(counts) + 1e-12)
+            S_phase = float(-jnp.sum(probs * jnp.log(probs + 1e-12)))
+
+            # Effective temperature from COP observables
+            T_eff = chi * (1.0 + tau)
+
+            F_thermo = float(H_mean) - T_eff * S_phase
+
         return {
             "chi": chi,
             "tau": tau,
@@ -118,6 +140,7 @@ class CriticalDynamics:
             "f_dot": f_dot,
             "T_body": T_body,
             "U_product": U_product,
+            "F_thermo": F_thermo,
         }
 
     def _compute_chi(self) -> float:

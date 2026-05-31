@@ -183,3 +183,36 @@ def test_cop_harada_sasa_still_bounded():
         theta=theta, obs_norm=0.3,
     )
     assert 0.0 <= result["chi"] <= 1.0
+
+
+def test_cop_f_thermo_in_output():
+    """F_thermo should appear in output dict as a float when H_mean is provided."""
+    cop = CriticalDynamics(_CFG)
+    theta = jax.random.uniform(jax.random.PRNGKey(42),
+                               (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    for i in range(10):
+        result = cop.observe(
+            r_mean=0.5 + 0.05 * math.sin(i),
+            r_a=0.6, r_c=0.4,
+            fe_delta=-0.01,
+            K_aa=0.3, K_cc=0.3, K_cross=0.15,
+            theta=theta,
+            H_mean=1.5,
+        )
+    assert "F_thermo" in result
+    assert isinstance(result["F_thermo"], float)
+
+
+def test_cop_f_thermo_none_without_H():
+    """F_thermo should be None when H_mean is not provided."""
+    cop = CriticalDynamics(_CFG)
+    theta = jax.random.uniform(jax.random.PRNGKey(7),
+                               (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    for i in range(10):
+        result = cop.observe(
+            r_mean=0.5, r_a=0.6, r_c=0.4,
+            fe_delta=-0.01,
+            K_aa=0.3, K_cc=0.3, K_cross=0.15,
+            theta=theta,
+        )
+    assert result["F_thermo"] is None
