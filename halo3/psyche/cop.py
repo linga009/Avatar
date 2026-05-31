@@ -121,19 +121,12 @@ class CriticalDynamics:
         }
 
     def _compute_chi(self) -> float:
-        """Susceptibility with drive-variance correction.
+        """Susceptibility with Harada-Sasa FDT-violation correction.
 
-        Raw chi = N * Var(r). But in a driven system, some variance comes
-        from changing external input, not from intrinsic fluctuations near
-        criticality. We subtract an estimate of drive-induced variance:
-
-            chi_corrected = N * max(0, Var(r) - beta * Var(obs_norm))
-
-        where beta is estimated from the coupling strength. This is not
-        rigorous FDT (which requires equilibrium) but a defensible correction
-        for a driven system.
-
-        Window increased to 50 ticks (from 20) for stability at N=8192.
+        Raw chi = N * Var(r). Harada-Sasa: compute lag-1 autocorrelation
+        C(1) of r and lag-1 cross-correlation R(1) of (r, obs_norm).
+        FDT violation sigma = max(0, C(1) - R(1)) measures entropy
+        production. chi is downweighted when driving is strong.
         """
         if len(self._r_history) < 5:
             return 0.5
@@ -143,15 +136,31 @@ class CriticalDynamics:
         mean_r = sum(r_arr) / n
         var_r = sum((x - mean_r) ** 2 for x in r_arr) / n
 
-        # Drive-variance correction
-        var_drive = 0.0
-        if len(self._obs_norm_history) >= 5:
-            obs_arr = list(self._obs_norm_history)
-            mean_obs = sum(obs_arr) / len(obs_arr)
-            var_drive = sum((x - mean_obs) ** 2 for x in obs_arr) / len(obs_arr)
+        chi_raw = self._N * var_r
 
-        beta = 0.1  # coupling between drive variance and r variance
-        chi_raw = self._N * max(0.0, var_r - beta * var_drive)
+        # Harada-Sasa correction
+        centered_r = [x - mean_r for x in r_arr]
+        if var_r > 1e-12 and len(self._obs_norm_history) >= n:
+            obs_arr = list(self._obs_norm_history)[-n:]
+            mean_obs = sum(obs_arr) / n
+            centered_obs = [x - mean_obs for x in obs_arr]
+            var_obs = sum(x * x for x in centered_obs) / n
+
+            # C(1): autocorrelation of r at lag 1
+            c1 = sum(centered_r[i] * centered_r[i - 1] for i in range(1, n)) / (n - 1)
+            c1 /= (var_r + 1e-12)
+
+            # R(1): cross-correlation of r with obs at lag 1
+            if var_obs > 1e-12:
+                r1 = sum(centered_r[i] * centered_obs[i - 1]
+                         for i in range(1, n)) / (n - 1)
+                r1 /= ((var_r * var_obs) ** 0.5 + 1e-12)
+            else:
+                r1 = 0.0
+
+            # FDT violation: sigma >= 0
+            sigma = max(0.0, c1 - r1)
+            chi_raw = chi_raw / (1.0 + sigma * 5.0)
 
         if chi_raw > self._chi_max:
             self._chi_max = chi_raw

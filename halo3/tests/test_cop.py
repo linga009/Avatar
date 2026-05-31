@@ -136,3 +136,50 @@ def test_cop_t_body():
     result = cop.observe(r_mean=0.5, r_a=0.8, r_c=0.2,
                          fe_delta=-0.01, K=0.3, theta=theta)
     assert abs(result["T_body"] - 0.6) < 0.01
+
+
+def test_cop_chi_driven_system_lower():
+    """Driven system (obs_norm correlated with r) should have chi <= free chi + 0.05."""
+    cop_driven = CriticalDynamics(_CFG)
+    cop_free = CriticalDynamics(_CFG)
+    theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+
+    for i in range(30):
+        r = 0.5 + 0.2 * math.sin(i * 0.3)
+        obs_driven = 0.5 + 0.2 * math.sin(i * 0.3)  # in sync with r
+        obs_free = 0.0  # constant
+
+        res_driven = cop_driven.observe(
+            r_mean=r, r_a=0.5, r_c=0.5, fe_delta=-0.01,
+            K_aa=0.3, K_cc=0.3, K_cross=0.15,
+            theta=theta, obs_norm=obs_driven,
+        )
+        res_free = cop_free.observe(
+            r_mean=r, r_a=0.5, r_c=0.5, fe_delta=-0.01,
+            K_aa=0.3, K_cc=0.3, K_cross=0.15,
+            theta=theta, obs_norm=obs_free,
+        )
+
+    assert res_driven["chi"] <= res_free["chi"] + 0.05
+
+
+def test_cop_harada_sasa_still_bounded():
+    """chi must stay in [0.0, 1.0] even with correlated r and obs_norm."""
+    cop = CriticalDynamics(_CFG)
+    theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+
+    for i in range(50):
+        r = 0.5 + 0.3 * math.sin(i * 0.2)
+        obs = 0.5 + 0.3 * math.cos(i * 0.2)  # correlated but phase-shifted
+        cop.observe(
+            r_mean=r, r_a=0.5, r_c=0.5, fe_delta=-0.01,
+            K_aa=0.3, K_cc=0.3, K_cross=0.15,
+            theta=theta, obs_norm=obs,
+        )
+
+    result = cop.observe(
+        r_mean=0.5, r_a=0.5, r_c=0.5, fe_delta=-0.01,
+        K_aa=0.3, K_cc=0.3, K_cross=0.15,
+        theta=theta, obs_norm=0.3,
+    )
+    assert 0.0 <= result["chi"] <= 1.0
