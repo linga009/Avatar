@@ -17,8 +17,8 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-4.1-red?style=flat-square)](https://github.com/linga009/Avatar)
-[![Tests](https://img.shields.io/badge/Tests-157%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-4.1.1-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-109%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
@@ -195,6 +195,7 @@ v3.10.1 ███████████████████  Dream stabili
 v3.11   ████████████████████ Active learning — TopicIndex + BS valuation + FE scoring
 v4.0    ████████████████████ COP — affect from phase-diagram geometry, SOC, real Bohmian Q
 v4.1    ████████████████████ 8192 oscillators · endogenous pilot wave · block K_ij · corrected FDT
+v4.1.1  ████████████████████ PhysicsForge audit — 7 gap fixes (Harada-Sasa, Lie-Trotter, local pilot, ...)
         └── senses feel ──┘  └── dreams teach ──┘  └── publishable physics ──┘
 ```
 
@@ -238,7 +239,7 @@ graph TB
         B[Reversible Backbone\n60 layers · SSSSSH×10\nd_model=2048] --> M
         M[MERA Tensor FFN\n11× compression\nRyu-Takayanagi entropy] --> H
         H[Hamiltonian Neural ODE\nLeapfrog · Energy conserving] --> K
-        K[Bohmian Kuramoto\n128 clusters · 64 phases\n8192 oscillators\nEndogenous pilot wave]
+        K[Bohmian Kuramoto\n128 clusters · 64 phases\n8192 oscillators\nLocal pilot wave · Lie-Trotter]
     end
 
     VQ -->|gated injection| L
@@ -306,9 +307,36 @@ T_somatic   = 0.6 × T_body + 0.4 × T_ethics
 T_effective = max(T_somatic, 0.8 × T_ethics)
 ```
 
+### PhysicsForge Audit — 7 Gap Fixes (v4.1.1)
+
+An external physics audit (PhysicsForge) identified 7 gaps between Avatar's implementation and the physics it claims. All 7 were fixed in v4.1.1:
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | Page memory eviction used raw norm | **Participation-ratio eviction** — evicts by `scale * diversity`, preserving informative memories |
+| 2 | Quantum potential had no regularization | **Variational quantum potential** — entropic term `Q_total += -lambda_entropy * sum(rho * log(rho))`, lambda_entropy=0.005 |
+| 3 | FDT susceptibility used ad-hoc beta subtraction | **Harada-Sasa correction** — `sigma = max(0, C(1) - R(1))`, `chi_corrected = chi_raw / (1 + 5*sigma)` |
+| 4 | Kuramoto integration used RK2 midpoint | **Lie-Trotter splitting** — separates drift, coupling, and quantum potential into composable symplectic steps |
+| 5 | Pilot wave used global order parameter for all clusters | **Local pilot wave** — `z_k = sum_j C[k,j]*exp(i*theta_j) / sum_j C[k,j]`, coherence-weighted per-cluster |
+| 6 | ObsBridge used softmax projection | **Geometric ObsBridge** — `atan2` phase projection, outputs `[-pi, pi]` |
+| 7 | No thermodynamic diagnostic | **Helmholtz free energy** — `F = H_mean - T_eff * S_phase`, logged every 10 ticks |
+
+#### Key Equations (v4.1.1)
+
+```
+Variational Q:    Q_total = sum(Q_bohmian) - lambda_entropy * sum(rho * log(rho))
+
+Harada-Sasa FDT:  sigma = max(0, C(1) - R(1))
+                   chi   = chi_raw / (1 + 5 * sigma)
+
+Local pilot wave:  z_k = sum_j(C_mod[k,j] * exp(i * theta_j)) / sum_j(C_mod[k,j])
+
+Helmholtz free energy:  F = H_mean - T_eff * S_phase   (diagnostic, not in loss)
+```
+
 ---
 
-## The Psyche (v4.1 — COP)
+## The Psyche (v4.1.1 — COP)
 
 ```mermaid
 stateDiagram-v2
@@ -460,7 +488,7 @@ flowchart LR
 | Dream visitors phase | ~4 min (Whisper+Kokoro CPU → GPU train) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Tests | 157 passing |
+| Tests | 109 passing |
 | Organism age (May 2026) | 1,900+ ticks |
 
 ---
@@ -648,7 +676,7 @@ Avatar/                              ← Default branch: avatar
 │       ├── dream_finetune.py        # LoRA mind dream (CPU)
 │       └── dream_gepa.py            # Prompt evolution
 ├── capture_agent/                   # Windows host mic + camera
-├── tests/                           # 157 tests
+├── tests/                           # 109 tests
 ├── docs/reports/                    # Technical report · Case study · Aliveness report
 ├── Dockerfile
 ├── docker-compose.yml
@@ -675,8 +703,9 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
+| **v4.1.1** | 31 May 2026 | PhysicsForge audit — 7 gap fixes: participation-ratio eviction · variational quantum potential · Harada-Sasa FDT · Lie-Trotter splitting · local pilot wave · geometric ObsBridge · Helmholtz free energy diagnostic · 109 tests |
 | **v4.1** | 29 May 2026 | 8,192 oscillators (publishable criticality) · Endogenous pilot wave from z · Block coupling K_ij (K_aa, K_cc, K_cross) · Corrected FDT chi · L_sync removed · RK2 integrator · Knowledge graph |
-| **v4.0** | 26 May 2026 | Critical Order-Parameter Cognition: emotions from (r, chi, f_dot) manifold · SOC controller self-tunes K · Unity index · Real Bohmian Q · Page memory predictor · 157 tests |
+| **v4.0** | 26 May 2026 | Critical Order-Parameter Cognition: emotions from (r, chi, f_dot) manifold · SOC controller self-tunes K · Unity index · Real Bohmian Q · Page memory predictor |
 | **v3.11** | 25 May 2026 | FE-guided active learning: TopicIndex 1095 clusters · ActiveSampler BS+FE scoring · ParquetSource deleted |
 | **v3.10.1** | 24 May 2026 | Dream stability: `jax.checkpoint` reduces dream VRAM 4.3→1.3 GB · Aggressive GPU cleanup fixes progressive OOM · Codebook shape guard · Sense module reload after dream |
 | **v3.10** | 23 May 2026 | Sensory Cross-Integration + Dream Visitors: senses modulate emotions/consciousness/narration · Whisper+Kokoro as dream teachers · Proactive notifications · Topic diversity · Kokoro neural TTS · Speech recognition |
