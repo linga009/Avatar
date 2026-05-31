@@ -212,3 +212,25 @@ def test_unity_index_range():
     U, gap = unity_index(jnp.abs(C))  # modulus after averaging
     assert 0.0 <= U <= 1.0 + 1e-5
     assert 0.0 <= gap <= 1.0 + 1e-5
+
+
+def test_quantum_potential_entropy_term():
+    """quantum_potential accepts lambda_entropy and returns finite forces."""
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    Q = quantum_potential(theta, lambda_entropy=0.01)
+    assert Q.shape == (_CFG.n_clusters, _CFG.n_hidden)
+    assert jnp.all(jnp.isfinite(Q))
+
+
+def test_quantum_potential_entropy_increases_spreading():
+    """Entropy term should produce at least as strong total force on clustered phases."""
+    # Asymmetric clustering: 3 clusters at ~0, 1 cluster at pi — non-uniform rho
+    theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+    theta = theta.at[-1:].set(jnp.pi)
+    # Add slight jitter so gradients are nonzero
+    theta = theta + jax.random.normal(_KEY, theta.shape) * 0.1
+    Q_no_entropy = quantum_potential(theta, lambda_entropy=0.0)
+    Q_with_entropy = quantum_potential(theta, lambda_entropy=0.05)
+    total_force_no = float(jnp.sum(jnp.abs(Q_no_entropy)))
+    total_force_with = float(jnp.sum(jnp.abs(Q_with_entropy)))
+    assert total_force_with >= total_force_no

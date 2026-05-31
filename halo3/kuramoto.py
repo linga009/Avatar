@@ -64,7 +64,8 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
     )
 
 
-def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp.ndarray:
+def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None,
+                      lambda_entropy: float = 0.005) -> jnp.ndarray:
     """Bohmian quantum force on the n-torus.
 
     Computes F_Q = -Q_scale * dQ/dtheta where Q = -nabla^2 sqrt(rho) / sqrt(rho).
@@ -118,7 +119,8 @@ def quantum_potential(theta: jnp.ndarray, key: jnp.ndarray | None = None) -> jnp
                          - grad_rho ** 2 / (4.0 * rho * sqrt_rho))
 
         Q = -lapl_sqrt_rho / sqrt_rho
-        return jnp.sum(Q)
+        S_entropy = -lambda_entropy * jnp.sum(rho * jnp.log(rho + 1e-12))
+        return jnp.sum(Q) - S_entropy
 
     F_Q = -jax.grad(_Q_total)(theta.flatten())
     return Q_scale * F_Q.reshape(K, n_h)
@@ -154,7 +156,7 @@ def kuramoto_step(
     if cfg.disable_quantum_potential:
         Q = jnp.zeros_like(state.theta)
     else:
-        Q = quantum_potential(state.theta)
+        Q = quantum_potential(state.theta, lambda_entropy=cfg.lambda_entropy)
 
     # Block coupling: different K for within-population and cross-population
     # Build per-cluster coupling strength based on population membership

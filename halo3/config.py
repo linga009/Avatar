@@ -36,6 +36,7 @@ class Halo3Config:
     kuramoto_dt: float = 0.1
     init_coupling: float = 0.3
     lambda_sync: float = 0.01
+    lambda_entropy: float = 0.005
 
     # Page memory
     max_cache: int = 128
