@@ -95,6 +95,7 @@ class Organism:
         binding_familiarity: float = 0.0,
         sensory_stats_line: str = "",
         heard_speech: str = "",
+        H_mean: float | None = None,
     ) -> dict:
         """Process one tick of lived experience."""
         self._sensory_stats_line = sensory_stats_line
@@ -111,6 +112,7 @@ class Organism:
             K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
             theta=_theta,
             obs_norm=sensory_novelty,  # use sensory novelty as drive proxy
+            H_mean=H_mean,
         )
         chi_norm = cop["chi"]
         tau_norm = cop["tau"]
@@ -238,6 +240,7 @@ class Organism:
                 f"Unity={cop['unity']:.2f} gap={cop['gap']:.2f} | "
                 f"{'IGNITED' if ws['is_ignited'] else 'DARK'} "
                 f"(ratio={self.workspace.consciousness_ratio:.0%})"
+                + (f" | F={cop['F_thermo']:.3f}" if cop.get('F_thermo') is not None else "")
             )
             if self.knowledge_graph.node_count > 0:
                 gm = self.knowledge_graph.get_topology_metrics(tick=self.self_model.age)

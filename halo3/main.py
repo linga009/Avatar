@@ -329,6 +329,13 @@ def main() -> None:
             if _heard_speech:
                 log.info(f"  Heard: \"{_heard_speech[:60]}\"")
 
+        # Hamiltonian energy for thermodynamic diagnostic
+        try:
+            _p0 = model.momentum_init(h_out)
+            _H_mean = float(model.hamiltonian(q_data, _p0))
+        except Exception:
+            _H_mean = None
+
         psyche_output = organism.tick(
             r_mean, combined_surprise, texts, current_query,
             carry_norm=carry_norm, body_tension=body_tension,
@@ -345,6 +352,7 @@ def main() -> None:
             K_aa=float(carry.kuramoto.coupling_aa),
             K_cc=float(carry.kuramoto.coupling_cc),
             K_cross=float(carry.kuramoto.coupling_cross),
+            H_mean=_H_mean,
         )
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
