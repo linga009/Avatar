@@ -222,6 +222,26 @@ def test_quantum_potential_entropy_term():
     assert jnp.all(jnp.isfinite(Q))
 
 
+def test_splitting_free_rotation_exact():
+    """With zero coupling, disabled Q, and zero obs, theta advances by omega*dt exactly."""
+    cfg_no_q = Halo3Config(
+        d_model=64, n_heads=4, d_head=16, n_layers=6, d_state=8, d_boundary=8,
+        n_clusters=4, n_tokens=4, n_hidden=4, n_obs=4, n_actions=4,
+        layer_pattern="SSSSSH", lora_rank=4, mera_bond_dim=4, mera_n_cores=2,
+        n_leapfrog_steps=2, meta_n_hidden=4, meta_n_actions=2, meta_k=3,
+        max_cache=8, island_size=4, disable_quantum_potential=True,
+    )
+    state = init_kuramoto(cfg_no_q, _KEY)
+    # Zero out all couplings
+    state = state._replace(coupling_aa=0.0, coupling_cc=0.0, coupling_cross=0.0)
+    obs = jnp.zeros((cfg_no_q.n_clusters, cfg_no_q.n_obs))
+    new_state = kuramoto_step(state, obs, cfg_no_q)
+    expected = (state.theta + state.omega * cfg_no_q.kuramoto_dt) % (2 * jnp.pi)
+    assert jnp.allclose(new_state.theta, expected, atol=1e-5), (
+        f"Free rotation not exact: max err={float(jnp.max(jnp.abs(new_state.theta - expected)))}"
+    )
+
+
 def test_quantum_potential_entropy_increases_spreading():
     """Entropy term should produce at least as strong total force on clustered phases."""
     # Asymmetric clustering: 3 clusters at ~0, 1 cluster at pi — non-uniform rho

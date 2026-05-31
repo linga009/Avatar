@@ -132,7 +132,17 @@ def kuramoto_step(
     cfg: Halo3Config,
     pilot_wave: jnp.ndarray | None = None,
 ) -> KuramotoState:
-    """One RK2 (midpoint) step of Bohmian Kuramoto on n-torus.
+    """One Lie-Trotter splitting step of Bohmian Kuramoto on n-torus.
+
+    Splits dtheta/dt = omega + coupling + Q + obs into three sub-steps:
+      (a) Free rotation (exact):  theta += omega * dt
+      (b) Coupling kick:          theta += coupling_force * dt
+      (c) Q + obs kick:           theta += (Q + obs_drive) * dt
+
+    Each sub-step applies mod 2pi to keep phases bounded. The free rotation
+    step is exact (no integration error from natural frequencies). The pilot
+    wave is computed once from post-rotation theta (more accurate than RK2
+    evaluating at a midpoint). Q is computed once from post-coupling theta.
 
     Args:
         state: current KuramotoState
@@ -144,6 +154,43 @@ def kuramoto_step(
     n_hid = state.theta.shape[1]
     K_clusters = state.theta.shape[0]
     mid_k = K_clusters // 2
+    dt = cfg.kuramoto_dt
+
+    # ── (a) Free rotation (exact) ──────────────────────────────────────
+    theta = (state.theta + state.omega * dt) % (2 * jnp.pi)
+
+    # ── (b) Coupling kick ──────────────────────────────────────────────
+    # Block coupling: different K for within-population and cross-population
+    coupling_self = jnp.concatenate([
+        jnp.full((mid_k,), state.coupling_aa),
+        jnp.full((K_clusters - mid_k,), state.coupling_cc),
+    ])  # (K_clusters,)
+
+    # Endogenous pilot wave: self-consistent from post-rotation theta
+    pilot_self = self_consistent_pilot_wave(theta)
+    coupling_force = coupling_self[:, None] * pilot_self
+
+    # Cross-population mean-field coupling
+    theta_a_mean = jnp.mean(theta[:mid_k], axis=0)  # (n_h,)
+    theta_c_mean = jnp.mean(theta[mid_k:], axis=0)  # (n_h,)
+    cross_a = state.coupling_cross * jnp.sin(theta_c_mean[None, :] - theta[:mid_k])
+    cross_c = state.coupling_cross * jnp.sin(theta_a_mean[None, :] - theta[mid_k:])
+    coupling_force = coupling_force + jnp.concatenate([cross_a, cross_c], axis=0)
+
+    # External modulation from Hamiltonian p_final (secondary, 0.1x scale)
+    if pilot_wave is not None:
+        pw = pilot_wave[:, :n_hid] if pilot_wave.shape[1] >= n_hid else \
+            jnp.pad(pilot_wave, ((0, 0), (0, n_hid - pilot_wave.shape[1])))
+        coupling_force = coupling_force + 0.1 * coupling_self[:, None] * pw
+
+    theta = (theta + coupling_force * dt) % (2 * jnp.pi)
+
+    # ── (c) Q + obs kick ──────────────────────────────────────────────
+    # Quantum potential from post-coupling theta
+    if cfg.disable_quantum_potential:
+        Q = jnp.zeros_like(theta)
+    else:
+        Q = quantum_potential(theta, lambda_entropy=cfg.lambda_entropy)
 
     # Observation drive: project obs to n_hidden dims
     n_obs = obs.shape[1]
@@ -152,67 +199,10 @@ def kuramoto_step(
     else:
         obs_drive = jnp.pad(obs, ((0, 0), (0, n_hid - n_obs)))
 
-    # Quantum potential: non-local anti-bunching force from Bohmian Q
-    if cfg.disable_quantum_potential:
-        Q = jnp.zeros_like(state.theta)
-    else:
-        Q = quantum_potential(state.theta, lambda_entropy=cfg.lambda_entropy)
-
-    # Block coupling: different K for within-population and cross-population
-    # Build per-cluster coupling strength based on population membership
-    # For analytical clusters (first half): K_aa for self
-    # For creative clusters (second half): K_cc for self
-    coupling_self = jnp.concatenate([
-        jnp.full((mid_k,), state.coupling_aa),
-        jnp.full((K_clusters - mid_k,), state.coupling_cc),
-    ])  # (K_clusters,)
-
-    # Endogenous pilot wave: self-consistent from collective order parameter
-    pilot_self = self_consistent_pilot_wave(state.theta)
-
-    # The coupling force uses the per-cluster coupling strength
-    coupling_force = coupling_self[:, None] * pilot_self
-
-    # Add cross-population mean-field coupling
-    theta_a_mean = jnp.mean(state.theta[:mid_k], axis=0)  # (n_h,)
-    theta_c_mean = jnp.mean(state.theta[mid_k:], axis=0)  # (n_h,)
-    cross_a = state.coupling_cross * jnp.sin(theta_c_mean[None, :] - state.theta[:mid_k])
-    cross_c = state.coupling_cross * jnp.sin(theta_a_mean[None, :] - state.theta[mid_k:])
-    cross_force = jnp.concatenate([cross_a, cross_c], axis=0)
-
-    coupling_force = coupling_force + cross_force
-
-    if pilot_wave is not None:
-        # External modulation from Hamiltonian p_final (secondary, scaled down)
-        pw = pilot_wave[:, :n_hid] if pilot_wave.shape[1] >= n_hid else \
-            jnp.pad(pilot_wave, ((0, 0), (0, n_hid - pilot_wave.shape[1])))
-        coupling_force = coupling_force + 0.1 * coupling_self[:, None] * pw
-
-    # RK2 midpoint method (more accurate than Euler for oscillator dynamics)
-    # k1: derivative at current state
-    k1 = state.omega + coupling_force + Q + obs_drive
-    theta_mid = (state.theta + 0.5 * cfg.kuramoto_dt * k1) % (2 * jnp.pi)
-
-    # k2 at midpoint: recompute self-consistent pilot wave from theta_mid
-    pilot_self_mid = self_consistent_pilot_wave(theta_mid)
-    coupling_mid = coupling_self[:, None] * pilot_self_mid
-
-    # Cross-population at midpoint
-    theta_a_mean_mid = jnp.mean(theta_mid[:mid_k], axis=0)
-    theta_c_mean_mid = jnp.mean(theta_mid[mid_k:], axis=0)
-    cross_a_mid = state.coupling_cross * jnp.sin(theta_c_mean_mid[None, :] - theta_mid[:mid_k])
-    cross_c_mid = state.coupling_cross * jnp.sin(theta_a_mean_mid[None, :] - theta_mid[mid_k:])
-    coupling_mid = coupling_mid + jnp.concatenate([cross_a_mid, cross_c_mid], axis=0)
-
-    if pilot_wave is not None:
-        coupling_mid = coupling_mid + 0.1 * coupling_self[:, None] * pw
-
-    # k2: derivative at midpoint
-    k2 = state.omega + coupling_mid + Q + obs_drive
-    new_theta = (state.theta + cfg.kuramoto_dt * k2) % (2 * jnp.pi)
+    theta = (theta + (Q + obs_drive) * dt) % (2 * jnp.pi)
 
     return state._replace(
-        theta=new_theta,
+        theta=theta,
         key=jax.random.split(state.key)[0],
     )
 
