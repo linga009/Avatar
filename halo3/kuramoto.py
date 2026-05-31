@@ -131,6 +131,7 @@ def kuramoto_step(
     obs: jnp.ndarray,
     cfg: Halo3Config,
     pilot_wave: jnp.ndarray | None = None,
+    coherence_weights: jnp.ndarray | None = None,
 ) -> KuramotoState:
     """One Lie-Trotter splitting step of Bohmian Kuramoto on n-torus.
 
@@ -150,6 +151,8 @@ def kuramoto_step(
         cfg: config
         pilot_wave: (K, n_hidden) momentum field from Hamiltonian (optional).
                     Secondary modulation (0.1x) on the endogenous pilot wave.
+        coherence_weights: (K, K) coherence weights for local pilot wave (optional).
+                          When None, uses global mean field (backward compatible).
     """
     n_hid = state.theta.shape[1]
     K_clusters = state.theta.shape[0]
@@ -167,7 +170,7 @@ def kuramoto_step(
     ])  # (K_clusters,)
 
     # Endogenous pilot wave: self-consistent from post-rotation theta
-    pilot_self = self_consistent_pilot_wave(theta)
+    pilot_self = self_consistent_pilot_wave(theta, coherence_weights=coherence_weights)
     coupling_force = coupling_self[:, None] * pilot_self
 
     # Cross-population mean-field coupling
@@ -225,7 +228,10 @@ def order_parameter(theta: jnp.ndarray) -> jnp.ndarray:
     return jnp.abs(jnp.mean(jnp.exp(1j * theta), axis=0))
 
 
-def self_consistent_pilot_wave(theta: jnp.ndarray) -> jnp.ndarray:
+def self_consistent_pilot_wave(
+    theta: jnp.ndarray,
+    coherence_weights: jnp.ndarray | None = None,
+) -> jnp.ndarray:
     """Endogenous pilot wave from the collective order parameter.
 
     In Bohmian mechanics, the pilot wave nabla_S depends on the wave function
@@ -237,16 +243,32 @@ def self_consistent_pilot_wave(theta: jnp.ndarray) -> jnp.ndarray:
     This makes the pilot wave genuinely endogenous — oscillators guide
     themselves through their collective field.
 
+    When coherence_weights is provided (K, K), each cluster k sees a local
+    order parameter z_k weighted by how coherent other clusters are with k
+    (from the COP engine's time-averaged coherence matrix |C_avg|). This
+    replaces the global mean field with a local one.
+
     Args:
         theta: (K, n_hidden) oscillator phases
+        coherence_weights: (K, K) coherence weights from COP engine, or None
+                          for global mean field (backward compatible)
 
     Returns:
         (K, n_hidden) pilot wave velocity field
     """
     K = theta.shape[0]
-    z = jnp.mean(jnp.exp(1j * theta), axis=0)  # (n_hidden,) complex order parameter
-    # Velocity field: gradient of the collective phase with respect to each oscillator
-    pilot = jnp.imag(jnp.exp(-1j * theta) / (K * z[None, :] + 1e-8))
+    exp_theta = jnp.exp(1j * theta)  # (K, n_hidden)
+
+    if coherence_weights is None:
+        # Global mean field (backward compatible)
+        z = jnp.mean(exp_theta, axis=0)  # (n_hidden,)
+        pilot = jnp.imag(jnp.exp(-1j * theta) / (K * z[None, :] + 1e-8))
+    else:
+        # Local order parameter weighted by coherence
+        w_norm = coherence_weights / (jnp.sum(coherence_weights, axis=1, keepdims=True) + 1e-8)
+        z_local = jnp.einsum('kj,jh->kh', w_norm, exp_theta)  # (K, n_hidden)
+        pilot = jnp.imag(jnp.exp(-1j * theta) / (K * z_local + 1e-8))
+
     return pilot
 
 

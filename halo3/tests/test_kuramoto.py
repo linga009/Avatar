@@ -5,7 +5,7 @@ from halo3.config import Halo3Config
 from halo3.kuramoto import (
     KuramotoState, init_kuramoto, kuramoto_step, kuramoto_action,
     order_parameter, quantum_potential, dual_order_parameters,
-    cluster_coherence_matrix, unity_index,
+    cluster_coherence_matrix, unity_index, self_consistent_pilot_wave,
 )
 
 _CFG = Halo3Config(d_model=64, n_heads=4, d_head=16, n_layers=6, d_state=8, d_boundary=8, n_clusters=4, n_tokens=4, n_hidden=4, n_obs=4, n_actions=4, layer_pattern="SSSSSH", lora_rank=4, mera_bond_dim=4, mera_n_cores=2, n_leapfrog_steps=2, meta_n_hidden=4, meta_n_actions=2, meta_k=3, max_cache=8, island_size=4)
@@ -254,3 +254,31 @@ def test_quantum_potential_entropy_increases_spreading():
     total_force_no = float(jnp.sum(jnp.abs(Q_no_entropy)))
     total_force_with = float(jnp.sum(jnp.abs(Q_with_entropy)))
     assert total_force_with >= total_force_no
+
+
+# --- Local pilot wave ---
+
+def test_local_pilot_wave_shape():
+    """Local pilot wave with uniform coherence weights returns correct shape and is finite."""
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    C_mod = jnp.ones((_CFG.n_clusters, _CFG.n_clusters))
+    pilot = self_consistent_pilot_wave(theta, coherence_weights=C_mod)
+    assert pilot.shape == (_CFG.n_clusters, _CFG.n_hidden)
+    assert jnp.all(jnp.isfinite(pilot))
+
+
+def test_local_pilot_wave_identity_equals_global():
+    """Uniform coherence weights should produce same result as global mean field."""
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    pilot_global = self_consistent_pilot_wave(theta, coherence_weights=None)
+    pilot_local = self_consistent_pilot_wave(theta, coherence_weights=jnp.ones((_CFG.n_clusters, _CFG.n_clusters)))
+    assert jnp.allclose(pilot_global, pilot_local, atol=1e-5)
+
+
+def test_local_pilot_wave_isolated_cluster():
+    """Diagonal coherence weights (each cluster only coherent with itself) returns finite output."""
+    theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    C_mod = jnp.eye(_CFG.n_clusters)
+    pilot = self_consistent_pilot_wave(theta, coherence_weights=C_mod)
+    assert pilot.shape == (_CFG.n_clusters, _CFG.n_hidden)
+    assert jnp.all(jnp.isfinite(pilot))

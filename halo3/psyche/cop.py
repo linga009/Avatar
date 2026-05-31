@@ -222,6 +222,14 @@ class CriticalDynamics:
         clamp = lambda x: max(self._K_min, min(self._K_max, x))
         return clamp(K_aa_new), clamp(K_cc_new), clamp(K_cross_new)
 
+    @property
+    def coherence_weights(self):
+        """Return |C_avg| for local pilot wave. None during warmup."""
+        if self._C_avg is None:
+            return None
+        import numpy as np
+        return np.abs(self._C_avg)
+
     def _update_unity(self, theta) -> tuple[float, float]:
         """Update time-averaged coherence matrix and compute unity index.
 

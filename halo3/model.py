@@ -52,7 +52,8 @@ class Halo3Model(eqx.Module):
         )
 
 
-def halo3_step(model: Halo3Model, carry: Halo3Carry, tokens: jnp.ndarray, key: jnp.ndarray):
+def halo3_step(model: Halo3Model, carry: Halo3Carry, tokens: jnp.ndarray, key: jnp.ndarray,
+               coherence_weights: jnp.ndarray | None = None):
     """One closed-loop step. Returns (new_carry, (h_out, obs, q_final, q_data))."""
     cfg = model.cfg
     k1, k2 = jax.random.split(key)
@@ -90,7 +91,8 @@ def halo3_step(model: Halo3Model, carry: Halo3Carry, tokens: jnp.ndarray, key: j
     assignment = jax.nn.softmax(model.obs_bridge.assignment_logits, axis=-1)  # (K, n_tokens)
     pilot_wave = assignment @ p_final                          # (K, d_boundary)
 
-    new_kuramoto = kuramoto_step(carry.kuramoto, obs, cfg, pilot_wave=pilot_wave)
+    new_kuramoto = kuramoto_step(carry.kuramoto, obs, cfg, pilot_wave=pilot_wave,
+                                 coherence_weights=coherence_weights)
 
     new_carry = Halo3Carry(
         kuramoto=new_kuramoto,
