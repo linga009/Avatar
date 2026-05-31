@@ -110,6 +110,7 @@ class PredictiveProcessor:
         contrastive_aligner=None,
         text_paired: bool = False,
         contrastive_weight: float = 0.0,
+        dF_dt: float = 0.0,
     ):
         """Update the physics body and sense module based on prediction error.
 
@@ -140,7 +141,7 @@ class PredictiveProcessor:
         m_grads, sm_grads = grads
 
         # SELECTIVE LEARNING for model: only Hamiltonian + MERA, NOT SSM/attention
-        lr_scale = self._adaptive_lr_scale()
+        lr_scale = self._adaptive_lr_scale(dF_dt=dF_dt)
 
         def _zero_non_target(path, grad):
             p = str(path)
@@ -190,12 +191,15 @@ class PredictiveProcessor:
         self._prediction_history.append(float(loss))
         return new_model, new_sm, float(loss), info
 
-    def _adaptive_lr_scale(self) -> float:
-        """Scale learning rate based on prediction accuracy trend.
+    def _adaptive_lr_scale(self, dF_dt: float = 0.0) -> float:
+        """Scale learning rate based on prediction accuracy + thermodynamic efficiency.
 
-        - If improving: maintain or slightly increase (up to 2x)
-        - If stagnant: reduce to prevent drift (down to 0.3x)
-        - If worsening: reduce sharply (down to 0.1x)
+        Two signals:
+        1. Prediction accuracy trend (existing): ratio of recent vs older loss
+        2. Thermodynamic efficiency (new): dF/dt from COP engine
+           - dF/dt < 0: free energy decreasing = efficient learning, boost lr
+           - dF/dt > 0: free energy increasing = wasteful, reduce lr
+           - dF/dt ~ 0: thermally equilibrated, maintain
         """
         if len(self._prediction_history) < 20:
             return 1.0
@@ -209,14 +213,24 @@ class PredictiveProcessor:
         ratio = new / old
 
         if ratio < 0.9:
-            # Improving: slight boost
-            return min(2.0, 1.0 + (0.9 - ratio))
+            base_scale = min(2.0, 1.0 + (0.9 - ratio))
         elif ratio > 1.1:
-            # Worsening: reduce to prevent drift
-            return max(0.1, 1.0 / ratio)
+            base_scale = max(0.1, 1.0 / ratio)
         else:
-            # Stagnant: slight reduction
-            return 0.8
+            base_scale = 0.8
+
+        # Thermodynamic modulation: dF/dt adjusts the base scale
+        if abs(dF_dt) > 10.0:  # only modulate when F is meaningfully changing
+            if dF_dt < 0:
+                # F decreasing = efficient thermalization, boost up to 1.3x
+                thermo_factor = min(1.3, 1.0 + abs(dF_dt) / 10000.0)
+            else:
+                # F increasing = wasteful, reduce down to 0.7x
+                thermo_factor = max(0.7, 1.0 - dF_dt / 10000.0)
+        else:
+            thermo_factor = 1.0
+
+        return max(0.1, min(2.5, base_scale * thermo_factor))
 
     def save_state(self, path: str) -> None:
         """Save prediction history to disk for persistence across dreams."""

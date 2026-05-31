@@ -17,7 +17,8 @@ from dataclasses import dataclass, field
 from collections import deque
 
 
-EMOTION_NAMES = ("satisfaction", "pride", "curiosity", "boredom", "anxiety", "frustration")
+EMOTION_NAMES = ("satisfaction", "pride", "curiosity", "boredom", "anxiety",
+                 "frustration", "flow", "exhaustion")
 
 
 @dataclass
@@ -39,6 +40,8 @@ class EmotionState:
         sensory_novelty: float = 0.0,
         sensory_stability: int = 0,
         speech_detected: bool = False,
+        dF_dt: float = 0.0,
+        f_thermo_flat_ticks: int = 0,
     ) -> tuple[str, float]:
         """Compute emotion from COP phase-diagram position.
 
@@ -60,10 +63,25 @@ class EmotionState:
         effective_chi = min(1.0, chi_norm + 0.15 * sensory_novelty
                            if sensory_novelty > 0.8 else chi_norm)
 
-        # --- Frustration override (also triggers on sustained low r) ---
-        if consecutive_failures >= 3 or (r_mean < 0.2 and consecutive_failures >= 2):
-            emotion = "frustration"
-            intensity = min(1.0, 0.5 + consecutive_failures * 0.1)
+        # --- Metabolic flow: highest priority when conditions met ---
+        # chi > 0.3, F decreasing rapidly = efficient learning
+        if effective_chi > 0.3 and dF_dt < -100.0:
+            emotion = "flow"
+            intensity = min(1.0, effective_chi * 0.5 + min(1.0, abs(dF_dt) / 5000.0) * 0.5)
+        # --- Thermodynamic exhaustion: F flat for 20+ ticks, still responsive ---
+        elif f_thermo_flat_ticks >= 20 and effective_chi > 0.2:
+            emotion = "exhaustion"
+            intensity = min(1.0, 0.4 + f_thermo_flat_ticks * 0.02)
+        # --- Frustration split: growth vs futile ---
+        elif consecutive_failures >= 3 or (r_mean < 0.2 and consecutive_failures >= 2):
+            if dF_dt < 0:
+                # F decreasing = productive struggle (growth frustration)
+                emotion = "frustration"
+                intensity = min(1.0, 0.4 + consecutive_failures * 0.08)
+            else:
+                # F flat or increasing = futile struggle
+                emotion = "frustration"
+                intensity = min(1.0, 0.6 + consecutive_failures * 0.1)
         # --- COP manifold regions ---
         elif r_mean > 0.55 and effective_chi < 0.4 and f_dot > 0.005:
             emotion = "satisfaction"
@@ -90,6 +108,8 @@ class EmotionState:
             "boredom":      (-0.3, 0.1),
             "anxiety":      (-0.6, 0.9),
             "frustration":  (-0.8, 0.8),
+            "flow":         (0.8, 0.7),   # positive, high arousal — in the zone
+            "exhaustion":   (-0.1, 0.15),  # neutral valence, very low arousal
         }
         new_v, new_a = _emo_va.get(emotion, (0.0, 0.5))
         alpha = 0.6
@@ -140,4 +160,6 @@ class EmotionState:
             "boredom": "\U0001f610",
             "anxiety": "\u26a1",
             "frustration": "\U0001f624",
+            "flow": "\U0001f525",       # fire — in the zone
+            "exhaustion": "\U0001f6b6",  # walking — depleted, seeking new ground
         }.get(self.current, "?")

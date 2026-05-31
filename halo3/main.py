@@ -168,6 +168,7 @@ def main() -> None:
     tick = 0
     current_query = seed_topics[0]
     prev_fe = None
+    _prev_dF_dt = 0.0            # dF/dt from previous tick for learning rate modulation
     _pre_dream_carry = None      # GPU carry for warm-start (transient)
     _pre_dream_carry_cpu = None   # CPU copy survives GPU cleanup during dream
 
@@ -244,6 +245,7 @@ def main() -> None:
                 contrastive_aligner=contrastive_aligner,
                 text_paired=text_paired,
                 contrastive_weight=cfg.contrastive_weight,
+                dF_dt=_prev_dF_dt,
             )
 
             # EMA codebook update (outside gradient)
@@ -358,6 +360,7 @@ def main() -> None:
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
         organism._obs_attenuation = psyche_output.get("obs_attenuation", 1.0)
+        _prev_dF_dt = psyche_output.get("dF_dt", 0.0)  # for next tick's lr modulation
 
         # Push proactive notifications to chat UI
         if psyche_output.get("proactive_message"):

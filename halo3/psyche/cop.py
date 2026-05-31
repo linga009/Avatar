@@ -42,10 +42,12 @@ class CriticalDynamics:
         self._r_history: deque[float] = deque(maxlen=self._window)
         self._fe_history: deque[float] = deque(maxlen=self._window)
         self._obs_norm_history: deque[float] = deque(maxlen=self._window)
+        self._f_thermo_history: deque[float] = deque(maxlen=self._window)
 
         self._chi_max: float = 1.0
         self._C_avg: np.ndarray | None = None
         self._tick: int = 0
+        self._dF_dt_ema: float = 0.0  # EMA of F_thermo rate of change
 
     def observe(
         self,
@@ -128,6 +130,16 @@ class CriticalDynamics:
 
             F_thermo = float(H_mean) - T_eff * S_phase
 
+        # Track F_thermo rate of change (EMA)
+        dF_dt = 0.0
+        if F_thermo is not None:
+            if len(self._f_thermo_history) > 0:
+                dF_dt = F_thermo - self._f_thermo_history[-1]
+                alpha_f = 0.3  # fast EMA for responsiveness
+                self._dF_dt_ema = alpha_f * dF_dt + (1.0 - alpha_f) * self._dF_dt_ema
+            self._f_thermo_history.append(F_thermo)
+            dF_dt = self._dF_dt_ema
+
         return {
             "chi": chi,
             "tau": tau,
@@ -141,6 +153,7 @@ class CriticalDynamics:
             "T_body": T_body,
             "U_product": U_product,
             "F_thermo": F_thermo,
+            "dF_dt": dF_dt,
         }
 
     def _compute_chi(self) -> float:

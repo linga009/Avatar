@@ -63,6 +63,7 @@ class Organism:
         self.temporal = TemporalBinder()
         self.meditation = MeditationState()
         self.cop = CriticalDynamics(self._cfg)
+        self._f_thermo_flat_ticks: int = 0  # consecutive ticks with |dF/dt| < threshold
         self.knowledge_graph = KnowledgeGraph.load("data/checkpoints/knowledge_graph.json")
         self.seed_topics = seed_topics
         self.current_topic_idx = 0
@@ -147,7 +148,14 @@ class Organism:
             graph_metrics=_graph_metrics,
         )
 
-        # 2. Compute emotion (with failure context + sensory signals)
+        # Track F_thermo flatness for exhaustion detection
+        _dF_dt = cop.get("dF_dt", 0.0)
+        if abs(_dF_dt) < 50.0:  # threshold for "flat"
+            self._f_thermo_flat_ticks += 1
+        else:
+            self._f_thermo_flat_ticks = 0
+
+        # 2. Compute emotion (with failure context + sensory signals + thermodynamics)
         emotion, intensity = self.emotions.update(
             r_mean, fe_delta,
             chi_norm=chi_norm,
@@ -156,6 +164,8 @@ class Organism:
             sensory_novelty=sensory_novelty,
             sensory_stability=sensory_stability,
             speech_detected=speech_detected,
+            dF_dt=_dF_dt,
+            f_thermo_flat_ticks=self._f_thermo_flat_ticks,
         )
 
         # 3. Update volatility surface (Black-Scholes query valuation)
@@ -346,6 +356,9 @@ class Organism:
             "K_cc": cop["K_cc"],
             "K_cross": cop["K_cross"],
             "obs_attenuation": meditation_result.get("obs_attenuation", 1.0),
+            # v4.1.1 thermodynamic
+            "dF_dt": _dF_dt,
+            "F_thermo": cop.get("F_thermo"),
         }
 
     def _decide_query(
