@@ -317,9 +317,11 @@ def _lora_finetune(examples: list[dict]) -> bool:
     labels = input_ids.clone()
     labels[attention_mask == 0] = -100
 
-    n_steps = min(50, len(examples) * 3)
+    n_steps = min(12, len(examples) * 3)
     log.info(f"Training for {n_steps} steps...")
 
+    best_loss = float("inf")
+    patience = 0
     for step in range(n_steps):
         idx = step % len(examples)
         batch_ids = input_ids[idx:idx+1]
@@ -332,8 +334,17 @@ def _lora_finetune(examples: list[dict]) -> bool:
         optimizer.step()
         optimizer.zero_grad()
 
-        if step % 10 == 0:
-            log.info(f"  LoRA step {step}/{n_steps} | loss={loss.item():.4f}")
+        cur_loss = loss.item()
+        if step % 5 == 0:
+            log.info(f"  LoRA step {step}/{n_steps} | loss={cur_loss:.4f}")
+        if cur_loss < best_loss:
+            best_loss = cur_loss
+            patience = 0
+        else:
+            patience += 1
+        if patience >= 3:
+            log.info(f"  Early stop at step {step} (loss rising for {patience} steps, best={best_loss:.4f})")
+            break
 
     # --- Post-dream validation ---
     # Test the adapter on a few prompts before saving

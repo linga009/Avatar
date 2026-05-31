@@ -417,12 +417,12 @@ class PrefrontalCortex:
             return True
         if self._try_load_adapter():
             return True
-        if self._ollama_available is None:
+        if self._ollama_available is None or not self._ollama_available:
             result = _call_ollama("/no_think Say OK", timeout=TIMEOUT)
             self._ollama_available = result is not None
             if self._ollama_available:
                 log.info(f"Dual-process PFC online (Analytical + Creative via {MODEL})")
-            else:
+            elif self._ollama_available is None:
                 log.warning("Prefrontal cortex offline (no Ollama)")
         return self._ollama_available or False
 
