@@ -37,7 +37,10 @@ class PageCurveMemory(eqx.Module):
         write_ptr = jnp.int32(state.n_cached % self.max_cache)
         new_cache = state.cache.at[write_ptr].set(x_i)
         is_full = state.n_cached >= self.max_cache
-        s_gen = jnp.sum(new_cache ** 2, axis=-1) * self.d_head / 4.0
+        sq = jnp.sum(new_cache ** 2, axis=-1)
+        qr = jnp.sum(new_cache ** 4, axis=-1)
+        pr = sq ** 2 / (qr + 1e-12)
+        s_gen = sq * pr
         evict_idx = jnp.argmin(s_gen)
         evicted = new_cache[evict_idx]
         iptr = jnp.int32(state.island_ptr % self.island_size)
