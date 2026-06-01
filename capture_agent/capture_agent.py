@@ -19,13 +19,28 @@ FRAME_INTERVAL_SECS = 10  # seconds between camera captures
 MOTION_THRESHOLD = 30     # pixel diff threshold for motion capture
 
 
+def _safe_replace(src: str, dst: str, retries: int = 5) -> None:
+    """os.replace with retries for Windows file-locking (Docker reads, antivirus)."""
+    for i in range(retries):
+        try:
+            os.replace(src, dst)
+            return
+        except (PermissionError, OSError):
+            if i == retries - 1:
+                raise
+            time.sleep(0.1 * (i + 1))
+
+
 def _write_meta(has_audio: bool, has_video: bool) -> None:
     meta = {"has_audio": has_audio, "has_video": has_video, "timestamp": time.time()}
     tmp = os.path.join(SENSES_DIR, "meta_tmp.json")
     final = os.path.join(SENSES_DIR, "meta.json")
-    with open(tmp, "w") as f:
-        json.dump(meta, f)
-    os.replace(tmp, final)  # atomic write
+    try:
+        with open(tmp, "w") as f:
+            json.dump(meta, f)
+        _safe_replace(tmp, final)
+    except (PermissionError, OSError):
+        pass  # skip this cycle, next one will succeed
 
 
 def audio_loop(stop_event: threading.Event) -> None:
@@ -51,7 +66,7 @@ def audio_loop(stop_event: threading.Event) -> None:
             audio_mono = chunk[:, 0]  # (32000,)
             tmp_path = audio_path.replace(".npy", "_tmp")
             np.save(tmp_path, audio_mono)  # np.save appends .npy automatically
-            os.replace(tmp_path + ".npy", audio_path)
+            _safe_replace(tmp_path + ".npy", audio_path)
         except Exception as e:
             print(f"Audio capture error: {e}")
             time.sleep(2)
@@ -96,7 +111,7 @@ def vision_loop(stop_event: threading.Event) -> None:
             rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
             tmp = frame_path.replace(".jpg", "_tmp.jpg")
             cv2.imwrite(tmp, cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-            os.replace(tmp, frame_path)
+            _safe_replace(tmp, frame_path)
             last_capture = now
             if motion:
                 print(f"Vision: motion detected, captured frame")

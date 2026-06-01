@@ -49,6 +49,15 @@ class CriticalDynamics:
         self._tick: int = 0
         self._dF_dt_ema: float = 0.0  # EMA of F_thermo rate of change
 
+        # Avalanche detection state
+        self._r_full_history: list[float] = []  # unbounded, for offline analysis
+        self._avalanche_sizes: list[float] = []
+        self._avalanche_durations: list[int] = []
+        self._in_avalanche: bool = False
+        self._aval_start: int = 0
+        self._aval_accum: float = 0.0  # accumulated size of current avalanche
+        self._r_median_ema: float = 0.5  # adaptive threshold (EMA of r)
+
     def observe(
         self,
         r_mean: float,
@@ -93,7 +102,7 @@ class CriticalDynamics:
         self._fe_history.append(fe_delta)
         self._obs_norm_history.append(obs_norm)
 
-        chi = self._compute_chi()
+        chi_raw, chi_norm = self._compute_chi()
         tau = self._compute_tau()
         T_body = abs(r_a - r_c)
         f_dot = -fe_delta
@@ -104,10 +113,11 @@ class CriticalDynamics:
         if self._tick <= self._warmup:
             K_aa_new, K_cc_new, K_cross_new = K_aa, K_cc, K_cross
         else:
+            # SOC controller uses RAW chi (not normalized) for responsive coupling
             K_aa_new, K_cc_new, K_cross_new = self._soc_update(
-                K_aa, K_cc, K_cross, r_mean, r_a, r_c, chi)
+                K_aa, K_cc, K_cross, r_mean, r_a, r_c, chi_raw)
 
-        U_product = r_mean * chi
+        U_product = r_mean * chi_norm
 
         # Thermodynamic diagnostic: Helmholtz free energy
         F_thermo = None
@@ -125,8 +135,8 @@ class CriticalDynamics:
             probs = counts / (jnp.sum(counts) + 1e-12)
             S_phase = float(-jnp.sum(probs * jnp.log(probs + 1e-12)))
 
-            # Effective temperature from COP observables
-            T_eff = chi * (1.0 + tau)
+            # Effective temperature from COP observables (uses raw chi)
+            T_eff = chi_raw * (1.0 + tau)
 
             F_thermo = float(H_mean) - T_eff * S_phase
 
@@ -140,8 +150,12 @@ class CriticalDynamics:
             self._f_thermo_history.append(F_thermo)
             dF_dt = self._dF_dt_ema
 
+        # Avalanche detection on r
+        aval_info = self._detect_avalanche(r_mean)
+
         return {
-            "chi": chi,
+            "chi": chi_norm,       # normalized [0,1] — for emotions, display
+            "chi_raw": chi_raw,    # unnormalized N*Var(r) — for SOC controller
             "tau": tau,
             "unity": unity_val,
             "gap": gap,
@@ -154,18 +168,133 @@ class CriticalDynamics:
             "U_product": U_product,
             "F_thermo": F_thermo,
             "dF_dt": dF_dt,
+            "avalanche": aval_info,
         }
 
-    def _compute_chi(self) -> float:
+    def post_dream_reset(self, terminal_r: float) -> None:
+        """Reset transient COP state after a dream cycle.
+
+        - Pre-fills r_history with terminal_r to prevent variance collapse
+        - Resets C_avg coherence matrix (stale after phase changes)
+        - Does NOT reset chi_max (it decays naturally via 0.995 factor)
+        """
+        # Pre-fill so the 50-tick window starts from a known state
+        self._r_history.clear()
+        for _ in range(min(10, self._window)):
+            self._r_history.append(terminal_r)
+        # Reset coherence matrix — it will re-accumulate from fresh phases
+        self._C_avg = None
+
+    # ------------------------------------------------------------------
+    # Avalanche detection — r excursions below adaptive threshold
+    # ------------------------------------------------------------------
+
+    def _detect_avalanche(self, r: float) -> dict:
+        """Track avalanches as contiguous excursions of r below threshold.
+
+        Uses an EMA of r as an adaptive threshold. An avalanche starts when
+        r drops below the threshold and ends when it rises back above.
+        Size = cumulative deficit (threshold - r) over the avalanche.
+        Duration = number of ticks below threshold.
+
+        Returns dict with current avalanche state and running totals.
+        """
+        self._r_full_history.append(r)
+
+        # Adaptive threshold: slow EMA of r (tau ~ 100 ticks)
+        alpha_thresh = 0.01
+        self._r_median_ema = alpha_thresh * r + (1.0 - alpha_thresh) * self._r_median_ema
+
+        thresh = self._r_median_ema
+        below = r < thresh
+
+        just_ended = False
+        if below and not self._in_avalanche:
+            # Avalanche starts
+            self._in_avalanche = True
+            self._aval_start = self._tick
+            self._aval_accum = thresh - r
+        elif below and self._in_avalanche:
+            # Avalanche continues
+            self._aval_accum += thresh - r
+        elif not below and self._in_avalanche:
+            # Avalanche ends — record it
+            self._in_avalanche = False
+            duration = self._tick - self._aval_start
+            if duration >= 1 and self._aval_accum > 0:
+                self._avalanche_sizes.append(self._aval_accum)
+                self._avalanche_durations.append(duration)
+                just_ended = True
+
+        return {
+            "in_avalanche": self._in_avalanche,
+            "just_ended": just_ended,
+            "n_total": len(self._avalanche_sizes),
+            "threshold": thresh,
+        }
+
+    @property
+    def avalanche_stats(self) -> dict:
+        """Compute power-law exponent estimates for accumulated avalanches.
+
+        Uses simple log-log regression as a quick diagnostic.
+        For rigorous analysis, use the powerlaw package offline.
+        """
+        n = len(self._avalanche_sizes)
+        if n < 20:
+            return {"n": n, "tau_est": None, "alpha_est": None, "branching_est": None}
+
+        sizes = np.array(self._avalanche_sizes)
+        durations = np.array(self._avalanche_durations)
+
+        # Quick tau estimate: MLE for power law on sizes
+        # For P(x) ~ x^{-tau}, MLE gives tau = 1 + n / sum(ln(x/xmin))
+        s_min = sizes[sizes > 0].min()
+        valid = sizes >= s_min
+        if valid.sum() > 5:
+            tau_est = 1.0 + valid.sum() / np.sum(np.log(sizes[valid] / s_min))
+        else:
+            tau_est = None
+
+        # Quick alpha estimate: MLE on durations
+        d_min = max(1, durations[durations > 0].min())
+        valid_d = durations >= d_min
+        if valid_d.sum() > 5:
+            alpha_est = 1.0 + valid_d.sum() / np.sum(np.log(durations[valid_d] / d_min))
+        else:
+            alpha_est = None
+
+        # Branching ratio: ratio of consecutive avalanche sizes
+        # (simplified — proper σ needs per-tick event counts)
+        if n >= 2:
+            ratios = sizes[1:] / (sizes[:-1] + 1e-12)
+            branching_est = float(np.median(ratios))
+        else:
+            branching_est = None
+
+        return {
+            "n": n,
+            "tau_est": float(tau_est) if tau_est is not None else None,
+            "alpha_est": float(alpha_est) if alpha_est is not None else None,
+            "branching_est": branching_est,
+            "mean_size": float(sizes.mean()),
+            "mean_duration": float(durations.mean()),
+            "sizes": self._avalanche_sizes,
+            "durations": self._avalanche_durations,
+        }
+
+    def _compute_chi(self) -> tuple[float, float]:
         """Susceptibility with Harada-Sasa FDT-violation correction.
 
-        Raw chi = N * Var(r). Harada-Sasa: compute lag-1 autocorrelation
-        C(1) of r and lag-1 cross-correlation R(1) of (r, obs_norm).
-        FDT violation sigma = max(0, C(1) - R(1)) measures entropy
-        production. chi is downweighted when driving is strong.
+        Returns (chi_raw, chi_norm):
+          chi_raw = N * Var(r) after Harada-Sasa correction (for SOC controller)
+          chi_norm = chi_raw / chi_max, in [0, 1] (for emotions/display)
+
+        chi_max decays at 0.995/tick (~140 tick half-life) to prevent
+        permanent suppression from transient spikes.
         """
         if len(self._r_history) < 5:
-            return 0.5
+            return 1.0, 0.5
 
         r_arr = list(self._r_history)
         n = len(r_arr)
@@ -198,10 +327,11 @@ class CriticalDynamics:
             sigma = max(0.0, c1 - r1)
             chi_raw = chi_raw / (1.0 + sigma * 5.0)
 
-        if chi_raw > self._chi_max:
-            self._chi_max = chi_raw
+        # Decaying max — forgets old spikes over ~140 ticks
+        self._chi_max = max(chi_raw, self._chi_max * 0.995)
+        chi_norm = min(1.0, chi_raw / (self._chi_max + 1e-12))
 
-        return min(1.0, chi_raw / (self._chi_max + 1e-12))
+        return chi_raw, chi_norm
 
     def _compute_tau(self) -> float:
         """Relaxation time from autocorrelation of r.
@@ -249,7 +379,9 @@ class CriticalDynamics:
         bootstrap from far-from-critical states where chi ~ 0.
         Near criticality chi >> 0.1, so the floor has no effect.
         """
-        eff_chi = max(chi, 0.1)
+        # chi is raw (N*Var(r)), typically 1-50. Floor of 1.0 lets
+        # the controller bootstrap when fluctuations are very small.
+        eff_chi = max(chi, 1.0)
 
         K_aa_new = K_aa + self._eta * (0.5 - r_a) * eff_chi
         K_cc_new = K_cc + self._eta * (0.5 - r_c) * eff_chi

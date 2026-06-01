@@ -216,3 +216,87 @@ def test_cop_f_thermo_none_without_H():
             theta=theta,
         )
     assert result["F_thermo"] is None
+
+
+# --- Avalanche detection tests ---
+
+def test_cop_avalanche_in_output():
+    """observe() should return an avalanche dict."""
+    cop = CriticalDynamics(_CFG)
+    theta = jax.random.uniform(jax.random.PRNGKey(0),
+                               (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    result = cop.observe(
+        r_mean=0.5, r_a=0.6, r_c=0.4,
+        fe_delta=-0.01, theta=theta,
+    )
+    assert "avalanche" in result
+    assert "n_total" in result["avalanche"]
+    assert "in_avalanche" in result["avalanche"]
+
+
+def test_cop_avalanche_detects_dip():
+    """A sequence with r dipping below threshold should produce an avalanche."""
+    cop = CriticalDynamics(_CFG)
+    theta = jax.random.uniform(jax.random.PRNGKey(1),
+                               (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+
+    # Feed stable r=0.5 for 20 ticks to establish threshold
+    for _ in range(20):
+        cop.observe(r_mean=0.5, r_a=0.5, r_c=0.5,
+                    fe_delta=0.0, theta=theta)
+
+    # Dip below threshold for 5 ticks
+    for _ in range(5):
+        cop.observe(r_mean=0.3, r_a=0.3, r_c=0.3,
+                    fe_delta=0.0, theta=theta)
+
+    # Return above threshold — avalanche should end
+    result = cop.observe(r_mean=0.5, r_a=0.5, r_c=0.5,
+                         fe_delta=0.0, theta=theta)
+
+    assert result["avalanche"]["n_total"] >= 1
+    assert result["avalanche"]["just_ended"] is True
+
+
+def test_cop_avalanche_no_false_positives():
+    """Constant r should produce zero avalanches."""
+    cop = CriticalDynamics(_CFG)
+    theta = jax.random.uniform(jax.random.PRNGKey(2),
+                               (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+
+    for _ in range(50):
+        cop.observe(r_mean=0.5, r_a=0.5, r_c=0.5,
+                    fe_delta=0.0, theta=theta)
+
+    assert cop.avalanche_stats["n"] == 0
+
+
+def test_cop_avalanche_stats_exponents():
+    """With enough avalanches, stats should return exponent estimates."""
+    cop = CriticalDynamics(_CFG)
+    theta = jax.random.uniform(jax.random.PRNGKey(3),
+                               (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+
+    # Generate 30 avalanches: high-low-high cycles
+    for cycle in range(30):
+        # Above threshold
+        for _ in range(5):
+            cop.observe(r_mean=0.5, r_a=0.5, r_c=0.5,
+                        fe_delta=0.0, theta=theta)
+        # Below threshold (varying depth for diverse sizes)
+        dip = 0.3 - 0.01 * (cycle % 10)
+        for _ in range(2 + cycle % 4):
+            cop.observe(r_mean=dip, r_a=dip, r_c=dip,
+                        fe_delta=0.0, theta=theta)
+
+    # End last avalanche
+    cop.observe(r_mean=0.5, r_a=0.5, r_c=0.5,
+                fe_delta=0.0, theta=theta)
+
+    stats = cop.avalanche_stats
+    assert stats["n"] >= 20
+    assert stats["tau_est"] is not None
+    assert stats["tau_est"] > 1.0  # power-law exponent > 1
+    assert stats["alpha_est"] is not None
+    assert stats["mean_size"] > 0
+    assert stats["mean_duration"] > 0

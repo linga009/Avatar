@@ -17,8 +17,7 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     numpy>=1.24 einops>=0.7.0 pyyaml pyarrow sentencepiece
 
 # Perception
-RUN pip3 install --no-cache-dir --break-system-packages \
-    sentence-transformers ddgs
+RUN pip3 install --no-cache-dir --break-system-packages ddgs
 
 # Prefrontal cortex: LoRA fine-tuning during dreaming
 RUN pip3 install --no-cache-dir --break-system-packages \

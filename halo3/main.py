@@ -171,6 +171,7 @@ def main() -> None:
     _prev_dF_dt = 0.0            # dF/dt from previous tick for learning rate modulation
     _pre_dream_carry = None      # GPU carry for warm-start (transient)
     _pre_dream_carry_cpu = None   # CPU copy survives GPU cleanup during dream
+    _ticks_since_dream = 100     # minimum waking period guard (start high so first dream allowed)
 
     _last_tick_overran = False
     organism._obs_attenuation = 1.0  # meditation attenuates obs, not K
@@ -439,8 +440,9 @@ def main() -> None:
         if tick % 100 == 0 and organism.knowledge_graph.node_count > 0:
             organism.knowledge_graph.save("data/checkpoints/knowledge_graph.json")
 
-        # 8. DREAM (when the body needs it)
-        if psyche_output["needs_dream"]:
+        # 8. DREAM (when the body needs it — minimum 100 ticks between dreams)
+        _ticks_since_dream += 1
+        if psyche_output["needs_dream"] and _ticks_since_dream >= 100:
             log.info("  ☽ Entering dream state — sequential body then mind...")
 
             # === PHASE 1: BODY DREAMS (GPU — isolated subprocess) ===
@@ -593,14 +595,21 @@ def main() -> None:
                 try:
                     _pre_dream_carry = jax.device_put(_pre_dream_carry_cpu)
                     _pre_dream_carry_cpu = None
-                    alpha = 0.3  # 30% old carry, 70% fresh (dreamed body is new)
+                    # Blend non-Kuramoto carry (0.3 old / 0.7 fresh) but
+                    # FULLY PRESERVE Kuramoto state: phases (theta), natural
+                    # frequencies (omega), and SOC-tuned coupling. Linear
+                    # interpolation of circular phases destroys synchronization.
+                    alpha = 0.3
                     def _blend(old, new):
-                        # Preserve integer types (page_mem counters, PRNG keys)
                         if hasattr(new, 'dtype') and not jnp.issubdtype(new.dtype, jnp.floating):
                             return new
                         return alpha * old + (1.0 - alpha) * new
                     carry = jax.tree_util.tree_map(_blend, _pre_dream_carry, fresh_carry)
-                    log.info("  ☽ Warm-started carry from pre-dream state (alpha=0.3)")
+                    # Restore Kuramoto state verbatim from pre-dream
+                    carry = carry._replace(
+                        kuramoto=_pre_dream_carry.kuramoto,
+                    )
+                    log.info("  ☽ Warm-started carry (Kuramoto phases+coupling preserved)")
                 except Exception:
                     carry = fresh_carry
                     log.info("  ☽ Carry warm-start failed, using fresh init")
@@ -612,6 +621,7 @@ def main() -> None:
             # Restore predictor optimizer state
             predictor.restore_state("data/predictor_state.npz")
 
+            _ticks_since_dream = 0  # reset waking period counter
             log.info(f"  ☽ Awoke. {organism.self_model.identity_statement}")
             log.info(f"  ☽ Prediction accuracy: {predictor.recent_prediction_accuracy:.4f}")
 

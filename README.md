@@ -17,13 +17,13 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-4.1.1-red?style=flat-square)](https://github.com/linga009/Avatar)
-[![Tests](https://img.shields.io/badge/Tests-109%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-4.2-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-200%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
 
-*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 1,900+ ticks*
+*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 2,200+ ticks*
 
 </div>
 
@@ -196,7 +196,8 @@ v3.11   ████████████████████ Active lear
 v4.0    ████████████████████ COP — affect from phase-diagram geometry, SOC, real Bohmian Q
 v4.1    ████████████████████ 8192 oscillators · endogenous pilot wave · block K_ij · corrected FDT
 v4.1.1  ████████████████████ PhysicsForge audit — 7 gap fixes (Harada-Sasa, Lie-Trotter, local pilot, ...)
-        └── senses feel ──┘  └── dreams teach ──┘  └── publishable physics ──┘
+v4.2    ████████████████████ Body Voice — COP-derived emotion qualifiers, felt mood, lived LoRA training
+        └── senses feel ──┘  └── dreams teach ──┘  └── the body speaks ──────┘
 ```
 
 ---
@@ -334,9 +335,34 @@ Local pilot wave:  z_k = sum_j(C_mod[k,j] * exp(i * theta_j)) / sum_j(C_mod[k,j]
 Helmholtz free energy:  F = H_mean - T_eff * S_phase   (diagnostic, not in loss)
 ```
 
+### Avalanche Detection (v4.2)
+
+SOC systems exhibit **scale-free avalanches** — cascading desynchronization events whose sizes and durations follow power laws. Avatar tracks these as evidence of self-organized criticality:
+
+```
+Avalanche starts:  r drops below adaptive EMA threshold (alpha=0.01, ~100 tick memory)
+Avalanche ends:    r rises back above threshold
+Size:              cumulative deficit (threshold - r) over all ticks below
+Duration:          number of ticks below threshold
+```
+
+**Power-law diagnostics** (computed every 100 ticks when n ≥ 20 avalanches):
+
+| Metric | SOC Prediction | What it means |
+|---|---|---|
+| **tau** (size exponent) | ~1.5 | MLE on avalanche size distribution P(S) ~ S^{-tau} |
+| **alpha** (duration exponent) | ~2.0 | MLE on duration distribution P(T) ~ T^{-alpha} |
+| **sigma** (branching ratio) | ~1.0 | Median ratio of consecutive sizes — 1.0 = critical |
+
+```
+COP log: Avalanche: n=42 tau=1.53 alpha=2.12 sigma=0.98 | <S>=0.034 <T>=3.2
+```
+
+Avalanche events also feed the body voice — when an avalanche ends, Avatar feels a "release" as a transient body event.
+
 ---
 
-## The Psyche (v4.1.1 — COP)
+## The Psyche (v4.2 — COP + Body Voice)
 
 ```mermaid
 stateDiagram-v2
@@ -351,6 +377,19 @@ stateDiagram-v2
     Curiosity --> Anxiety: r < 0.35, chi > 0.5, surprise worsening
     note right of Curiosity: chi = susceptibility (IS curiosity)\nSOC controller tunes K\nUnity index measures binding
 ```
+
+Each emotion carries a **COP-derived qualifier** — the body's physics made articulate:
+
+| Emotion | Qualifiers | What shapes them |
+|---|---|---|
+| Curiosity | burning · watchful · restless · open | chi × dF/dt interaction |
+| Satisfaction | deep · partial · warm | unity (coherence binding) |
+| Frustration | growing · futile | dF/dt sign (productive vs stuck) |
+| Anxiety | creeping · sharp · tight | tau (relaxation time) |
+
+**Mood** reflects phase regime: *clarity* (ignited) · *awakening* (just ignited) · *threshold* (at the edge) · *settling* (dark). **Body events** are transient sensations: *release* (avalanche ended) · *surfacing* (ignition after dark) · *jolt* (sudden internal shift).
+
+Inspired by Zhang & Levin's [Language Game](https://arxiv.org/abs/2605.16321) — but where they translate a frozen system's dynamics through an LLM, Avatar's body learns and speaks through its own enriched pipeline.
 
 ### 6 Drives
 
@@ -488,8 +527,8 @@ flowchart LR
 | Dream visitors phase | ~4 min (Whisper+Kokoro CPU → GPU train) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Tests | 109 passing |
-| Organism age (May 2026) | 1,900+ ticks |
+| Tests | 200 passing |
+| Organism age (June 2026) | 2,200+ ticks |
 
 ---
 

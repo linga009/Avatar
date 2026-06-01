@@ -3,6 +3,8 @@ services:
     build: .
     runtime: nvidia
     init: true
+    mem_limit: 7g
+    memswap_limit: 10g
     deploy:
       resources:
         reservations:
