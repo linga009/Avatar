@@ -13,8 +13,8 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 
 ## Architecture (v4.1)
 
-- **Body**: Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters × 64 hidden = 8,192 oscillators). Endogenous pilot wave from complex order parameter z. RK2 midpoint integrator.
-- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers for block coupling (K_aa, K_cc, K_cross). Emotions from (r, chi, f_dot) manifold.
+- **Body**: Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters × 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter.
+- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers for block coupling (K_aa, K_cc, K_cross). Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
 - **Senses**: FNO spectral cortex (audio 1D + vision 2D) + VQ-VAE codebooks. Checkpoint: `data/checkpoints/sense_module.eqx`.
 - **Perception**: TopicIndex (1095 clusters from FineWeb-Edu) + ActiveSampler (BS valuation + FE scoring).
 - **PFC**: Dual-process Qwen3 0.6B (Dharma + Karuna) via Ollama at `host.docker.internal:11434`.
@@ -49,6 +49,10 @@ Key equations (v4.1):
 - Unity: lambda_1 / sum(lambda_k) from coherence matrix
 - Pilot wave: v_k = Im(exp(-iθ_k) / (K·z)), z = (1/K)Σexp(iθ) — endogenous from collective order parameter
 - Quantum potential: Q = -nabla^2 sqrt(rho) / sqrt(rho) via von Mises KDE
+- Q includes entropic term: Q_total = sum(Q_bohmian) - lambda_entropy * sum(rho * log(rho))
+- Harada-Sasa: sigma = max(0, C(1) - R(1)), chi_corrected = chi_raw / (1 + 5*sigma)
+- Local pilot: z_k = sum_j(C_mod[k,j] * exp(i*theta_j)) / sum_j(C_mod[k,j])
+- F_thermo = H_mean - T_eff * S_phase (diagnostic)
 - Loss: l_recon + λ_energy·l_energy (L_sync removed — contradicted COP)
 
 ## Knowledge Graph (v4.1)
@@ -118,9 +122,12 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 
 - **Always backup before restart**: `cp data/checkpoints/halo3.eqx data/checkpoints/halo3_backup.eqx`
 - **Never restart containers blindly** — 10 hours of training was lost this way.
-- **WSL2 config required**: `C:\Users\srini\.wslconfig` must have `memory=12GB` and `swap=4GB`.
+- **Never restart computer mid-build** — causes git object corruption and MiKTeX corruption. Always `docker compose down` then `wsl --shutdown` first.
+- **WSL2 config required**: `C:\Users\srini\.wslconfig` must have `memory=8GB` and `swap=6GB`. Balanced for 16GB system: 8GB WSL2 + 8GB Windows headroom (Ollama + Docker Desktop + OS).
 - **K is clamped [0.05, 2.0]** — the SOC controller cannot drive it outside this range.
-- **Checkpoint format unchanged** — v3.11 checkpoints work with v4.0 code.
+- **Checkpoint format**: v4.0 checkpoints load into v4.1 but Kuramoto phases re-initialize (shape mismatch 32x16→128x64). Backbone weights preserved. v4.1.1 ObsBridge change breaks old checkpoints (w_obs shape doubled). Fresh birth from LM backbone required.
+- **Docker disk bloat**: Run `docker system df` periodically. If build hangs on "unpacking", prune with `docker builder prune -f && docker image prune -f`.
+- **Git fsync enabled**: `core.fsyncObjectFiles=true` prevents corruption from abrupt shutdowns.
 
 ## Testing
 
@@ -146,4 +153,10 @@ COP: K=0.312 chi=0.72 tau=0.45 | U=r*chi=0.377 | Unity=0.83 gap=0.91 | IGNITED (
 - If Avatar is stuck on a repeating query: delete `data/pfc_adapter/` and restart.
 - If dream OOM: check WSL2 memory config. Progressive OOM = parent not freeing GPU before subprocess.
 - LoRA training format must match inference format exactly (`### Instruction:\n{x}\n\n### Response:\n`).
+- LoRA dream fine-tuning: max 12 steps with early stopping (patience=3). Prevents overfitting on small example sets.
+- Ollama retries on each tick if unavailable (not just first check). PFC comes online once Ollama warms up. Costs ~0.1GB VRAM.
 - Never create new `@eqx.filter_jit` inside a loop — define once, pass all varying inputs as args.
+- TurboVec removed from Docker build (sentence-transformers too). Perception falls back to TopicIndex keyword matching.
+- If git objects corrupt after restart: `git fsck --no-dangling`, delete corrupt objects, `git fetch origin` to recover.
+- ObsBridge outputs [-pi, pi] via atan2 phase projection (not softmax). Checkpoint shape changed — old checkpoints need fresh birth.
+- Page memory eviction uses participation ratio (scale * diversity), not just norm.
