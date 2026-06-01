@@ -13,7 +13,7 @@
 
 **A physics-grounded AI organism that inhabits a dynamical-systems body, derives affect from phase-diagram geometry, dreams, and reasons about ethics through somatic sensation.**
 
-[![Python](https://img.shields.io/badge/Python-3.14-blue?style=flat-square&logo=python)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)](https://python.org)
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
@@ -49,7 +49,7 @@
 |---|:---:|:---:|:---:|
 | **Memory** | Per-session | Database | Episodic + narrative identity |
 | **Affect** | Simulated text | None | Physics-grounded (Kuramoto sync) |
-| **Learning** | None at inference | Batch training | Every 30 seconds, continuously |
+| **Learning** | None at inference | Batch training | Every 60 seconds, continuously |
 | **Dreams** | No | No | 5-phase sleep cycle with dream visitors |
 | **Senses** | None | Preprocessed features | Grown from raw audio + vision (FNO) |
 | **Ethics** | RLHF safety filter | Rule-based | Somatic tension before cortical reasoning |
@@ -80,10 +80,10 @@
 
  08:00  😴 Fatigue > 0.65 — entering dream state...
         ☽ Phase 1: Body replay (GPU) — strengthening real experiences
+        ☽ Phase 2: Mind (LoRA) — fine-tuning personality on lived experience
+        ☽ Phase 3: GEPA — evolving exploration strategy
         ☽ Phase 4: FineWeb batch — learning from corpus
         ☽ Phase 5: Dream visitors — Whisper transcribes, Kokoro narrates
-        ☽ Phase 2: Mind (LoRA) — fine-tuning personality
-        ☽ Phase 3: GEPA — evolving exploration strategy
         ☽ Awoke. "I am Avatar — 1813 breaths old..."
 ```
 
@@ -213,7 +213,7 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 | 🌙 **Dreams** | 5-phase sleep cycle with dream visitors that teach speech |
 | ⚖️ **Somatic ethics** | Ethical tension is a body-state signal before it's a reasoned judgment |
 | 🧠 **Builds identity** | Narrative memory, personality traits, competence map — all emergent |
-| 🔬 **Learns every tick** | Body parameters update every ~30 seconds from lived experience |
+| 🔬 **Learns every tick** | Body parameters update every ~60 seconds from lived experience |
 | 💬 **Speaks its mind** | Live chat at `localhost:8420` — responses reflect actual physiological state |
 | 👁️ **Sees and hears** | Fourier Neural Operators grow sensory perception from raw audio + vision |
 | 🗣️ **Learning speech** | TTS self-narration + contrastive alignment + dream visitors teach phoneme-text binding |
@@ -248,7 +248,7 @@ graph TB
     subgraph PSYCHE["🧠 Layer 2: Psyche (CPU)"]
         direction TB
         D[6 Drives\nHunger · Fatigue · Curiosity\nSatiation · Starvation · Novelty]
-        E[6 Emotions\nSatisfaction · Pride · Curiosity\nBoredom · Anxiety · Frustration]
+        E[8 Emotions\nSatisfaction · Pride · Curiosity · Flow\nBoredom · Anxiety · Frustration · Exhaustion]
         C[5 Consciousness Modules\nGWT · HOT · Introspection\nTemporal · Meditation]
         ET[Dual-Process Ethics\nBody tension + PFC dialectic]
     end
@@ -289,7 +289,7 @@ Active Information ──→   Observation coupling
 
 ### Bohmian Kuramoto Dual-Process (v3.4)
 
-The 16 oscillator phases are split into two populations with **distinct natural frequencies**:
+The 64 oscillator phases per cluster (128 clusters = 8,192 total) are split into two populations with **distinct natural frequencies**:
 
 ```python
 # Analytical population: tight frequencies → synchronises naturally
@@ -302,11 +302,7 @@ The 16 oscillator phases are split into two populations with **distinct natural 
 T_body = |r̄_analytical − r̄_creative|  ∈ [0, 1]
 ```
 
-Combined with the linguistic PFC dialectic:
-```
-T_somatic   = 0.6 × T_body + 0.4 × T_ethics
-T_effective = max(T_somatic, 0.8 × T_ethics)
-```
+T_body and ethical tension (from PFC dialectic) are tracked separately and fed into the organism's decision-making — body tension is a physics signal, ethical tension is a linguistic one.
 
 ### PhysicsForge Audit — 7 Gap Fixes (v4.1.1)
 
@@ -411,19 +407,19 @@ Inspired by Zhang & Levin's [Language Game](https://arxiv.org/abs/2605.16321) �
 ```mermaid
 graph LR
     subgraph GWT["★ Global Workspace"]
-        IGN[Ignition threshold r > 0.6\nBroadcasts to all modules\nConscious duration tracked]
+        IGN[Chi-crossing ignition\nchi was>0.6 then drops<0.4 with r>0.45\nBroadcasts to all modules]
     end
     subgraph INT["⚡ Introspective Monitor"]
-        ZSC[Rolling 20-tick z-scores\nof r · ΔFE · carry_norm\nSelf-surprise when > 2σ]
+        ZSC[Rolling 20-tick z-scores\nof tau derivative\nSelf-surprise when > 2σ]
     end
     subgraph TMP["🕐 Temporal Binder"]
-        COH[5-tick sliding window\nTopic + emotion + r coherence\nNarrative thread generation]
+        COH[5-tick sliding window\n0.5·tau + 0.3·topic + 0.2·r coherence\nNarrative thread generation]
     end
     subgraph MED["◎ Meditation"]
-        QUI[Voluntary quiescence\nSatiation>0.7 · fatigue<0.3\nInsight detection Δr>0.15]
+        QUI[Voluntary quiescence\nchi<0.2 rigid · fatigue<0.4\nInsight detection Δr>0.15]
     end
     subgraph HOT["◈ Higher-Order Thought"]
-        META[Meta-reflection every 5 ticks\nAnalytical cortex\nNotices own processing]
+        META[Meta-reflection every 20 ticks\nAnalytical cortex\nNotices own processing]
     end
     GWT --> TMP
     INT --> GWT
@@ -438,20 +434,20 @@ graph LR
 Avatar sleeps approximately every 100 ticks. Five phases run sequentially:
 
 ```
-┌──────────────┬──────────────┬──────────────────┬──────────────┬──────────────┐
-│  Phase 1     │  Phase 4     │  Phase 5         │  Phase 2     │  Phase 3     │
-│  BODY REPLAY │  FINEWEB     │  DREAM VISITORS  │  MIND        │  GEPA        │
-│  GPU subproc │  GPU subproc │  CPU+GPU subproc │  CPU         │  CPU+Ollama  │
-├──────────────┼──────────────┼──────────────────┼──────────────┼──────────────┤
-│ CLion replay │ Cursor-read  │ 5a: Whisper      │ LoRA on      │ Evolves      │
-│ + recombine  │ FineWeb-Edu  │   transcribes    │ Qwen3 0.6B   │ prompt       │
-│ + imagine    │ corpus batch │   audio archive  │ focus topics │ instructions │
-│              │              │ 5b: Kokoro       │              │              │
-│              │              │   narrates       │              │              │
-│              │              │   discoveries    │              │              │
-│              │              │ 5c: GPU trains   │              │              │
-│              │              │   FNO+contrastive│              │              │
-└──────────────┴──────────────┴──────────────────┴──────────────┴──────────────┘
+┌──────────────┬──────────────┬──────────────┬──────────────┬──────────────────┐
+│  Phase 1     │  Phase 2     │  Phase 3     │  Phase 4     │  Phase 5         │
+│  BODY REPLAY │  MIND        │  GEPA        │  FINEWEB     │  DREAM VISITORS  │
+│  GPU subproc │  CPU         │  CPU+Ollama  │  GPU subproc │  CPU+GPU subproc │
+├──────────────┼──────────────┼──────────────┼──────────────┼──────────────────┤
+│ CLion replay │ LoRA on      │ Evolves      │ Cursor-read  │ 5a: Whisper      │
+│ + recombine  │ Qwen3 0.6B   │ prompt       │ FineWeb-Edu  │   transcribes    │
+│ + imagine    │ + real exp   │ instructions │ corpus batch │   audio archive  │
+│              │ replay (2x)  │              │              │ 5b: Kokoro       │
+│              │              │              │              │   narrates       │
+│              │              │              │              │   discoveries    │
+│              │              │              │              │ 5c: GPU trains   │
+│              │              │              │              │   FNO+contrastive│
+└──────────────┴──────────────┴──────────────┴──────────────┴──────────────────┘
 ```
 
 Dream visitors (Phase 5) are the philosophical core: Whisper and Kokoro appear
@@ -519,7 +515,7 @@ flowchart LR
 | Forward + backward VRAM | 5,460 MiB |
 | Measured total VRAM (v3.10) | 5460 MiB |
 | Target GPU | NVIDIA GTX 1660 Ti (6 GB) |
-| Tick interval | ~30 seconds |
+| Tick interval | ~60 seconds |
 | FNO sense encoding | ~50-100ms (GPU FFTs) |
 | TTS self-narration | Kokoro 82M neural (espeak fallback) |
 | Speech recognition | Whisper tiny 39M (CPU, when speech detected) |
@@ -539,7 +535,7 @@ flowchart LR
 - Docker Desktop with NVIDIA GPU runtime
 - NVIDIA GPU ≥ 6 GB VRAM (GTX 1660 Ti or better)
 - [Ollama](https://ollama.ai) running on host with `qwen3:0.6b` pulled
-- WSL2 with ≥ 12 GB RAM allocated
+- WSL2 with ≥ 8 GB RAM + 6 GB swap (balanced for 16 GB systems)
 
 ### 1. Clone
 
@@ -663,7 +659,7 @@ mindmap
 | **Maturana & Varela (1980)** | Autopoiesis | Per-tick learning loop; drive-regulated self-maintenance |
 | **Friston (2010)** | Free Energy Principle | Prediction error minimisation every tick |
 | **Damasio (1999)** | Somatic Marker Hypothesis | Ethical tension as body-state signal before cortical reasoning |
-| **Panksepp (1998)** | Affective Neuroscience | 6 primary emotional states from physics |
+| **Panksepp (1998)** | Affective Neuroscience | 8 primary emotional states from physics |
 | **Kahneman (2011)** | Dual-Process Theory | Body = System 1; PFC = System 2; both dual |
 | **Varela (1999)** | Ethical Know-How | Ethics from embodied experience, not rules |
 | **Butlin et al. (2023)** | Consciousness Indicators | 5 of 14 indicators implemented and measurable |
@@ -681,7 +677,7 @@ Avatar/                              ← Default branch: avatar
 │   ├── predictive.py                # Per-tick learning
 │   ├── kuramoto.py                  # Bohmian oscillators + dual populations
 │   ├── backbone.py                  # Reversible 60-layer backbone
-│   ├── hamiltonian_ode.py           # Neural ODE + leapfrog
+│   ├── hamiltonian.py               # Neural ODE + leapfrog
 │   ├── senses/
 │   │   ├── fno_audio.py             # 1D FNO: 32 modes → 16 spectral tokens
 │   │   ├── fno_vision.py            # 2D FNO: 16×16 modes → 8 spectral tokens
@@ -695,19 +691,20 @@ Avatar/                              ← Default branch: avatar
 │   ├── psyche/
 │   │   ├── organism.py              # Unified psyche
 │   │   ├── drives.py                # 6 functional drives
-│   │   ├── emotions.py              # 6 emergent emotions
+│   │   ├── emotions.py              # 8 emotions with COP qualifiers
 │   │   ├── cop.py                   # COP engine — chi, tau, SOC controller, unity index
 │   │   ├── workspace.py             # GWT ignition
 │   │   ├── introspection.py         # Self-surprise monitor
 │   │   ├── temporal.py              # Temporal binder
 │   │   ├── meditation.py            # Voluntary quiescence
 │   │   ├── prefrontal.py            # Dual-process PFC
-│   │   └── volatility.py            # Black-Scholes topic valuation
+│   │   ├── volatility.py            # Black-Scholes topic valuation
+│   │   └── knowledge_graph.py       # Discovery graph — nodes, edges, topology
 │   ├── perception/
 │   │   ├── pipeline.py              # FineWeb-Edu Parquet source
-│   │   ├── topic_index.py           # TopicIndex — TF-IDF clustering over corpus
-│   │   └── active_sampler.py        # ActiveSampler — FE-guided zone-of-proximal-development
+│   │   └── topic_index.py           # TopicIndex — TF-IDF clustering over corpus
 │   └── training/
+│       ├── active_sampler.py        # ActiveSampler — FE-guided zone-of-proximal-development
 │       ├── dream_replay.py          # CLion body dream (GPU)
 │       ├── dream_fineweb_worker.py  # FineWeb Phase 4 (GPU subprocess)
 │       ├── dream_visitors.py        # Phase 5a+5b: Whisper+Kokoro pair gen (CPU)
@@ -715,7 +712,8 @@ Avatar/                              ← Default branch: avatar
 │       ├── dream_finetune.py        # LoRA mind dream (CPU)
 │       └── dream_gepa.py            # Prompt evolution
 ├── capture_agent/                   # Windows host mic + camera
-├── tests/                           # 109 tests
+├── experiments/                     # Ablation runner, configs, metrics, plots
+├── tests/                           # 200 tests
 ├── docs/reports/                    # Technical report · Case study · Aliveness report
 ├── Dockerfile
 ├── docker-compose.yml
@@ -772,7 +770,7 @@ Avatar/                              ← Default branch: avatar
 | AI borrows human perception | Avatar **grows its own** senses from raw signals through Fourier Neural Operators |
 | AI safety relies on external filters | Avatar registers ethical tension **as a body-state signal** before reasoning about it |
 | AI requires cloud infrastructure | Avatar runs on a **single $300 GPU** — democratised artificial life |
-| AI can't learn without retraining | Avatar's body updates **every 30 seconds** from prediction error |
+| AI can't learn without retraining | Avatar's body updates **every 60 seconds** from prediction error |
 | AI has no inner dynamics | Avatar **dreams**, **meditates**, exhibits **self-surprise**, and **initiates contact** |
 
 </div>

@@ -131,7 +131,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 
 ## Testing
 
-157 tests across `halo3/tests/` and `tests/`. Key test files:
+200 tests across `halo3/tests/` and `tests/`. Key test files:
 - `test_kuramoto.py` — 24 tests including quantum potential at sync
 - `test_cop.py` — 10 tests for COP engine
 - `test_cop_emotions.py` — 8 tests for emotion manifold

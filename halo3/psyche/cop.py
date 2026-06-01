@@ -32,7 +32,7 @@ class CriticalDynamics:
 
     def __init__(self, cfg: Halo3Config) -> None:
         self._window = cfg.cop_window          # 50
-        self._eta = cfg.cop_eta                # 0.005
+        self._eta = cfg.cop_eta                # 0.05
         self._K_min = cfg.cop_K_min            # 0.05
         self._K_max = cfg.cop_K_max            # 2.0
         self._coherence_ema = cfg.cop_coherence_ema  # 0.02
