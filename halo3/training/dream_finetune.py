@@ -237,6 +237,7 @@ def dream_finetune(
     findings: list[dict],
     dead_queries: list[str] | None = None,
     focus_topics: list[str] | None = None,
+    experience_log: list[dict] | None = None,
 ) -> bool:
     """Run real LoRA fine-tuning on the organism's experience."""
     examples = _format_training_data(

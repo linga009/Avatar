@@ -73,6 +73,7 @@ class Organism:
         self._recent_queries: deque = deque(maxlen=20)
         self._prev_query: str = ""
         self._exploration_plan: list[str] = []  # post-dream topics to explore
+        self._experience_log: list[dict] = []  # real PFC interactions for dream LoRA
 
     def tick(
         self,
@@ -167,6 +168,9 @@ class Organism:
             speech_detected=speech_detected,
             dF_dt=_dF_dt,
             f_thermo_flat_ticks=self._f_thermo_flat_ticks,
+            tau_norm=tau_norm,
+            unity=cop["unity"],
+            avalanche_just_ended=cop.get("avalanche", {}).get("just_ended", False),
         )
 
         # 3. Update volatility surface (Black-Scholes query valuation)
@@ -191,6 +195,15 @@ class Organism:
         finding = None
         if r_mean > 0.6 and texts:
             pfc_finding = self.prefrontal.interpret_finding(texts, current_query, r_mean)
+            if pfc_finding and len(self._experience_log) < 200:
+                self._experience_log.append({
+                    "type": "interpret",
+                    "response": pfc_finding,
+                    "emotion": emotion,
+                    "qualifier": self.emotions.qualifier,
+                    "mood": self.emotions.mood,
+                    "r": r_mean,
+                })
             finding = pfc_finding or f"{'; '.join(texts[:3])}"
 
         # Record discovery in knowledge graph
@@ -211,6 +224,21 @@ class Organism:
         )
         if ws["just_ignited"]:
             log.info(f"  ★ IGNITION: conscious of '{ws['broadcast_content'][:50]}'")
+
+        # Update mood from workspace ignition state (not available during emotions.update)
+        if ws["just_ignited"]:
+            self.emotions.mood = "awakening"
+            if ws.get("dark_duration_before", 0) > 10:
+                self.emotions.body_event = "surfacing"
+        elif ws["is_ignited"]:
+            self.emotions.mood = "clarity"
+        elif chi_norm > 0.4:
+            self.emotions.mood = "threshold"
+        else:
+            self.emotions.mood = "settling"
+
+        if self_surprise > 0.5 and not self.emotions.body_event:
+            self.emotions.body_event = "jolt"
 
         # 3d. Meditation — voluntary quiescence
         meditation_result = self.meditation.tick(r_mean, fe_delta)
@@ -431,6 +459,15 @@ class Organism:
         )
         if pfc_query:
             log.debug(f"Prefrontal: generated query '{pfc_query}'")
+            if len(self._experience_log) < 200:
+                self._experience_log.append({
+                    "type": "query",
+                    "response": pfc_query,
+                    "emotion": emotion,
+                    "qualifier": self.emotions.qualifier,
+                    "mood": self.emotions.mood,
+                    "r": r_mean,
+                })
             return pfc_query
 
         # --- Layer 6: Emotion-based fallback with volatility ---
@@ -600,6 +637,8 @@ class Organism:
             f"Temporal flow: {thread}. "
             f"Momentum: {momentum}. "
             f"Coherence: {coherence:.2f}. "
+            f"Feeling: {self.emotions.qualifier} {self.emotions.current}. "
+            f"Mood: {self.emotions.mood}. "
         )
         if introspection_desc:
             context += f"Self-observation: {introspection_desc}. "
@@ -658,11 +697,13 @@ class Organism:
                 findings=findings,
                 dead_queries=self.self_model.dead_queries,
                 focus_topics=focus_topics,
+                experience_log=self._experience_log,
             )
             if success:
                 self.prefrontal.upgrade_to_organism_model()
                 log.info("Prefrontal cortex now carries this organism's identity")
             self.temporal.reset_focus()
+            self._experience_log.clear()
         except Exception as e:
             log.warning(f"Dream fine-tuning failed: {e}")
 
