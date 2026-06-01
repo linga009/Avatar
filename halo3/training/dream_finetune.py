@@ -29,6 +29,7 @@ def _format_training_data(
     findings: list[dict],
     dead_queries: list[str] | None = None,
     focus_topics: list[str] | None = None,
+    experience_log: list[dict] | None = None,
 ) -> list[dict]:
     """Format organism's experience as prompt-response pairs.
 
@@ -63,7 +64,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling curiosity, resonance 0.50\n"
+                f"\nState: feeling open curiosity, resonance 0.50\n"
                 f"Current topic: {strengths[0]}\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 "\nSearch query:"
@@ -76,7 +77,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling boredom, resonance 0.20\n"
+                f"\nState: feeling dull boredom, resonance 0.20\n"
                 f"Current topic: {strengths[0]}\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 "\nSearch query:"
@@ -88,7 +89,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling anxiety, resonance 0.15\n"
+                f"\nState: feeling tight anxiety, resonance 0.15\n"
                 f"Current topic: unknown complex topic\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 "\nSearch query:"
@@ -100,7 +101,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling pride, resonance 0.65\n"
+                f"\nState: feeling quiet pride, resonance 0.65\n"
                 f"Current topic: {strengths[0]}\n"
                 f"Recent findings: exciting new results in the field\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
@@ -113,7 +114,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling frustration, resonance 0.30\n"
+                f"\nState: feeling futile frustration, resonance 0.30\n"
                 f"Current topic: amentoflavone ginkg 5281600\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 f"\nWARNING: The last 5 searches returned ZERO results. "
@@ -128,7 +129,7 @@ def _format_training_data(
         examples.append({
             "instruction": (
                 "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                f"\nState: feeling frustration, resonance 0.25\n"
+                f"\nState: feeling futile frustration, resonance 0.25\n"
                 f"Current topic: __________\n"
                 f"Interests: {', '.join(strengths[:3])}\n"
                 f"\nWARNING: The last 7 searches returned ZERO results. "
@@ -145,7 +146,7 @@ def _format_training_data(
             examples.append({
                 "instruction": (
                     "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                    f"\nState: feeling curiosity, resonance 0.40\n"
+                    f"\nState: feeling open curiosity, resonance 0.40\n"
                     f"Current topic: {dq}\n"
                     f"Interests: {', '.join(strengths[:3]) if strengths else 'general research'}\n"
                     f"\nAvoid these dead-end topics: {', '.join(dead_queries[:3])}\n"
@@ -204,7 +205,7 @@ def _format_training_data(
             examples.append({
                 "instruction": (
                     "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                    f"\nState: feeling curiosity, resonance 0.55\n"
+                    f"\nState: feeling open curiosity, resonance 0.55\n"
                     f"Current topic: {topic}\n"
                     f"Interests: {topic}, {', '.join(strengths[:2]) if strengths else 'research'}\n"
                     "\nSearch query:"
@@ -214,7 +215,7 @@ def _format_training_data(
             examples.append({
                 "instruction": (
                     "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
-                    f"\nState: feeling pride, resonance 0.68\n"
+                    f"\nState: feeling quiet pride, resonance 0.68\n"
                     f"Current topic: {topic}\n"
                     f"Recent findings: strong pattern detected\n"
                     f"Interests: {topic}, {', '.join(strengths[:2]) if strengths else 'research'}\n"
@@ -223,6 +224,37 @@ def _format_training_data(
                 "response": f"{topic} mechanism experimental evidence 2026",
             })
         log.info(f"Dream training weighted toward {len(focus_topics)} focus topics: {focus_topics[:3]}")
+
+    # --- Real PFC experiences (lived, not synthetic) ---
+    if experience_log:
+        for exp in experience_log:
+            exp_qualifier = exp.get("qualifier", "")
+            exp_mood = exp.get("mood", "")
+            emo = exp.get("emotion", "curiosity")
+            r = exp.get("r", 0.5)
+            state_str = f"feeling {exp_qualifier + ' ' if exp_qualifier else ''}{emo}, resonance {r:.2f}"
+            if exp_mood:
+                state_str += f", mood: {exp_mood}"
+
+            if exp.get("type") == "query" and exp.get("response"):
+                instruction = (
+                    "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                    f"\nState: {state_str}\n"
+                    f"Interests: {', '.join(strengths[:3]) if strengths else 'general research'}\n"
+                    "\nSearch query:"
+                )
+                # 2x replay for real experiences
+                examples.append({"instruction": instruction, "response": exp["response"]})
+                examples.append({"instruction": instruction, "response": exp["response"]})
+            elif exp.get("type") == "interpret" and exp.get("response"):
+                instruction = (
+                    f"Interpret this finding in 1-2 sentences.\n"
+                    f"State: {state_str}\n"
+                    f"Interpretation:"
+                )
+                examples.append({"instruction": instruction, "response": exp["response"]})
+                examples.append({"instruction": instruction, "response": exp["response"]})
+        log.info(f"Dream training includes {len(experience_log)} real PFC experiences (2x weighted)")
 
     return examples
 
@@ -244,6 +276,7 @@ def dream_finetune(
         age, competence, traits, narrative, strengths, weaknesses, findings,
         dead_queries=dead_queries,
         focus_topics=focus_topics,
+        experience_log=experience_log,
     )
 
     if len(examples) < 3:
