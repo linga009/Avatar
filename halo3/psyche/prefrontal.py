@@ -32,7 +32,7 @@ OLLAMA_URL_LOCAL = "http://localhost:11434/api/generate"
 # Both processes use the same model — diversity from persona, not architecture
 MODEL = "qwen3:0.6b"
 MODEL_HF = "Qwen/Qwen3-0.6B"
-TIMEOUT = 10
+TIMEOUT = 5
 
 ADAPTER_PATH = "data/pfc_adapter"
 
@@ -104,8 +104,6 @@ def _call_ollama(
             result = json.loads(resp.read().decode("utf-8"))
             return result.get("response", "")
     except urllib.error.URLError:
-        if url != OLLAMA_URL_LOCAL:
-            return _call_ollama(prompt, system, OLLAMA_URL_LOCAL, model, timeout)
         return None
     except Exception as e:
         log.warning(f"Ollama call failed: {e}")
@@ -194,6 +192,7 @@ class PrefrontalCortex:
 
     def __init__(self) -> None:
         self._ollama_available: bool | None = None
+        self._ollama_check_time: float = 0.0  # last time we checked availability
         self._adapter_loaded: bool = False
         self._model = None
         self._tokenizer = None
@@ -417,7 +416,13 @@ class PrefrontalCortex:
             return True
         if self._try_load_adapter():
             return True
-        if self._ollama_available is None or not self._ollama_available:
+        # Cache unavailability for 60s to avoid repeated probe calls
+        import time as _time
+        now = _time.time()
+        if self._ollama_available is None or (
+            not self._ollama_available and now - self._ollama_check_time > 60
+        ):
+            self._ollama_check_time = now
             result = _call_ollama("/no_think Say OK", timeout=TIMEOUT)
             self._ollama_available = result is not None
             if self._ollama_available:
@@ -435,6 +440,8 @@ class PrefrontalCortex:
         strengths: list[str],
         consecutive_failures: int = 0,
         dead_queries: list[str] | None = None,
+        qualifier: str = "",
+        mood: str = "",
     ) -> str | None:
         """Generate search query — Creative process only (fast, divergent)."""
         if not self.is_available:
@@ -469,7 +476,7 @@ class PrefrontalCortex:
 
         prompt_parts = [
             f"{instr}",
-            f"\nState: feeling {emotion}, resonance {r_mean:.2f}",
+            f"\nState: feeling {qualifier + ' ' if qualifier else ''}{emotion}, resonance {r_mean:.2f}" + (f", mood: {mood}" if mood else ""),
             f"Current topic: {current_query}",
         ]
         if context:
@@ -510,14 +517,14 @@ class PrefrontalCortex:
         self._recent_queries.append(query)
         return query
 
-    def interpret_finding(self, texts, query, r_mean) -> str | None:
+    def interpret_finding(self, texts, query, r_mean, qualifier: str = "", emotion: str = "", mood: str = "") -> str | None:
         """Interpret a finding. Uses dialectic for significant findings (r>0.6)."""
         if not self.is_available:
             return None
         context = "; ".join(texts[:5]) if texts else ""
         prompt = (
             f"Interpret this finding in 1-2 sentences.\n"
-            f"Query: \"{query}\" | r={r_mean:.3f} (pattern detected)\n"
+            f"Query: \"{query}\" | r={r_mean:.3f} | feeling {qualifier + ' ' if qualifier else ''}{emotion}" + (f", mood: {mood}" if mood else "") + "\n"
             f"Content: {context}\n"
             f"Interpretation:"
         )
