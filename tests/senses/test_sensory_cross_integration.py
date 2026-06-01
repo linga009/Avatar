@@ -42,8 +42,8 @@ def test_sensory_novelty_amplifies_surprise():
     e2 = EmotionState()
     for _ in range(5):
         e2.update(r_mean=0.5, fe_delta=0.1)
-    _, i_low = e.update(r_mean=0.4, fe_delta=0.5, sensory_novelty=0.0)
-    _, i_high = e2.update(r_mean=0.4, fe_delta=0.5, sensory_novelty=0.95)
+    _, _, i_low = e.update(r_mean=0.4, fe_delta=0.5, sensory_novelty=0.0)
+    _, _, i_high = e2.update(r_mean=0.4, fe_delta=0.5, sensory_novelty=0.95)
     assert i_high >= i_low, "High sensory novelty should amplify intensity"
 
 

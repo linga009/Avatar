@@ -26,6 +26,9 @@ class EmotionState:
     """Tracks current emotion and emotional history."""
     current: str = "curiosity"
     intensity: float = 0.5
+    qualifier: str = ""
+    mood: str = "settling"
+    body_event: str = ""
     history: deque = field(default_factory=lambda: deque(maxlen=100))
     _valence: float = 0.0
     _arousal: float = 0.5
@@ -42,7 +45,13 @@ class EmotionState:
         speech_detected: bool = False,
         dF_dt: float = 0.0,
         f_thermo_flat_ticks: int = 0,
-    ) -> tuple[str, float]:
+        tau_norm: float = 0.5,
+        unity: float = 0.5,
+        is_ignited: bool = False,
+        just_ignited: bool = False,
+        avalanche_just_ended: bool = False,
+        self_surprise: float = 0.0,
+    ) -> tuple[str, str, float]:
         """Compute emotion from COP phase-diagram position.
 
         Args:
@@ -54,9 +63,19 @@ class EmotionState:
             sensory_novelty: from sensory stats (0-1)
             sensory_stability: consecutive stable ticks
             speech_detected: whether speech was heard
+            dF_dt: rate of change of free energy
+            f_thermo_flat_ticks: ticks F_thermo has been flat
+            tau_norm: normalized relaxation time from COP engine (0-1)
+            unity: coherence unity index from COP engine (0-1)
+            is_ignited: True when SOC is in ignited (critical) state
+            just_ignited: True on the tick ignition first occurred
+            avalanche_just_ended: True on the tick an avalanche ended
+            self_surprise: prediction error magnitude (0-1)
 
-        Returns (emotion_name, intensity).
+        Returns (emotion_name, qualifier, intensity).
         """
+        # Clear transient body_event at the start of each tick
+        self.body_event = ""
         f_dot = -fe_delta  # positive when surprise is resolving
 
         # Sensory novelty amplifies openness
@@ -125,10 +144,79 @@ class EmotionState:
         if smoothed != emotion and emotion != "frustration":
             emotion = smoothed
 
+        # --- COP-derived qualifier ---
+        qualifier = self._compute_qualifier(emotion, chi_norm, tau_norm, unity, dF_dt)
+
+        # --- Mood from ignition state ---
+        if just_ignited:
+            self.mood = "awakening"
+        elif is_ignited:
+            self.mood = "clarity"
+        elif chi_norm > 0.4:
+            self.mood = "threshold"
+        else:
+            self.mood = "settling"
+
+        # --- Transient body events ---
+        if avalanche_just_ended:
+            self.body_event = "release"
+        elif just_ignited:
+            self.body_event = "surfacing"
+        elif self_surprise > 0.5:
+            self.body_event = "jolt"
+
         self.current = emotion
+        self.qualifier = qualifier
         self.intensity = intensity
         self.history.append((emotion, intensity))
-        return emotion, intensity
+        return emotion, qualifier, intensity
+
+    @staticmethod
+    def _compute_qualifier(
+        emotion: str,
+        chi: float,
+        tau: float,
+        unity: float,
+        dF_dt: float,
+    ) -> str:
+        """Map (emotion, COP state) to a sub-type adjective qualifier."""
+        if emotion == "curiosity":
+            if chi > 0.6 and dF_dt < -50:
+                return "burning"
+            if chi > 0.6 and abs(dF_dt) < 50:
+                return "watchful"
+            if chi < 0.3:
+                return "restless"
+            return "open"
+        if emotion == "satisfaction":
+            if unity > 0.7:
+                return "deep"
+            if unity < 0.4:
+                return "partial"
+            return "warm"
+        if emotion == "pride":
+            if chi > 0.6:
+                return "luminous"
+            return "quiet"
+        if emotion == "frustration":
+            if dF_dt < 0:
+                return "growing"
+            return "futile"
+        if emotion == "anxiety":
+            if tau > 0.7:
+                return "creeping"
+            if tau < 0.3:
+                return "sharp"
+            return "tight"
+        if emotion == "boredom":
+            if chi < 0.15:
+                return "numb"
+            return "dull"
+        if emotion == "flow":
+            return "effortless"
+        if emotion == "exhaustion":
+            return "heavy"
+        return ""
 
     @staticmethod
     def _emotion_from_va(valence: float, arousal: float) -> str:

@@ -101,6 +101,7 @@ class Organism:
         """Process one tick of lived experience."""
         self._sensory_stats_line = sensory_stats_line
         self._heard_speech = heard_speech
+        self._last_r = r_mean  # saved for post-dream COP reset
 
         perception_failed = len(texts) == 0
 
@@ -156,7 +157,7 @@ class Organism:
             self._f_thermo_flat_ticks = 0
 
         # 2. Compute emotion (with failure context + sensory signals + thermodynamics)
-        emotion, intensity = self.emotions.update(
+        emotion, _qualifier, intensity = self.emotions.update(
             r_mean, fe_delta,
             chi_norm=chi_norm,
             perception_failed=perception_failed,
@@ -251,6 +252,7 @@ class Organism:
                 f"{'IGNITED' if ws['is_ignited'] else 'DARK'} "
                 f"(ratio={self.workspace.consciousness_ratio:.0%})"
                 + (f" | F={cop['F_thermo']:.3f}" if cop.get('F_thermo') is not None else "")
+                + (f" | Aval: n={cop['avalanche']['n_total']}" if cop.get('avalanche') else "")
             )
             if self.knowledge_graph.node_count > 0:
                 gm = self.knowledge_graph.get_topology_metrics(tick=self.self_model.age)
@@ -259,6 +261,17 @@ class Organism:
                     f"density={gm['density']:.3f} clustering={gm['avg_clustering']:.3f} | "
                     f"frontier={gm['frontier_size']}"
                 )
+            # Avalanche statistics every 100 ticks (when enough data)
+            if self.self_model.age % 100 == 0:
+                astats = self.cop.avalanche_stats
+                if astats["n"] >= 20:
+                    tau_s = f"τ={astats['tau_est']:.2f}" if astats["tau_est"] else "τ=?"
+                    alpha_s = f"α={astats['alpha_est']:.2f}" if astats["alpha_est"] else "α=?"
+                    br_s = f"σ={astats['branching_est']:.2f}" if astats["branching_est"] else "σ=?"
+                    log.info(
+                        f"  Avalanche: n={astats['n']} {tau_s} {alpha_s} {br_s} | "
+                        f"⟨S⟩={astats['mean_size']:.3f} ⟨T⟩={astats['mean_duration']:.1f}"
+                    )
 
         # 4a. Auto-saturation: topics visited many times without r progress
         # are stuck — mark dead so PFC/BS avoid them, then force escape.
@@ -610,6 +623,11 @@ class Organism:
 
     def dream(self, memory=None) -> None:
         """Called after nightly dreaming — fine-tune PFC, reset fatigue, reflect."""
+
+        # Reset COP transient state — pre-fill r_history with last known r,
+        # reset stale coherence matrix. Prevents chi collapse post-dream.
+        last_r = self._last_r if hasattr(self, '_last_r') else 0.4
+        self.cop.post_dream_reset(last_r)
 
         # Consolidate knowledge graph during dream
         if self.knowledge_graph.node_count > 0:
