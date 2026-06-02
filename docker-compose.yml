@@ -3,8 +3,9 @@ services:
     build: .
     runtime: nvidia
     init: true
-    mem_limit: 7g
-    memswap_limit: 10g
+    # No mem_limit — WSL2's memory=8GB + swap=6GB is the real cap.
+    # Docker mem_limit caused OOM (exit 137) at 6g and 7g because
+    # JAX + Kokoro + Qwen3 + Whisper + XLA caches exceed 7g combined.
     deploy:
       resources:
         reservations:
