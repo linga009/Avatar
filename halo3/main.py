@@ -339,6 +339,28 @@ def main() -> None:
         except Exception:
             _H_mean = None
 
+        # --- Island compression: when island fills, compress + store + echo ---
+        if model.page_memory.is_island_full(carry.page_mem):
+            import numpy as np
+            summary = model.page_memory.compress_island(carry.page_mem.island)
+            carry_emb = model.carry_embedding(carry)
+            carry_emb_np = np.array(jax.device_get(carry_emb))
+            summary_np = np.array(jax.device_get(summary))
+            memory.save_island_summary(
+                tick=tick,
+                summary=summary_np,
+                carry_embedding=carry_emb_np,
+                topic=current_query[:50] if current_query else "unknown",
+            )
+            new_page_mem = model.page_memory.apply_echo(carry.page_mem, summary, tick=tick)
+            carry = carry._replace(page_mem=new_page_mem)
+            log.info(f"  ◈ Island compressed at tick {tick} — stored + echoed")
+
+        # Expose carry state for somatic recall
+        organism._carry_cache = carry.page_mem.cache
+        organism._W_query = model.W_query
+        organism._memory_ref = memory
+
         psyche_output = organism.tick(
             r_mean, combined_surprise, texts, current_query,
             carry_norm=carry_norm, body_tension=body_tension,
