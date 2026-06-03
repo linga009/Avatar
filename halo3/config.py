@@ -42,6 +42,11 @@ class Halo3Config:
     max_cache: int = 128
     island_size: int = 32
 
+    # Memory pipeline (v4.3)
+    recall_embed_dim: int = 128
+    echo_gate_warmup: int = 100
+    recall_similarity_threshold: float = 0.3
+
     # Training
     lr: float = 3e-4
     n_steps: int = 10_000
