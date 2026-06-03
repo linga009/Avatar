@@ -30,6 +30,7 @@ class Halo3Model(eqx.Module):
     action_bridge: ActionBridge
     belief_bridge: BeliefBridge
     page_memory: PageCurveMemory
+    W_query: jnp.ndarray  # (d_model, recall_embed_dim) — carry → query embedding
     cfg: Halo3Config = eqx.field(static=True)
 
     def __init__(self, cfg: Halo3Config, key: jnp.ndarray):
@@ -43,6 +44,7 @@ class Halo3Model(eqx.Module):
         self.action_bridge = ActionBridge(cfg, keys[5])
         self.belief_bridge = BeliefBridge(cfg, keys[6])
         self.page_memory = PageCurveMemory(cfg)
+        self.W_query = jax.random.normal(keys[7], (cfg.d_model, cfg.recall_embed_dim)) * 0.02
 
     def init_carry(self, key: jnp.ndarray) -> Halo3Carry:
         return Halo3Carry(
@@ -50,6 +52,11 @@ class Halo3Model(eqx.Module):
             page_mem=self.page_memory.init_state(),
             key=key,
         )
+
+    def carry_embedding(self, carry: Halo3Carry) -> jnp.ndarray:
+        """Project current carry state to recall embedding space."""
+        cache_mean = jnp.mean(carry.page_mem.cache, axis=0)  # (d_model,)
+        return cache_mean @ self.W_query  # (recall_embed_dim,)
 
 
 def halo3_step(model: Halo3Model, carry: Halo3Carry, tokens: jnp.ndarray, key: jnp.ndarray,

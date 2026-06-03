@@ -59,6 +59,15 @@ class EpisodeStore:
                 avg_r REAL DEFAULT 0.0
             )
         """)
+        # Island summaries: compressed carry vectors from PageCurveMemory
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS island_summaries (
+                tick INTEGER PRIMARY KEY,
+                summary BLOB,
+                carry_embedding BLOB,
+                topic TEXT
+            )
+        """)
         self.conn.commit()
 
     def add(self, episode) -> None:
@@ -191,3 +200,82 @@ class EpisodeStore:
 
     def flush(self) -> None:
         self.conn.commit()
+
+    # ------------------------------------------------------------------
+    # Island summary persistence (Task 3 — memory pipeline)
+    # ------------------------------------------------------------------
+
+    def save_island_summary(
+        self,
+        tick: int,
+        summary: np.ndarray,
+        carry_embedding: np.ndarray,
+        topic: str,
+    ) -> None:
+        """Persist a compressed island summary produced by PageCurveMemory.
+
+        Args:
+            tick: heartbeat tick at which the island was sealed.
+            summary: float32 array of shape (2048,) — mean carry over the island.
+            carry_embedding: float32 array of shape (128,) — compressed carry vector.
+            topic: topic label associated with this island.
+        """
+        self.conn.execute(
+            "INSERT OR REPLACE INTO island_summaries "
+            "(tick, summary, carry_embedding, topic) VALUES (?, ?, ?, ?)",
+            (tick, summary.tobytes(), carry_embedding.tobytes(), topic),
+        )
+        self.conn.commit()
+
+    def get_island_summaries(self) -> list[dict]:
+        """Return all stored island summaries as a list of dicts.
+
+        Each dict has keys: tick (int), summary (np.ndarray float32, shape 2048),
+        carry_embedding (np.ndarray float32, shape 128), topic (str).
+        """
+        rows = self.conn.execute(
+            "SELECT tick, summary, carry_embedding, topic FROM island_summaries"
+        ).fetchall()
+        return [
+            {
+                "tick": r[0],
+                "summary": np.frombuffer(r[1], dtype=np.float32).copy(),
+                "carry_embedding": np.frombuffer(r[2], dtype=np.float32).copy(),
+                "topic": r[3],
+            }
+            for r in rows
+        ]
+
+    def retrieve_similar_island(
+        self, query_embedding: np.ndarray, threshold: float = 0.3
+    ) -> dict | None:
+        """Return the island whose carry_embedding is most similar to query_embedding.
+
+        Similarity is cosine similarity.  Returns None if no summaries are stored
+        or if the best similarity is below ``threshold``.
+
+        Args:
+            query_embedding: float32 array of shape (128,).
+            threshold: minimum cosine similarity required to return a match.
+
+        Returns:
+            Best-matching summary dict (same format as get_island_summaries) or None.
+        """
+        summaries = self.get_island_summaries()
+        if not summaries:
+            return None
+
+        query_norm = query_embedding / (np.linalg.norm(query_embedding) + 1e-8)
+        best_sim = -2.0
+        best_row = None
+        for row in summaries:
+            carry = row["carry_embedding"]
+            carry_norm = carry / (np.linalg.norm(carry) + 1e-8)
+            sim = float(np.dot(query_norm, carry_norm))
+            if sim > best_sim:
+                best_sim = sim
+                best_row = row
+
+        if best_sim >= threshold:
+            return best_row
+        return None
