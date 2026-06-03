@@ -13,7 +13,7 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 
 ## Architecture (v4.1)
 
-- **Body**: Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters × 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter.
+- **Body**: Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters × 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter. Island compression (v4.3): when Page memory island fills, compress via mean + learned W_refine → store in SQLite + echo faded trace back via g_echo gate. Somatic recall: on self_surprise > 0.5, retrieve past islands by carry-state cosine similarity (W_query), inject into carry + PFC prompt.
 - **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers for block coupling (K_aa, K_cc, K_cross). Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
 - **Senses**: FNO spectral cortex (audio 1D + vision 2D) + VQ-VAE codebooks. Checkpoint: `data/checkpoints/sense_module.eqx`.
 - **Perception**: TopicIndex (1095 clusters from FineWeb-Edu) + ActiveSampler (BS valuation + FE scoring).
@@ -31,6 +31,7 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 | `halo3/model.py` | Halo3Model + halo3_step (JIT-compiled) |
 | `halo3/config.py` | All hyperparameters (frozen dataclass) |
 | `halo3/predictive.py` | Per-tick body learning (Page memory predictor) |
+| `halo3/page_memory.py` | Ring buffer + island compression (W_refine, g_echo) + somatic recall (W_query) |
 | `halo3/psyche/knowledge_graph.py` | Discovery graph — nodes, auto-linking, topology metrics, persistence |
 | `halo3/psyche/drives.py` | 6 functional drives (accepts optional graph_metrics) |
 | `halo3/psyche/volatility.py` | Black-Scholes + graph-aware value_topic_with_graph() |
@@ -131,7 +132,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 
 ## Testing
 
-200 tests across `halo3/tests/` and `tests/`. Key test files:
+210 tests across `halo3/tests/` and `tests/`. Key test files:
 - `test_kuramoto.py` — 24 tests including quantum potential at sync
 - `test_cop.py` — 10 tests for COP engine
 - `test_cop_emotions.py` — 8 tests for emotion manifold
