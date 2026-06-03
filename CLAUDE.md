@@ -123,7 +123,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 - **Always backup before restart**: `cp data/checkpoints/halo3.eqx data/checkpoints/halo3_backup.eqx`
 - **Never restart containers blindly** — 10 hours of training was lost this way.
 - **Never restart computer mid-build** — causes git object corruption and MiKTeX corruption. Always `docker compose down` then `wsl --shutdown` first.
-- **WSL2 config required**: `C:\Users\srini\.wslconfig` must have `memory=8GB` and `swap=6GB`. Balanced for 16GB system: 8GB WSL2 + 8GB Windows headroom (Ollama + Docker Desktop + OS).
+- **WSL2 config required**: `C:\Users\srini\.wslconfig` must have `memory=8GB` and `swap=8GB`. Balanced for 16GB system: 8GB WSL2 RAM + 8GB swap (16GB virtual for dream subprocess spike) + 8GB Windows headroom. Do NOT set Docker mem_limit — causes OOM.
 - **K is clamped [0.05, 2.0]** — the SOC controller cannot drive it outside this range.
 - **Checkpoint format**: v4.0 checkpoints load into v4.1 but Kuramoto phases re-initialize (shape mismatch 32x16→128x64). Backbone weights preserved. v4.1.1 ObsBridge change breaks old checkpoints (w_obs shape doubled). Fresh birth from LM backbone required.
 - **Docker disk bloat**: Run `docker system df` periodically. If build hangs on "unpacking", prune with `docker builder prune -f && docker image prune -f`.
