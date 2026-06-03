@@ -15,6 +15,8 @@ v3.1 fixes:
 from __future__ import annotations
 import logging
 from collections import deque
+import jax
+import jax.numpy as jnp
 from halo3.psyche.drives import DriveState
 from halo3.psyche.emotions import EmotionState
 from halo3.psyche.self_model import SelfModel
@@ -74,6 +76,11 @@ class Organism:
         self._prev_query: str = ""
         self._exploration_plan: list[str] = []  # post-dream topics to explore
         self._experience_log: list[dict] = []  # real PFC interactions for dream LoRA
+        self._last_island_ptr: int = 0
+        self._recall_context: str = ""
+        self._carry_cache = None  # set by main.py each tick
+        self._W_query = None       # set by main.py each tick
+        self._memory_ref = None    # set by main.py each tick
 
     def tick(
         self,
@@ -107,7 +114,6 @@ class Organism:
         perception_failed = len(texts) == 0
 
         # --- COP observables ---
-        import jax.numpy as jnp
         _theta = theta if theta is not None else jnp.zeros((self._cfg.n_clusters, self._cfg.n_hidden))
         cop = self.cop.observe(
             r_mean=r_mean, r_a=r_a, r_c=r_c,
@@ -187,6 +193,26 @@ class Organism:
         # Self-surprise amplifies emotional intensity
         if self_surprise > 0.2:
             intensity = min(1.0, intensity + self_surprise * 0.3)
+
+        # --- Somatic recall: retrieve physically similar past on surprise ---
+        self._recall_context = ""
+        if self_surprise > 0.5 and self._memory_ref and self._carry_cache is not None and self._W_query is not None:
+            try:
+                import numpy as np
+                cache_mean = jnp.mean(self._carry_cache, axis=0)
+                carry_emb = cache_mean @ self._W_query
+                carry_emb_np = np.array(jax.device_get(carry_emb))
+                recalled = self._memory_ref.retrieve_similar_island(
+                    carry_emb_np, threshold=self._cfg.recall_similarity_threshold)
+                if recalled:
+                    self._recall_context = (
+                        f"Body memory: at tick {recalled['tick']}, "
+                        f"you were in a similar physical state while exploring "
+                        f"'{recalled['topic']}'."
+                    )
+                    log.info(f"  Somatic recall: tick {recalled['tick']} ({recalled['topic']})")
+            except Exception as e:
+                log.debug(f"Somatic recall failed: {e}")
 
         # 3b. Temporal binding — maintain continuity of experience
         temporal = self.temporal.observe(r_mean, emotion, topic_key, fe_delta, tau_norm=tau_norm)
@@ -456,6 +482,7 @@ class Organism:
             self.self_model.strengths,
             consecutive_failures=self._consecutive_zero_results,
             dead_queries=self.self_model.dead_queries,
+            recall_context=self._recall_context,
         )
         if pfc_query:
             log.debug(f"Prefrontal: generated query '{pfc_query}'")

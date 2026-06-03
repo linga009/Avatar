@@ -442,6 +442,7 @@ class PrefrontalCortex:
         dead_queries: list[str] | None = None,
         qualifier: str = "",
         mood: str = "",
+        recall_context: str = "",
     ) -> str | None:
         """Generate search query — Creative process only (fast, divergent)."""
         if not self.is_available:
@@ -486,6 +487,8 @@ class PrefrontalCortex:
             prompt_parts.append(failure_warning)
         if dead_warning:
             prompt_parts.append(dead_warning)
+        if recall_context:
+            prompt_parts.append(f"\n{recall_context}")
         prompt_parts.append("\nSearch query:")
 
         prompt = "\n".join(prompt_parts)
@@ -517,16 +520,18 @@ class PrefrontalCortex:
         self._recent_queries.append(query)
         return query
 
-    def interpret_finding(self, texts, query, r_mean, qualifier: str = "", emotion: str = "", mood: str = "") -> str | None:
+    def interpret_finding(self, texts, query, r_mean, qualifier: str = "", emotion: str = "", mood: str = "", recall_context: str = "") -> str | None:
         """Interpret a finding. Uses dialectic for significant findings (r>0.6)."""
         if not self.is_available:
             return None
         context = "; ".join(texts[:5]) if texts else ""
+        recall_part = f"\n{recall_context}" if recall_context else ""
         prompt = (
             f"Interpret this finding in 1-2 sentences.\n"
             f"Query: \"{query}\" | r={r_mean:.3f} | feeling {qualifier + ' ' if qualifier else ''}{emotion}" + (f", mood: {mood}" if mood else "") + "\n"
             f"Content: {context}\n"
-            f"Interpretation:"
+            + recall_part
+            + "Interpretation:"
         )
         if r_mean > 0.6:
             # Dialectic: both processes evaluate significance
