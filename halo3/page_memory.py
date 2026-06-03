@@ -1,6 +1,7 @@
-"""PageCurveMemory — ring buffer with island eviction."""
+"""PageCurveMemory — ring buffer with island eviction, compression, and echo."""
 from __future__ import annotations
 from typing import NamedTuple
+import jax
 import jax.numpy as jnp
 import equinox as eqx
 from halo3.config import Halo3Config
@@ -18,12 +19,18 @@ class PageCurveMemory(eqx.Module):
     island_size: int = eqx.field(static=True)
     d_model: int = eqx.field(static=True)
     d_head: int = eqx.field(static=True)
+    echo_gate_warmup: int = eqx.field(static=True)
+    W_refine: jnp.ndarray
+    g_echo_raw: jnp.ndarray
 
-    def __init__(self, cfg: Halo3Config) -> None:
+    def __init__(self, cfg: Halo3Config, key: jax.Array | None = None) -> None:
         self.max_cache = cfg.max_cache
         self.island_size = cfg.island_size
         self.d_model = cfg.d_model
         self.d_head = cfg.d_head
+        self.echo_gate_warmup = cfg.echo_gate_warmup
+        self.W_refine = jnp.zeros((cfg.d_model, cfg.d_model)) * 0.01
+        self.g_echo_raw = jnp.array(-4.6)
 
     def init_state(self) -> PageMemState:
         return PageMemState(
@@ -31,6 +38,51 @@ class PageCurveMemory(eqx.Module):
             n_cached=jnp.int32(0),
             island=jnp.zeros((self.island_size, self.d_model)),
             island_ptr=jnp.int32(0),
+        )
+
+    def compress_island(self, island: jnp.ndarray) -> jnp.ndarray:
+        """Compress the island buffer into a single summary vector.
+
+        Args:
+            island: shape (island_size, d_model)
+
+        Returns:
+            summary: shape (d_model,)
+        """
+        summary = jnp.mean(island, axis=0)          # (d_model,)
+        summary = summary + self.W_refine @ summary  # learned refinement
+        return summary
+
+    def is_island_full(self, state: PageMemState) -> bool:
+        """Return True when the island write pointer has reached capacity."""
+        return bool(state.island_ptr >= self.island_size)
+
+    def apply_echo(
+        self, state: PageMemState, summary: jnp.ndarray, tick: jnp.ndarray
+    ) -> PageMemState:
+        """Seed a freshly cleared island with a gated echo of the summary.
+
+        The echo gate is clamped to [0, 0.1] during warmup and [0, 0.5] after.
+
+        Args:
+            state:   current PageMemState
+            summary: shape (d_model,) — output of compress_island
+            tick:    current training tick (used for warmup check)
+
+        Returns:
+            New PageMemState with island reset and island[0] = gated summary.
+        """
+        g_raw = jax.nn.sigmoid(self.g_echo_raw)
+        in_warmup = tick < self.echo_gate_warmup
+        g = jnp.where(in_warmup, jnp.clip(g_raw, 0.0, 0.1), jnp.clip(g_raw, 0.0, 0.5))
+        faded = g * summary
+        fresh_island = jnp.zeros((self.island_size, self.d_model))
+        fresh_island = fresh_island.at[0].set(faded)
+        return PageMemState(
+            cache=state.cache,
+            n_cached=state.n_cached,
+            island=fresh_island,
+            island_ptr=jnp.int32(1),
         )
 
     def __call__(self, x_i, state):

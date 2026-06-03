@@ -91,3 +91,78 @@ def test_zero_vector_safe():
         state = mem(zero, state)
     assert not jnp.any(jnp.isnan(state.cache))
     assert not jnp.any(jnp.isnan(state.island))
+
+
+# ---------------------------------------------------------------------------
+# Tests for compress_island, is_island_full, and apply_echo (Task 2)
+# ---------------------------------------------------------------------------
+
+def test_compress_island_shape():
+    """compress_island returns a vector of shape (d_model,)."""
+    mem = PageCurveMemory(_CFG)
+    island = jax.random.normal(_KEY, (_CFG.island_size, _CFG.d_model))
+    summary = mem.compress_island(island)
+    assert summary.shape == (_CFG.d_model,), f"Expected ({_CFG.d_model},), got {summary.shape}"
+
+
+def test_compress_island_not_zero():
+    """Nonzero island input produces nonzero summary."""
+    mem = PageCurveMemory(_CFG)
+    island = jax.random.normal(_KEY, (_CFG.island_size, _CFG.d_model))
+    summary = mem.compress_island(island)
+    assert jnp.any(summary != 0.0), "Summary should be nonzero for nonzero island"
+
+
+def test_echo_seeds_fresh_island():
+    """After apply_echo, island[0] is nonzero, remaining slots are zero, ptr=1."""
+    mem = PageCurveMemory(_CFG)
+    state = mem.init_state()
+    summary = jax.random.normal(_KEY, (_CFG.d_model,))
+    # Use a tick well past warmup so gate is not clamped near zero
+    new_state = mem.apply_echo(state, summary, tick=jnp.int32(500))
+    assert new_state.island_ptr == 1, f"Expected island_ptr=1, got {new_state.island_ptr}"
+    assert jnp.any(new_state.island[0] != 0.0), "island[0] should be nonzero after echo"
+    assert jnp.allclose(new_state.island[1:], 0.0), "Remaining island slots should be zero"
+
+
+def test_echo_gate_warmup():
+    """During warmup (tick < echo_gate_warmup), echo norm <= 0.11 * summary norm."""
+    mem = PageCurveMemory(_CFG)
+    state = mem.init_state()
+    key = jax.random.PRNGKey(42)
+    summary = jax.random.normal(key, (_CFG.d_model,))
+    # tick=50 is inside warmup window (echo_gate_warmup=100)
+    new_state = mem.apply_echo(state, summary, tick=jnp.int32(50))
+    faded = new_state.island[0]
+    echo_norm = jnp.linalg.norm(faded)
+    summary_norm = jnp.linalg.norm(summary)
+    assert echo_norm <= 0.11 * summary_norm + 1e-6, (
+        f"Warmup gate too large: echo_norm={echo_norm:.4f}, summary_norm={summary_norm:.4f}"
+    )
+
+
+def test_echo_gate_post_warmup():
+    """After warmup (tick >= 200), echo norm <= 0.51 * summary norm."""
+    mem = PageCurveMemory(_CFG)
+    state = mem.init_state()
+    key = jax.random.PRNGKey(99)
+    summary = jax.random.normal(key, (_CFG.d_model,))
+    # tick=200 is past warmup window (echo_gate_warmup=100)
+    new_state = mem.apply_echo(state, summary, tick=jnp.int32(200))
+    faded = new_state.island[0]
+    echo_norm = jnp.linalg.norm(faded)
+    summary_norm = jnp.linalg.norm(summary)
+    assert echo_norm <= 0.51 * summary_norm + 1e-6, (
+        f"Post-warmup gate too large: echo_norm={echo_norm:.4f}, summary_norm={summary_norm:.4f}"
+    )
+
+
+def test_is_island_full():
+    """is_island_full returns True when island_ptr >= island_size."""
+    mem = PageCurveMemory(_CFG)
+    state = mem.init_state()
+    assert not mem.is_island_full(state), "Fresh island should not be full"
+    full_state = state._replace(island_ptr=jnp.int32(_CFG.island_size))
+    assert mem.is_island_full(full_state), "island_ptr == island_size should be full"
+    over_state = state._replace(island_ptr=jnp.int32(_CFG.island_size + 1))
+    assert mem.is_island_full(over_state), "island_ptr > island_size should be full"
