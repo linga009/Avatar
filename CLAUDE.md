@@ -56,6 +56,15 @@ Key equations (v4.1):
 - F_thermo = H_mean - T_eff * S_phase (diagnostic)
 - Loss: l_recon + λ_energy·l_energy (L_sync removed — contradicted COP)
 
+## SOC Avalanche Evidence
+
+First measurement (2026-06-05, n=25): tau=1.23, alpha=1.85, sigma=1.12 (SOC predicts ~1.5, ~2.0, ~1.0).
+Avalanche detection: r excursions below adaptive EMA threshold (alpha=0.01). Power-law diagnostics at n≥20.
+Pending: persistence (save/load JSON), rigorous stats (KS test, bootstrap CI), ablation (disable_soc_controller flag).
+Specs: `docs/superpowers/specs/2026-06-06-soc-avalanche-tooling-design.md`
+Plans: `docs/superpowers/plans/2026-06-06-soc-avalanche-tooling.md`
+Paper draft: `docs/papers/soc-avalanches-draft.md`
+
 ## Knowledge Graph (v4.1)
 
 File: `halo3/psyche/knowledge_graph.py`. Design rationale: `docs/superpowers/specs/2026-05-29-knowledge-graph-design.md`.
