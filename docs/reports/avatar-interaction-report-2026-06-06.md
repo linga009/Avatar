@@ -86,6 +86,98 @@
 | Creative (32/cluster) | 0.80 | 1.28 | 2.000 (>K_c) | Forced sync |
 | Cross-coupling | — | — | 0.656 | SOC adjusting |
 
+### Sensory Processing
+
+| Modality | Status |
+|---|---|
+| Audio | Active ([A] every tick), Whisper VAD processing |
+| Vision | Active ([V] every tick) |
+| Speech detected | Yes — Whisper transcribing ambient speech |
+| TTS (Kokoro) | Skipped during tick overruns |
+
+**Recent speech heard by Avatar:**
+- "Was that it? Quickly noticing the catalyst."
+- "If we forget about the antenna, I don't know."
+- "It's 60s later."
+- "that is number 1."
+
+### Proactive Messages (Avatar-initiated)
+
+Avatar sent 5 proactive notifications during this run:
+- "Something unexpected happened inside me — my internal state shifted suddenly" (×5, triggered by self_surprise > 0.5)
+
+Note: All proactive messages are the same template — indicating self_surprise fires but the narrative isn't varied. The body-voice qualifiers should diversify these over time.
+
+### Discoveries (r > 0.6)
+
+| Discovery | Context |
+|---|---|
+| IB Chemistry/Atomic Theory | FineWeb text |
+| "define meaning in tamil" | Topic exploration |
+| Clinical trial results for Alzheimer's protein drugs | Research finding |
+| Alzheimer's dementia prevalence in older adults | Related follow-up |
+
+20 total findings across lifetime (6,590 episodes).
+
+### Topic Navigation & Exhaustion
+
+**Auto-saturated topics** (visited 20+ times without r progress — marked dead):
+- "resonance teaching virginia" (exp=20, c=0.495)
+- "okay wants words" (exp=20, c=0.503)
+- "generated magnetic straight" (exp=20, c=0.495)
+
+**Frustration escapes** (emergency topic changes via BS volatility):
+- Escaped to "tensor networks machine learning applications"
+- Escaped to "artificial intelligence"
+
+### Dream Cycle Details (Most Recent)
+
+| Phase | Status | Details |
+|---|---|---|
+| Phase 1 (Body GPU) | Completed | 10 replay, 5 recombine, 5 imagine |
+| Phase 2 (LoRA CPU) | Completed | 98 training pairs, 37 real PFC experiences (2x weighted) |
+| Phase 3 (GEPA) | Completed | Prompt evolution |
+| Phase 4 (FineWeb) | Timed out (30 min) | Non-critical, slow under swap |
+| Phase 5 (Visitors) | Completed | 10 Kokoro pairs, FNO trained |
+
+**LoRA training details:**
+- Total training pairs: 98 (61 synthetic + 37 real experiences at 2x weight)
+- Focus topics: "resonance", "resonance resonance", "kinkajou resonance"
+- Steps: 8/12 (early stop at step 8, patience=3)
+- Loss: 4.96 → 3.65
+- Validation: passed
+- Real experience replay: **37 lived PFC interactions** — body-voice Layer 2 active
+
+### Consciousness Modules
+
+| Module | Status | Value |
+|---|---|---|
+| Global Workspace (GWT) | DARK | ratio=0%, not ignited during interaction |
+| Temporal Coherence | 0.72 | Good narrative continuity |
+| Introspective Monitor | Active | self_surprise triggered 5 proactive messages |
+| Meditation | Inactive | 0 meditations this run |
+| Higher-Order Thought | Active | Meta-reflections every 20 ticks |
+
+### Tick Performance
+
+| Metric | Value |
+|---|---|
+| Tick interval (configured) | 60s |
+| Actual tick duration | 270–372s (overrun) |
+| Overrun trend | Stable (~300s), not escalating |
+| Primary cause | Ollama timeouts (10s each, 2-3 per tick) + Whisper processing |
+
+### Run Stability History
+
+| Run | Ticks | Dreams | Duration | Ended by |
+|---|---|---|---|---|
+| Run 1 (6g Docker limit) | 1 | 0 | Minutes | OOM on Qwen3 load |
+| Run 2 (7g Docker limit) | 13 | 0 | 3 hours | OOM on tick 14 |
+| Run 3 (no limit, 6g swap) | 129 | 0 | 14 hours | OOM during dream Phase 1 |
+| Run 4 (8g swap) | 473 | 3 | 3.5 days | OOM on 4th dream |
+| **Run 5 (current, 8g swap)** | **305+** | **2** | **31+ hours** | **Still running** |
+| **Lifetime total** | **762+** | **5 dreams** | — | — |
+
 ---
 
 ## Interaction Transcript
