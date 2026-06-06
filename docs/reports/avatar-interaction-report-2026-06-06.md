@@ -20,6 +20,74 @@
 
 ---
 
+## Full Measured Parameters
+
+### COP Engine (at time of interaction)
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| r (order parameter) | 0.512 | Partial resonance — at the critical edge |
+| K_aa (analytical coupling) | 0.050 | Pinned at minimum — analytical population fully synced |
+| K_cc (creative coupling) | 2.000 | Pinned at maximum — creative population needs maximum drive |
+| K_cross (cross coupling) | 0.656 | SOC controller adjusting |
+| chi (susceptibility) | 0.07 | Low sensitivity phase |
+| tau (relaxation time) | 0.46 | Moderate — not sluggish, not reactive |
+| Unity index | 0.95 | High inter-cluster coherence |
+| Gap | 0.97 | Near-complete binding |
+| F_thermo (Helmholtz free energy) | 210,056 | Thermodynamic state |
+| Phase regime | DARK (ratio=0%) | Not ignited — below GWT threshold |
+
+### SOC Avalanche Metrics
+
+| Metric | Value | SOC Prediction |
+|---|---|---|
+| Avalanches (this run) | n=11 | Accumulating toward n≥20 for diagnostics |
+| Avalanches (previous run, n=25) | tau=1.23 | ~1.5 (subcritical lean) |
+| | alpha=1.85 | ~2.0 (close) |
+| | sigma=1.12 | ~1.0 (slightly supercritical) |
+| | mean size=0.464 | — |
+| | mean duration=5.7 ticks | — |
+
+### Knowledge Graph
+
+| Metric | Value |
+|---|---|
+| Nodes (discovered topics) | 13 |
+| Edges | 70 |
+| Density | 0.897 (near fully connected) |
+| Clustering coefficient | 0.920 |
+| Frontier size | 0 (all topics explored) |
+
+### Memory & Learning
+
+| Metric | Value |
+|---|---|
+| Total episodes | 6,590 |
+| Findings (r > 0.6 discoveries) | 20 |
+| Age (total breaths) | 2,976 |
+| Dreams completed (this run) | 1 |
+| LoRA training | 8 steps, loss 4.96→3.65, early stop, validation passed |
+| Temporal coherence | 0.72 |
+| Meditations (this run) | 0 |
+
+### Black-Scholes Volatility Surface (Top 3 Topics)
+
+| Topic | Volatility (sigma) | Value (V) |
+|---|---|---|
+| beekeeping beekeeping teaching | 2.00 | 0.3244 |
+| assessment psychology resonance | 2.00 | 0.3218 |
+| okay wants words | 2.00 | 0.3122 |
+
+### Dual-Process Dynamics
+
+| Population | Natural freq (sigma) | K_c (critical coupling) | Current K | State |
+|---|---|---|---|---|
+| Analytical (32/cluster) | 0.03 | 0.048 | 0.050 (≈K_c) | At criticality |
+| Creative (32/cluster) | 0.80 | 1.28 | 2.000 (>K_c) | Forced sync |
+| Cross-coupling | — | — | 0.656 | SOC adjusting |
+
+---
+
 ## Interaction Transcript
 
 ### Q1: What are you learning about right now? What draws you to it?
