@@ -81,12 +81,19 @@ Does NOT replace COP. Sits alongside — COP = physics state, graph = semantic s
 
 ## Tick Performance (v4.1)
 
-Ticks reduced from 3-23 min to ~120s via:
+Ticks reduced from 3-23 min to ~130s via:
 1. Ollama timeout 30s → 10s (`prefrontal.py`)
 2. meta_reflect every 20 ticks (was 5) (`organism.py`)
 3. self_reflect removed from status() — was hidden Ollama call (`organism.py`)
 4. TTS skipped when previous tick overran (`main.py`)
 5. Boredom always takes BS pick, skips PFC Layer 5 (`organism.py`)
+6. DDG wrapped in ThreadPoolExecutor with 12s hard cap — was blocking indefinitely (`web_fetch.py`)
+7. DDG + Wikipedia + arXiv now run concurrently — total time = slowest, not sum (`web_fetch.py`)
+8. All futures.result() capped with explicit timeouts (wiki=20s, arxiv=15s, ddg=14s) (`web_fetch.py`)
+9. Top-2 DDG results enriched with trafilatura full-text (parallel, 10s timeout) (`web_fetch.py`)
+10. Query leak fix: Qwen3 COT reasoning stripped from queries (`prefrontal.py`)
+
+Remaining floor ~130s = per-tick gradient backprop through 106M params. Cannot easily reduce further without skipping learning steps.
 
 ## NeuroSync Webinar
 
