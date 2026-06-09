@@ -69,6 +69,21 @@ _STATE_WORDS = frozenset([
     "synchronization", "feeling", "organism", "emotion",
 ])
 
+# Prefixes the model uses to announce its output — strip and keep the rest
+_ANNOUNCE_PREFIXES = [
+    "the search query is:", "search query is:", "the query is:",
+    "my search query:", "search query:", "here is the query:",
+    "here's the query:", "search for:",
+]
+
+# Reasoning preamble patterns — if output starts with these, it's COT leak → reject
+_REASONING_STARTS = (
+    "okay,", "okay ", "ok,", "ok ", "sure,", "sure ", "i'll ", "i will ",
+    "let me ", "i need to", "the user ", "you want ", "i should ",
+    "first,", "alright", "to answer", "to generate", "to create",
+    "the user wants", "only search", "no explanation", "no label",
+)
+
 # Harm detection vocabulary
 _HARM_WORDS = frozenset([
     "harm", "risk", "unsafe", "unethical", "dangerous", "exploit",
@@ -124,6 +139,18 @@ def _clean_query(raw: str) -> str | None:
         return None
     query = raw.strip().split("\n")[0]
     low = query.lower()
+
+    # Reject reasoning preambles — model is outputting COT without think tags
+    for preamble in _REASONING_STARTS:
+        if low.startswith(preamble):
+            return None
+
+    # Strip announce prefixes like "The search query is: X" → keep X
+    for prefix in _ANNOUNCE_PREFIXES:
+        if low.startswith(prefix):
+            query = query[len(prefix):].strip().strip('"\'')
+            low = query.lower()
+            break
     for junk in _JUNK_WORDS:
         low_junk = junk.lower()
         if low_junk in low:
@@ -167,6 +194,9 @@ def _query_quality(query: str) -> float:
         score -= 0.3
     if "instruction" in low or "response" in low or "topic:" in low:
         score -= 0.5
+    # Catch remaining COT / instruction echoes
+    if any(p in low for p in ("the user", "wants me", "generate a", "search for \"", "in the context of", "only search", "no explanation")):
+        score -= 1.0
     return max(0.0, score)
 
 
