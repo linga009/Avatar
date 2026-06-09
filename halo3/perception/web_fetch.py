@@ -146,18 +146,30 @@ def multi_source_search(query: str, max_results: int = 5) -> list[SearchResult]:
     is_sci = _is_scientific(query)
     with ThreadPoolExecutor(max_workers=3) as ex:
         ddg_future = ex.submit(_ddg_search, query, max_results)
-        wiki_future = ex.submit(wikipedia_search, query, 3)
-        arxiv_future = ex.submit(arxiv_search, query, 3) if is_sci else None
+        wiki_future = ex.submit(wikipedia_search, query, 2)
+        arxiv_future = ex.submit(arxiv_search, query, 2) if is_sci else None
 
-        ddg_results = ddg_future.result()
-        wiki_results = wiki_future.result()
-        arxiv_results = arxiv_future.result() if arxiv_future else []
+        try:
+            ddg_results = ddg_future.result(timeout=_DDG_TIMEOUT + 2)
+        except FuturesTimeoutError:
+            ddg_results = []
+        try:
+            wiki_results = wiki_future.result(timeout=20)
+        except FuturesTimeoutError:
+            wiki_results = []
+        try:
+            arxiv_results = arxiv_future.result(timeout=15) if arxiv_future else []
+        except FuturesTimeoutError:
+            arxiv_results = []
 
     # Enrich top-2 DDG results with full article text (parallel, non-blocking on failure)
     if ddg_results:
         top_urls = [r.url for r in ddg_results[:2] if r.url]
-        with ThreadPoolExecutor(max_workers=2) as fetch_ex:
-            full_texts = list(fetch_ex.map(_fetch_full_content, top_urls, timeout=_FETCH_TIMEOUT + 2))
+        try:
+            with ThreadPoolExecutor(max_workers=2) as fetch_ex:
+                full_texts = list(fetch_ex.map(_fetch_full_content, top_urls, timeout=_FETCH_TIMEOUT + 2))
+        except FuturesTimeoutError:
+            full_texts = []
         for i, text in enumerate(full_texts):
             if text:
                 ddg_results[i] = SearchResult(
