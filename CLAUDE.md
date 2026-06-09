@@ -60,7 +60,9 @@ Key equations (v4.1):
 
 First measurement (2026-06-05, n=25): tau=1.23, alpha=1.85, sigma=1.12 (SOC predicts ~1.5, ~2.0, ~1.0).
 Avalanche detection: r excursions below adaptive EMA threshold (alpha=0.01). Power-law diagnostics at n≥20.
-Pending: persistence (save/load JSON), rigorous stats (KS test, bootstrap CI), ablation (disable_soc_controller flag).
+Avalanche history persisted to data/checkpoints/avalanche_history.json (every 100 ticks + before dream, loaded on startup).
+Rigorous stats (KS goodness-of-fit, bootstrap 95% CI, scaling relation gamma) computed at n≥50, logged every 100 ticks.
+SOC ablation: disable_soc_controller=True freezes K — for control experiments (avalanche detection still runs).
 Specs: `docs/superpowers/specs/2026-06-06-soc-avalanche-tooling-design.md`
 Plans: `docs/superpowers/plans/2026-06-06-soc-avalanche-tooling.md`
 Paper draft: `docs/papers/soc-avalanches-draft.md`
