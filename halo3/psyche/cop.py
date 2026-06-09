@@ -57,6 +57,7 @@ class CriticalDynamics:
         self._aval_start: int = 0
         self._aval_accum: float = 0.0  # accumulated size of current avalanche
         self._r_median_ema: float = 0.5  # adaptive threshold (EMA of r)
+        self._disable_soc: bool = cfg.disable_soc_controller
 
     def observe(
         self,
@@ -110,7 +111,7 @@ class CriticalDynamics:
         _theta = theta if theta is not None else jnp.zeros((1, 1))
         unity_val, gap = self._update_unity(_theta)
 
-        if self._tick <= self._warmup:
+        if self._tick <= self._warmup or self._disable_soc:
             K_aa_new, K_cc_new, K_cross_new = K_aa, K_cc, K_cross
         else:
             # SOC controller uses RAW chi (not normalized) for responsive coupling
@@ -281,6 +282,139 @@ class CriticalDynamics:
             "mean_duration": float(durations.mean()),
             "sizes": self._avalanche_sizes,
             "durations": self._avalanche_durations,
+        }
+
+    def save_avalanche_history(self, path: str) -> None:
+        """Persist avalanche data to JSON."""
+        import json as _json
+        data = {
+            "sizes": self._avalanche_sizes,
+            "durations": self._avalanche_durations,
+            "r_full_history": self._r_full_history[-5000:],
+            "r_median_ema": self._r_median_ema,
+        }
+        with open(path, "w") as f:
+            _json.dump(data, f)
+
+    def load_avalanche_history(self, path: str) -> None:
+        """Load persisted avalanche data. Graceful no-op if file missing."""
+        import json as _json
+        try:
+            with open(path) as f:
+                data = _json.load(f)
+            self._avalanche_sizes = data.get("sizes", [])
+            self._avalanche_durations = data.get("durations", [])
+            self._r_full_history = data.get("r_full_history", [])
+            self._r_median_ema = data.get("r_median_ema", 0.5)
+        except (FileNotFoundError, _json.JSONDecodeError):
+            pass
+
+    @property
+    def avalanche_stats_rigorous(self) -> dict | None:
+        """Clauset-Shalizi-Newman power-law testing with bootstrap CIs.
+
+        Returns None if n < 50. Otherwise returns dict with:
+        - tau_est, tau_ci: size exponent + 95% CI
+        - alpha_est, alpha_ci: duration exponent + 95% CI
+        - sigma_est, sigma_ci: branching ratio + 95% CI
+        - ks_d_size, ks_p_size: KS distance and p-value for size distribution
+        - ks_d_dur, ks_p_dur: KS distance and p-value for duration distribution
+        - gamma: scaling relation (tau-1)/(alpha-1)
+        """
+        n = len(self._avalanche_sizes)
+        if n < 50:
+            return None
+
+        sizes = np.array(self._avalanche_sizes)
+        durations = np.array(self._avalanche_durations, dtype=float)
+        rng = np.random.RandomState(42)
+
+        def _mle_exponent(data):
+            x_min = data[data > 0].min()
+            valid = data[data >= x_min]
+            if len(valid) < 5:
+                return None, x_min
+            return 1.0 + len(valid) / np.sum(np.log(valid / x_min)), x_min
+
+        def _ks_distance(data, tau, x_min):
+            valid = np.sort(data[data >= x_min])
+            n_v = len(valid)
+            if n_v < 5:
+                return 1.0
+            empirical_cdf = np.arange(1, n_v + 1) / n_v
+            theoretical_cdf = 1.0 - (valid / x_min) ** (-(tau - 1.0))
+            return float(np.max(np.abs(empirical_cdf - theoretical_cdf)))
+
+        def _bootstrap_p(data, tau, x_min, d_observed, n_boot=500):
+            valid = data[data >= x_min]
+            n_v = len(valid)
+            if n_v < 5:
+                return 0.0
+            count_worse = 0
+            for _ in range(n_boot):
+                u = rng.uniform(0, 1, n_v)
+                synthetic = x_min * u ** (-1.0 / (tau - 1.0))
+                syn_tau, syn_xmin = _mle_exponent(synthetic)
+                if syn_tau is None:
+                    continue
+                d_syn = _ks_distance(synthetic, syn_tau, syn_xmin)
+                if d_syn >= d_observed:
+                    count_worse += 1
+            return count_worse / n_boot
+
+        def _bootstrap_ci(data, n_boot=500):
+            estimates = []
+            for _ in range(n_boot):
+                sample = rng.choice(data, size=len(data), replace=True)
+                est, _ = _mle_exponent(sample)
+                if est is not None:
+                    estimates.append(est)
+            if len(estimates) < 10:
+                return (None, None)
+            estimates = np.array(estimates)
+            return (float(np.percentile(estimates, 2.5)),
+                    float(np.percentile(estimates, 97.5)))
+
+        tau_est, s_min = _mle_exponent(sizes)
+        ks_d_size = _ks_distance(sizes, tau_est, s_min) if tau_est else 1.0
+        ks_p_size = _bootstrap_p(sizes, tau_est, s_min, ks_d_size) if tau_est else 0.0
+        tau_ci = _bootstrap_ci(sizes)
+
+        alpha_est, d_min = _mle_exponent(durations)
+        ks_d_dur = _ks_distance(durations, alpha_est, d_min) if alpha_est else 1.0
+        ks_p_dur = _bootstrap_p(durations, alpha_est, d_min, ks_d_dur) if alpha_est else 0.0
+        alpha_ci = _bootstrap_ci(durations)
+
+        if n >= 2:
+            ratios = sizes[1:] / (sizes[:-1] + 1e-12)
+            sigma_est = float(np.median(ratios))
+            sigma_boots = []
+            for _ in range(500):
+                idx = rng.choice(len(ratios), size=len(ratios), replace=True)
+                sigma_boots.append(float(np.median(ratios[idx])))
+            sigma_ci = (float(np.percentile(sigma_boots, 2.5)),
+                        float(np.percentile(sigma_boots, 97.5)))
+        else:
+            sigma_est = None
+            sigma_ci = (None, None)
+
+        gamma = None
+        if tau_est and alpha_est and alpha_est > 1.0:
+            gamma = (tau_est - 1.0) / (alpha_est - 1.0)
+
+        return {
+            "n": n,
+            "tau_est": float(tau_est) if tau_est else None,
+            "tau_ci": tau_ci,
+            "alpha_est": float(alpha_est) if alpha_est else None,
+            "alpha_ci": alpha_ci,
+            "sigma_est": sigma_est,
+            "sigma_ci": sigma_ci,
+            "ks_d_size": ks_d_size,
+            "ks_p_size": ks_p_size,
+            "ks_d_dur": ks_d_dur,
+            "ks_p_dur": ks_p_dur,
+            "gamma": gamma,
         }
 
     def _compute_chi(self) -> tuple[float, float]:
