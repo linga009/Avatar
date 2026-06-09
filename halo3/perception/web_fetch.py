@@ -5,6 +5,7 @@ import logging
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
@@ -15,7 +16,25 @@ _SCIENCE_WORDS = {
     "enzyme",
 }
 
-_TIMEOUT = 8  # seconds for every HTTP call
+_TIMEOUT = 8      # seconds for every HTTP call
+_DDG_TIMEOUT = 12  # hard cap on DuckDuckGo (no built-in timeout in ddgs library)
+_FETCH_TIMEOUT = 10  # trafilatura full-page fetch timeout
+
+
+def _fetch_full_content(url: str) -> str | None:
+    """Fetch full article text via trafilatura. Returns None on any failure."""
+    if not url:
+        return None
+    try:
+        import trafilatura
+        downloaded = trafilatura.fetch_url(url, timeout=_FETCH_TIMEOUT)
+        if not downloaded:
+            return None
+        text = trafilatura.extract(downloaded, include_comments=False, include_tables=False)
+        return text if text and len(text) > 100 else None
+    except Exception as e:
+        log.debug(f"trafilatura fetch failed for '{url}': {e}")
+        return None
 
 
 @dataclass
@@ -26,11 +45,19 @@ class SearchResult:
 
 
 def _ddg_search(query: str, max_results: int) -> list[SearchResult]:
-    try:
+    def _do_search():
         from ddgs import DDGS
         with DDGS() as ddgs:
             raw = list(ddgs.text(query, max_results=max_results))
         return [SearchResult(title=r.get("title", ""), snippet=r.get("body", ""), url=r.get("href", "")) for r in raw]
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            future = ex.submit(_do_search)
+            return future.result(timeout=_DDG_TIMEOUT)
+    except FuturesTimeoutError:
+        log.warning(f"DuckDuckGo timed out after {_DDG_TIMEOUT}s for '{query}'")
+        return []
     except Exception as e:
         log.warning(f"DuckDuckGo search failed for '{query}': {e}")
         return []
@@ -110,14 +137,34 @@ def _title_overlap(a: str, b: str) -> float:
 
 
 def multi_source_search(query: str, max_results: int = 5) -> list[SearchResult]:
-    """Search DuckDuckGo + Wikipedia (+ arXiv for science queries).
+    """Search DuckDuckGo + Wikipedia (+ arXiv for science queries) in parallel.
 
+    All sources run concurrently — total time = slowest source, not sum.
     DuckDuckGo results come first. Wikipedia and arXiv fill remaining slots,
     deduplicated by title overlap > 60%.
     """
-    ddg_results = _ddg_search(query, max_results)
-    wiki_results = wikipedia_search(query, max_results=3)
-    arxiv_results = arxiv_search(query, max_results=3) if _is_scientific(query) else []
+    is_sci = _is_scientific(query)
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        ddg_future = ex.submit(_ddg_search, query, max_results)
+        wiki_future = ex.submit(wikipedia_search, query, 3)
+        arxiv_future = ex.submit(arxiv_search, query, 3) if is_sci else None
+
+        ddg_results = ddg_future.result()
+        wiki_results = wiki_future.result()
+        arxiv_results = arxiv_future.result() if arxiv_future else []
+
+    # Enrich top-2 DDG results with full article text (parallel, non-blocking on failure)
+    if ddg_results:
+        top_urls = [r.url for r in ddg_results[:2] if r.url]
+        with ThreadPoolExecutor(max_workers=2) as fetch_ex:
+            full_texts = list(fetch_ex.map(_fetch_full_content, top_urls, timeout=_FETCH_TIMEOUT + 2))
+        for i, text in enumerate(full_texts):
+            if text:
+                ddg_results[i] = SearchResult(
+                    title=ddg_results[i].title,
+                    snippet=text[:2000],  # cap at 2000 chars
+                    url=ddg_results[i].url,
+                )
 
     n_ddg = len(ddg_results)
     combined = list(ddg_results)
