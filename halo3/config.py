@@ -112,6 +112,7 @@ class Halo3Config:
 
     # Experiment flags (ablation study)
     disable_quantum_potential: bool = False
+    disable_soc_controller: bool = False
 
     # Heartbeat
     tick_interval: int = 60
