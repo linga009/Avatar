@@ -326,6 +326,22 @@ class Organism:
                         f"  Avalanche: n={astats['n']} {tau_s} {alpha_s} {br_s} | "
                         f"⟨S⟩={astats['mean_size']:.3f} ⟨T⟩={astats['mean_duration']:.1f}"
                     )
+                rstats = self.cop.avalanche_stats_rigorous
+                if rstats:
+                    tau_s = f"τ={rstats['tau_est']:.2f}" if rstats["tau_est"] else "τ=?"
+                    tau_ci = f"[{rstats['tau_ci'][0]:.2f},{rstats['tau_ci'][1]:.2f}]" if rstats["tau_ci"][0] else ""
+                    alpha_s = f"α={rstats['alpha_est']:.2f}" if rstats["alpha_est"] else "α=?"
+                    alpha_ci = f"[{rstats['alpha_ci'][0]:.2f},{rstats['alpha_ci'][1]:.2f}]" if rstats["alpha_ci"][0] else ""
+                    sigma_s = f"σ={rstats['sigma_est']:.2f}" if rstats["sigma_est"] else "σ=?"
+                    sigma_ci = f"[{rstats['sigma_ci'][0]:.2f},{rstats['sigma_ci'][1]:.2f}]" if rstats["sigma_ci"][0] else ""
+                    gamma_s = f"γ={rstats['gamma']:.2f}" if rstats["gamma"] else "γ=?"
+                    log.info(
+                        f"  Avalanche (rigorous): n={rstats['n']} "
+                        f"{tau_s} {tau_ci} {alpha_s} {alpha_ci} {sigma_s} {sigma_ci} | "
+                        f"KS_size={rstats['ks_d_size']:.2f} p={rstats['ks_p_size']:.2f} | "
+                        f"KS_dur={rstats['ks_d_dur']:.2f} p={rstats['ks_p_dur']:.2f} | "
+                        f"{gamma_s}"
+                    )
 
         # 4a. Auto-saturation: topics visited many times without r progress
         # are stuck — mark dead so PFC/BS avoid them, then force escape.
