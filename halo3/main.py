@@ -124,6 +124,10 @@ def main() -> None:
     organism = Organism(seed_topics)
     predictor = PredictiveProcessor(lr=1e-5)
 
+    # Load persisted avalanche history (survives restarts)
+    _aval_path = "data/checkpoints/avalanche_history.json"
+    organism.cop.load_avalanche_history(_aval_path)
+
     # --- Chat server (talk to the whole organism) ---
     from halo3.chat_server import start_chat_server, update_live_state
     start_chat_server(port=8420)
@@ -461,10 +465,13 @@ def main() -> None:
         # Save knowledge graph every 100 ticks
         if tick % 100 == 0 and organism.knowledge_graph.node_count > 0:
             organism.knowledge_graph.save("data/checkpoints/knowledge_graph.json")
+        if tick % 100 == 0:
+            organism.cop.save_avalanche_history(_aval_path)
 
         # 8. DREAM (when the body needs it — minimum 100 ticks between dreams)
         _ticks_since_dream += 1
         if psyche_output["needs_dream"] and _ticks_since_dream >= 100:
+            organism.cop.save_avalanche_history(_aval_path)
             log.info("  ☽ Entering dream state — sequential body then mind...")
 
             # === PHASE 1: BODY DREAMS (GPU — isolated subprocess) ===
