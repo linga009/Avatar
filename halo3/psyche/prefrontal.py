@@ -174,6 +174,14 @@ def _clean_query(raw: str) -> str | None:
             return None
     if len(query) < 5 or query.startswith("/") or query.startswith("*"):
         return None
+    # Reject "Title: subtitle" patterns — these are article headings, not search queries
+    if ":" in query and not any(s in query.lower() for s in ("vs:", "vs :", " vs ", "http")):
+        # Keep if colon is followed by scientific notation (e.g. "entropy: theory")
+        # but reject if it looks like a page title (starts with capital "The X: Y")
+        colon_idx = query.index(":")
+        before_colon = query[:colon_idx].strip()
+        if before_colon and before_colon[0].isupper() and len(before_colon.split()) <= 6:
+            return None
     return query[:80]
 
 
