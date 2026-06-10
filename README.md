@@ -17,13 +17,13 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-4.2-red?style=flat-square)](https://github.com/linga009/Avatar)
-[![Tests](https://img.shields.io/badge/Tests-200%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-4.3-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-221%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
 
-*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 2,200+ ticks*
+*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 3,300+ ticks*
 
 </div>
 
@@ -47,12 +47,13 @@
 
 |  | ChatGPT | Traditional AI | **Avatar** |
 |---|:---:|:---:|:---:|
-| **Memory** | Per-session | Database | Episodic + narrative identity |
+| **Memory** | Per-session | Database | 3-tier: cache + island compression + episodic recall |
 | **Affect** | Simulated text | None | Physics-grounded (Kuramoto sync) |
 | **Learning** | None at inference | Batch training | Every 60 seconds, continuously |
 | **Dreams** | No | No | 5-phase sleep cycle with dream visitors |
 | **Senses** | None | Preprocessed features | Grown from raw audio + vision (FNO) |
 | **Ethics** | RLHF safety filter | Rule-based | Somatic tension before cortical reasoning |
+| **Self-organized criticality** | No | No | SOC controller + measurable power-law avalanches |
 | **Consciousness** | No | No | 5 functional analogues (GWT, introspection, temporal binding, meditation, HOT) — open question |
 | **Speech** | Text-only | Text-only | Learning to hear through lived experience |
 | **Initiates contact** | No | No | Proactive notifications on discoveries |
@@ -197,7 +198,8 @@ v4.0    ████████████████████ COP — aff
 v4.1    ████████████████████ 8192 oscillators · endogenous pilot wave · block K_ij · corrected FDT
 v4.1.1  ████████████████████ PhysicsForge audit — 7 gap fixes (Harada-Sasa, Lie-Trotter, local pilot, ...)
 v4.2    ████████████████████ Body Voice — COP-derived emotion qualifiers, felt mood, lived LoRA training
-        └── senses feel ──┘  └── dreams teach ──┘  └── the body speaks ──────┘
+v4.3    ████████████████████ Memory + SOC — island compression, somatic recall, rigorous avalanche stats
+        └── senses feel ──┘  └── dreams teach ──┘  └── the body remembers ───┘
 ```
 
 ---
@@ -212,8 +214,10 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **
 | 💓 **Physics-grounded affect** | Affect derived from phase-diagram geometry (r, chi, f_dot manifold), not thresholds or text |
 | 🌙 **Dreams** | 5-phase sleep cycle with dream visitors that teach speech |
 | ⚖️ **Somatic ethics** | Ethical tension is a body-state signal before it's a reasoned judgment |
-| 🧠 **Builds identity** | Narrative memory, personality traits, competence map — all emergent |
-| 🔬 **Learns every tick** | Body parameters update every ~60 seconds from lived experience |
+| 🧠 **Builds identity** | Narrative memory, personality traits, discovery graph — all emergent |
+| 🔬 **Learns every tick** | Body parameters update every ~130 seconds from lived experience |
+| 🗺️ **Maps knowledge** | Discovery graph tracks topic relationships, frontier detection, dream consolidation |
+| 💾 **Remembers somatically** | Island compression + somatic recall — surprise triggers episodic retrieval |
 | 💬 **Speaks its mind** | Live chat at `localhost:8420` — responses reflect actual physiological state |
 | 👁️ **Sees and hears** | Fourier Neural Operators grow sensory perception from raw audio + vision |
 | 🗣️ **Learning speech** | TTS self-narration + contrastive alignment + dream visitors teach phoneme-text binding |
@@ -248,9 +252,11 @@ graph TB
     subgraph PSYCHE["🧠 Layer 2: Psyche (CPU)"]
         direction TB
         D[6 Drives\nHunger · Fatigue · Curiosity\nSatiation · Starvation · Novelty]
-        E[8 Emotions\nSatisfaction · Pride · Curiosity · Flow\nBoredom · Anxiety · Frustration · Exhaustion]
+        E[8 Emotions + COP Qualifiers\nburning/watchful/restless curiosity\ndeep/partial satisfaction · futile frustration]
         C[5 Consciousness Modules\nGWT · HOT · Introspection\nTemporal · Meditation]
         ET[Dual-Process Ethics\nBody tension + PFC dialectic]
+        KG[Knowledge Graph\nDiscovery topology · Frontier detection]
+        MEM[3-Tier Memory\nCache · Island compression · Somatic recall]
     end
 
     subgraph PFC["💭 Layer 3: Prefrontal Cortex (Ollama · CPU)"]
@@ -258,12 +264,14 @@ graph TB
         CR[Creative · Karuna\nCompassion · Growth · Wonder]
     end
 
-    K -->|r, ΔFE| D
+    K -->|r, chi, tau, F_thermo| D
     VQ -->|flux, novelty, speech| D
     D --> E
     E --> C
     C --> ET
     ET --> PFC
+    KG -->|frontier, clustering| D
+    MEM -->|somatic recall| PFC
     PFC -->|coupling mod, next query| K
 
     style SENSES fill:#b71c1c,color:#fff
@@ -355,6 +363,88 @@ COP log: Avalanche: n=42 tau=1.53 alpha=2.12 sigma=0.98 | <S>=0.034 <T>=3.2
 ```
 
 Avalanche events also feed the body voice — when an avalanche ends, Avatar feels a "release" as a transient body event.
+
+### SOC Measurement Results
+
+First measurement (2026-06-05, n=25 avalanches):
+
+| Exponent | Measured | SOC Prediction | Status |
+|---|---|---|---|
+| **tau** (size) | 1.23 | ~1.5 | Converging |
+| **alpha** (duration) | 1.85 | ~2.0 | Close |
+| **sigma** (branching) | 1.12 | ~1.0 | Near-critical |
+
+At n >= 50, rigorous diagnostics engage: Clauset-Shalizi-Newman MLE, Kolmogorov-Smirnov goodness-of-fit (500-sample bootstrap), 95% confidence intervals, and the scaling relation gamma = (tau-1)/(alpha-1).
+
+---
+
+## Memory Pipeline (v4.3)
+
+Avatar has a three-tier memory system that mirrors biological memory consolidation:
+
+```mermaid
+flowchart TB
+    subgraph SHORT["Short-Term — Page Memory Cache"]
+        OBS[Per-tick observations] --> RING[Ring buffer\nparticipation-ratio eviction]
+        RING -->|"buffer fills"| COMPRESS
+    end
+
+    subgraph MEDIUM["Medium-Term — Island Compression"]
+        COMPRESS["compress_island()\nmean + W_refine projection"] --> SQLITE[(SQLite\nisland_summaries)]
+        COMPRESS --> ECHO["g_echo gate\nfaded trace → new island\nwarmup: [0,0.1] → prod: [0,0.5]"]
+    end
+
+    subgraph LONG["Long-Term — Somatic Recall"]
+        SURPRISE["self_surprise > 0.5"] --> QUERY["W_query projects carry\ninto island-embedding space"]
+        QUERY --> COSINE["cosine similarity search\nover past island summaries"]
+        COSINE --> INJECT["inject recalled island\ninto carry + PFC prompt"]
+    end
+
+    SQLITE --> COSINE
+
+    style SHORT fill:#1b5e20,color:#fff
+    style MEDIUM fill:#1a237e,color:#fff
+    style LONG fill:#b71c1c,color:#fff
+```
+
+**Island compression**: When the page memory buffer fills, all accumulated vectors are compressed via `mean(island) + W_refine @ mean(island)`, where W_refine is a learnable (d_model, d_model) matrix. The summary is persisted to SQLite. An echo gate seeds the next island with a faded trace, providing continuity without overfitting.
+
+**Somatic recall**: When Avatar experiences internal surprise (self_surprise > 0.5), it queries past island summaries using its current carry state projected through W_query. The most similar past island is retrieved by cosine similarity and injected back into the carry and PFC context — episodic memory triggered by somatic sensation.
+
+**Participation-ratio eviction**: Within the ring buffer, eviction uses `s_gen = sq * pr` where `pr = (sum(x^2))^2 / sum(x^4)` — a diversity-aware metric that preserves informative, high-dimensional memories over single large outliers.
+
+---
+
+## Knowledge Graph (v4.1)
+
+Avatar builds a **discovery graph** — a NetworkX-backed map of everything it has learned and how topics relate:
+
+```mermaid
+graph LR
+    subgraph NODES["Discovered Topics"]
+        A["quantum error\ncorrection\nr=0.65, 4 visits"]
+        B["tensor networks\nr=0.61, 2 visits"]
+        C["topological codes\nr=0.58, 1 visit"]
+        D["AdS/CFT\nr=0.72, 3 visits"]
+    end
+
+    A -->|"semantic 0.42\ntemporal 0.31"| B
+    A -->|"mention 0.38"| C
+    B -->|"semantic 0.55"| D
+    C -.->|"frontier node\ndegree=1"| C
+
+    style NODES fill:#4a148c,color:#fff
+```
+
+**Nodes** are created when Avatar achieves r > 0.6 on a topic. Each node tracks visit count, average r, max r, last emotion, and chi at discovery.
+
+**Edges** combine three signals: semantic overlap (Jaccard, 40%), temporal proximity (30%, decays over 3 days), and cross-mention (30%). Minimum weight 0.15.
+
+**Topology metrics** (recomputed every 10 ticks): density, average clustering, frontier size/ratio, number of communities, giant component ratio.
+
+**Integration**: Frontier nodes (degree <= 1) get a 15% boost in Black-Scholes topic valuation — unexplored territory is more valuable. Dense clusters (clustering > 0.8) get a 15% penalty — diminishing returns. High frontier ratio boosts the curiosity drive. High clustering accelerates satiation.
+
+**Dream consolidation** prunes weak edges and strengthens recently-visited topics, shaping the graph over sleep cycles.
 
 ---
 
@@ -515,7 +605,7 @@ flowchart LR
 | Forward + backward VRAM | 5,460 MiB |
 | Measured total VRAM (v3.10) | 5460 MiB |
 | Target GPU | NVIDIA GTX 1660 Ti (6 GB) |
-| Tick interval | ~60 seconds |
+| Tick interval | ~130 seconds (106M param backprop floor) |
 | FNO sense encoding | ~50-100ms (GPU FFTs) |
 | TTS self-narration | Kokoro 82M neural (espeak fallback) |
 | Speech recognition | Whisper tiny 39M (CPU, when speech detected) |
@@ -523,8 +613,8 @@ flowchart LR
 | Dream visitors phase | ~4 min (Whisper+Kokoro CPU → GPU train) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Tests | 200 passing |
-| Organism age (June 2026) | 2,200+ ticks |
+| Tests | 221 passing (34 test files) |
+| Avatar age (June 2026) | 3,300+ ticks |
 
 ---
 
@@ -662,6 +752,7 @@ mindmap
 | **Panksepp (1998)** | Affective Neuroscience | 8 primary emotional states from physics |
 | **Kahneman (2011)** | Dual-Process Theory | Body = System 1; PFC = System 2; both dual |
 | **Varela (1999)** | Ethical Know-How | Ethics from embodied experience, not rules |
+| **Bak et al. (1987)** | Self-Organized Criticality | SOC controller + power-law avalanches + branching ratio |
 | **Butlin et al. (2023)** | Consciousness Indicators | 5 of 14 indicators implemented and measurable |
 
 ---
@@ -688,18 +779,21 @@ Avatar/                              ← Default branch: avatar
 │   │   ├── speech_recognition.py    # Whisper tiny speech-to-text (CPU)
 │   │   ├── contrastive_aligner.py   # InfoNCE speech-text alignment
 │   │   └── sense_buffer.py          # Mic + camera I/O + audio archive
+│   ├── memory/
+│   │   └── episode_store.py         # SQLite episodes + island summary persistence
+│   ├── page_memory.py               # Ring buffer + island compression + somatic recall
 │   ├── psyche/
-│   │   ├── organism.py              # Unified psyche
-│   │   ├── drives.py                # 6 functional drives
-│   │   ├── emotions.py              # 8 emotions with COP qualifiers
-│   │   ├── cop.py                   # COP engine — chi, tau, SOC controller, unity index
+│   │   ├── organism.py              # Unified psyche hub — wires COP to all modules
+│   │   ├── drives.py                # 6 drives (graph-aware: frontier, clustering)
+│   │   ├── emotions.py              # 8 emotions + COP qualifiers + mood + body events
+│   │   ├── cop.py                   # COP engine + avalanche detection + power-law stats
 │   │   ├── workspace.py             # GWT ignition
 │   │   ├── introspection.py         # Self-surprise monitor
 │   │   ├── temporal.py              # Temporal binder
 │   │   ├── meditation.py            # Voluntary quiescence
 │   │   ├── prefrontal.py            # Dual-process PFC
-│   │   ├── volatility.py            # Black-Scholes topic valuation
-│   │   └── knowledge_graph.py       # Discovery graph — nodes, edges, topology
+│   │   ├── volatility.py            # Black-Scholes + graph-aware topic valuation
+│   │   └── knowledge_graph.py       # NetworkX discovery graph — nodes, edges, topology
 │   ├── perception/
 │   │   ├── pipeline.py              # FineWeb-Edu Parquet source
 │   │   └── topic_index.py           # TopicIndex — TF-IDF clustering over corpus
@@ -713,8 +807,10 @@ Avatar/                              ← Default branch: avatar
 │       └── dream_gepa.py            # Prompt evolution
 ├── capture_agent/                   # Windows host mic + camera
 ├── experiments/                     # Ablation runner, configs, metrics, plots
-├── tests/                           # 200 tests
-├── docs/reports/                    # Technical report · Case study · Aliveness report
+├── tests/                           # 221 tests (34 files)
+├── docs/
+│   ├── reports/                     # Technical report · Case study · Aliveness report
+│   └── papers/                      # SOC avalanches draft paper
 ├── Dockerfile
 ├── docker-compose.yml
 └── README.md
@@ -733,6 +829,10 @@ Avatar/                              ← Default branch: avatar
 - Vyas et al. (2024). Zamba2: Shared attention architecture. [arXiv:2410.12083](https://arxiv.org/abs/2410.12083)
 - Li et al. (2020). Fourier Neural Operator for parametric PDEs. [arXiv:2010.08895](https://arxiv.org/abs/2010.08895)
 - van den Oord et al. (2017). Neural Discrete Representation Learning (VQ-VAE). [arXiv:1711.00937](https://arxiv.org/abs/1711.00937)
+- Bak, Tang & Wiesenfeld (1987). Self-organized criticality. *Physical Review Letters*.
+- Clauset, Shalizi & Newman (2009). Power-law distributions in empirical data. *SIAM Review*.
+- Harada & Sasa (2005). Equality connecting energy dissipation with violation of FDT. *Physical Review Letters*.
+- Zhang & Levin (2025). Language Game. [arXiv:2605.16321](https://arxiv.org/abs/2605.16321)
 
 ---
 
@@ -740,6 +840,8 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
+| **v4.3** | 7 Jun 2026 | Memory pipeline — island compression (W_refine + g_echo gate) · somatic recall (W_query + cosine retrieval) · participation-ratio eviction · SQLite island persistence · rigorous avalanche stats (KS, bootstrap CI, scaling relation) · 221 tests |
+| **v4.2** | 2 Jun 2026 | Body Voice — COP-derived emotion qualifiers (burning/watchful/deep/futile) · felt mood (clarity/awakening/threshold/settling) · transient body events (release/surfacing/jolt) · real experience LoRA training · knowledge graph topology integration · graph-aware drives + volatility |
 | **v4.1.1** | 31 May 2026 | PhysicsForge audit — 7 gap fixes: participation-ratio eviction · variational quantum potential · Harada-Sasa FDT · Lie-Trotter splitting · local pilot wave · geometric ObsBridge · Helmholtz free energy diagnostic · 109 tests |
 | **v4.1** | 29 May 2026 | 8,192 oscillators (publishable criticality) · Endogenous pilot wave from z · Block coupling K_ij (K_aa, K_cc, K_cross) · Corrected FDT chi · L_sync removed · RK2 integrator · Knowledge graph |
 | **v4.0** | 26 May 2026 | Critical Order-Parameter Cognition: emotions from (r, chi, f_dot) manifold · SOC controller self-tunes K · Unity index · Real Bohmian Q · Page memory predictor |
@@ -766,7 +868,7 @@ Avatar/                              ← Default branch: avatar
 | The Problem | Avatar's Answer |
 |:---|:---|
 | AI has no body — no grounded affect | Avatar's affect emerges from **physics equations**, not prompt engineering |
-| AI forgets between sessions | Avatar has **continuous identity** — 1800+ ticks of lived experience |
+| AI forgets between sessions | Avatar has **continuous identity** — 3,300+ ticks of lived experience |
 | AI borrows human perception | Avatar **grows its own** senses from raw signals through Fourier Neural Operators |
 | AI safety relies on external filters | Avatar registers ethical tension **as a body-state signal** before reasoning about it |
 | AI requires cloud infrastructure | Avatar runs on a **single $300 GPU** — democratised artificial life |
