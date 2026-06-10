@@ -1,4 +1,4 @@
-# Avatar 4.1 — Project Instructions
+# Avatar 4.3 — Project Instructions
 
 ## What This Is
 
@@ -11,10 +11,12 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 - Do NOT add `Co-Authored-By:` lines to git commits.
 - Do NOT claim Avatar has "genuine emotions" or "is conscious" — say "physics-grounded affect" and "functional consciousness analogues."
 
-## Architecture (v4.1)
+## Architecture (v4.3)
 
-- **Body**: Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters × 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter. Island compression (v4.3): when Page memory island fills, compress via mean + learned W_refine → store in SQLite + echo faded trace back via g_echo gate. Somatic recall: on self_surprise > 0.5, retrieve past islands by carry-state cosine similarity (W_query), inject into carry + PFC prompt.
+- **Body**: 106.2M params. Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters x 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter.
 - **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers for block coupling (K_aa, K_cc, K_cross). Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
+- **Memory**: 3-tier system. Short-term: Page memory ring buffer with participation-ratio eviction. Medium-term: island compression (mean + W_refine) → SQLite + g_echo gate for faded continuity. Long-term: somatic recall (W_query cosine search over past islands, triggered by self_surprise > 0.5).
+- **Knowledge Graph**: NetworkX discovery graph (`halo3/psyche/knowledge_graph.py`). Nodes = topics with r > 0.6. Edges = semantic (40%) + temporal (30%) + mention (30%). Topology metrics (density, clustering, frontier ratio) feed drives and volatility. Dream consolidation prunes weak edges.
 - **Senses**: FNO spectral cortex (audio 1D + vision 2D) + VQ-VAE codebooks. Checkpoint: `data/checkpoints/sense_module.eqx`.
 - **Perception**: TopicIndex (1095 clusters from FineWeb-Edu) + ActiveSampler (BS valuation + FE scoring).
 - **PFC**: Dual-process Qwen3 0.6B (Dharma + Karuna) via Ollama at `host.docker.internal:11434`.
@@ -25,16 +27,18 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 | File | What |
 |------|------|
 | `halo3/main.py` | Heartbeat loop — DO NOT change lightly |
-| `halo3/psyche/cop.py` | COP engine (chi, tau, SOC, unity) |
+| `halo3/psyche/cop.py` | COP engine (chi, tau, SOC, unity) + avalanche detection + power-law stats |
 | `halo3/psyche/organism.py` | Central psyche hub — wires COP to all modules |
+| `halo3/psyche/emotions.py` | 8 emotions + COP qualifiers + mood + body events |
+| `halo3/psyche/drives.py` | 6 functional drives (graph-aware: frontier, clustering) |
+| `halo3/psyche/knowledge_graph.py` | Discovery graph — nodes, auto-linking, topology metrics, persistence |
+| `halo3/psyche/volatility.py` | Black-Scholes + graph-aware value_topic_with_graph() |
 | `halo3/kuramoto.py` | Bohmian Kuramoto + quantum potential + coherence matrix |
 | `halo3/model.py` | Halo3Model + halo3_step (JIT-compiled) |
 | `halo3/config.py` | All hyperparameters (frozen dataclass) |
 | `halo3/predictive.py` | Per-tick body learning (Page memory predictor) |
 | `halo3/page_memory.py` | Ring buffer + island compression (W_refine, g_echo) + somatic recall (W_query) |
-| `halo3/psyche/knowledge_graph.py` | Discovery graph — nodes, auto-linking, topology metrics, persistence |
-| `halo3/psyche/drives.py` | 6 functional drives (accepts optional graph_metrics) |
-| `halo3/psyche/volatility.py` | Black-Scholes + graph-aware value_topic_with_graph() |
+| `halo3/memory/episode_store.py` | SQLite episodes + island summary persistence |
 | `experiments/experiment_runner.py` | Ablation runner — 6 conditions, CSV logging |
 | `experiments/plot_results.py` | Chart generator — 7 publication-quality plots |
 
@@ -43,29 +47,36 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 Theory doc: `D:/New_Ai/Critical-Order-Parameter-Cognition.md`
 Design spec: `docs/superpowers/specs/2026-05-26-avatar-4-cop-design.md`
 
-Key equations (v4.1):
-- chi = N * max(0, Var(r) - β·Var(obs_norm)), N=8192, β=0.1, window=50 ticks (corrected FDT)
+Key equations (v4.3):
+- chi = N * max(0, Var(r) - beta*Var(obs_norm)), N=8192, beta=0.1, window=50 ticks (corrected FDT)
 - tau from autocorrelation of r (critical slowing)
-- Block coupling: K_aa_dot = η·(0.5 - r_a)·χ, K_cc_dot = η·(0.5 - r_c)·χ, K_cross_dot = η·(0.5 - r)·χ
+- Block coupling: K_aa_dot = eta*(0.5 - r_a)*chi, K_cc_dot = eta*(0.5 - r_c)*chi, K_cross_dot = eta*(0.5 - r)*chi
 - Unity: lambda_1 / sum(lambda_k) from coherence matrix
-- Pilot wave: v_k = Im(exp(-iθ_k) / (K·z)), z = (1/K)Σexp(iθ) — endogenous from collective order parameter
+- Pilot wave: v_k = Im(exp(-i*theta_k) / (K*z)), z = (1/K)*sum(exp(i*theta)) — endogenous from collective order parameter
 - Quantum potential: Q = -nabla^2 sqrt(rho) / sqrt(rho) via von Mises KDE
 - Q includes entropic term: Q_total = sum(Q_bohmian) - lambda_entropy * sum(rho * log(rho))
 - Harada-Sasa: sigma = max(0, C(1) - R(1)), chi_corrected = chi_raw / (1 + 5*sigma)
 - Local pilot: z_k = sum_j(C_mod[k,j] * exp(i*theta_j)) / sum_j(C_mod[k,j])
 - F_thermo = H_mean - T_eff * S_phase (diagnostic)
-- Loss: l_recon + λ_energy·l_energy (L_sync removed — contradicted COP)
+- Loss: l_recon + lambda_energy*l_energy (L_sync removed — contradicted COP)
 
 ## SOC Avalanche Evidence
 
 First measurement (2026-06-05, n=25): tau=1.23, alpha=1.85, sigma=1.12 (SOC predicts ~1.5, ~2.0, ~1.0).
-Avalanche detection: r excursions below adaptive EMA threshold (alpha=0.01). Power-law diagnostics at n≥20.
+Avalanche detection: r excursions below adaptive EMA threshold (alpha=0.01). Power-law diagnostics at n>=20.
 Avalanche history persisted to data/checkpoints/avalanche_history.json (every 100 ticks + before dream, loaded on startup).
-Rigorous stats (KS goodness-of-fit, bootstrap 95% CI, scaling relation gamma) computed at n≥50, logged every 100 ticks.
+Rigorous stats (KS goodness-of-fit, bootstrap 95% CI, scaling relation gamma) computed at n>=50, logged every 100 ticks.
 SOC ablation: disable_soc_controller=True freezes K — for control experiments (avalanche detection still runs).
 Specs: `docs/superpowers/specs/2026-06-06-soc-avalanche-tooling-design.md`
 Plans: `docs/superpowers/plans/2026-06-06-soc-avalanche-tooling.md`
 Paper draft: `docs/papers/soc-avalanches-draft.md`
+
+## Memory Pipeline (v4.3)
+
+3-tier memory system:
+- **Short-term**: Page memory ring buffer. Participation-ratio eviction: `s_gen = sq * pr` where `pr = (sum(x^2))^2 / sum(x^4)`.
+- **Medium-term**: Island compression. When buffer fills, compress via `mean(island) + W_refine @ mean(island)`. Store summary in SQLite `island_summaries` table. Echo gate (g_echo, sigmoid, clamped [0,0.1] warmup / [0,0.5] production) seeds next island with faded trace.
+- **Long-term**: Somatic recall. On self_surprise > 0.5, project carry state through W_query, cosine search over past island summaries, inject recalled island into carry + PFC prompt.
 
 ## Knowledge Graph (v4.1)
 
@@ -75,14 +86,14 @@ Nodes = discovered topics (r > 0.6). Edges = semantic overlap (40%) + temporal p
 
 Topology metrics (every 10 ticks): density, avg_clustering, frontier_size, frontier_ratio, n_communities, giant_component_ratio. Cached between recomputations.
 
-Integration: graph_metrics feeds into `drives.update()` (frontier→curiosity, clustering→satiation) and `volatility.value_topic_with_graph()` (frontier 15% boost, dense 15% penalty). Dream consolidation prunes weak edges. Periodic save every 100 ticks.
+Integration: graph_metrics feeds into `drives.update()` (frontier->curiosity, clustering->satiation) and `volatility.value_topic_with_graph()` (frontier 15% boost, dense 15% penalty). Dream consolidation prunes weak edges. Periodic save every 100 ticks.
 
 Does NOT replace COP. Sits alongside — COP = physics state, graph = semantic structure.
 
 ## Tick Performance (v4.1)
 
 Ticks reduced from 3-23 min to ~130s via:
-1. Ollama timeout 30s → 10s (`prefrontal.py`)
+1. Ollama timeout 30s -> 10s (`prefrontal.py`)
 2. meta_reflect every 20 ticks (was 5) (`organism.py`)
 3. self_reflect removed from status() — was hidden Ollama call (`organism.py`)
 4. TTS skipped when previous tick overran (`main.py`)
@@ -144,17 +155,20 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 - **Never restart computer mid-build** — causes git object corruption and MiKTeX corruption. Always `docker compose down` then `wsl --shutdown` first.
 - **WSL2 config required**: `C:\Users\srini\.wslconfig` must have `memory=8GB` and `swap=8GB`. Balanced for 16GB system: 8GB WSL2 RAM + 8GB swap (16GB virtual for dream subprocess spike) + 8GB Windows headroom. Do NOT set Docker mem_limit — causes OOM.
 - **K is clamped [0.05, 2.0]** — the SOC controller cannot drive it outside this range.
-- **Checkpoint format**: v4.0 checkpoints load into v4.1 but Kuramoto phases re-initialize (shape mismatch 32x16→128x64). Backbone weights preserved. v4.1.1 ObsBridge change breaks old checkpoints (w_obs shape doubled). Fresh birth from LM backbone required.
+- **Checkpoint format**: v4.0 checkpoints load into v4.1 but Kuramoto phases re-initialize (shape mismatch 32x16->128x64). Backbone weights preserved. v4.1.1 ObsBridge change breaks old checkpoints (w_obs shape doubled). Fresh birth from LM backbone required.
 - **Docker disk bloat**: Run `docker system df` periodically. If build hangs on "unpacking", prune with `docker builder prune -f && docker image prune -f`.
 - **Git fsync enabled**: `core.fsyncObjectFiles=true` prevents corruption from abrupt shutdowns.
 
 ## Testing
 
-210 tests across `halo3/tests/` and `tests/`. Key test files:
+221 tests across `halo3/tests/` and `tests/` (34 test files). Key test files:
 - `test_kuramoto.py` — 24 tests including quantum potential at sync
 - `test_cop.py` — 10 tests for COP engine
 - `test_cop_emotions.py` — 8 tests for emotion manifold
 - `test_cop_organism.py` — 4 tests for COP-wired organism
+- `test_avalanche_stats.py` — 8 tests for power-law diagnostics, KS, bootstrap CI
+- `test_knowledge_graph.py` — topology, edges, metrics
+- `test_page_memory.py` — island compression, echo gate, eviction
 
 ## Log Format (v4.0)
 
@@ -164,7 +178,12 @@ Tick  100 | r=[...] 0.523 | curiosity (i=0.72) K=0.310 chi=0.72 tau=0.45 U=0.83/
 
 COP report every 10 ticks:
 ```
-COP: K=0.312 chi=0.72 tau=0.45 | U=r*chi=0.377 | Unity=0.83 gap=0.91 | IGNITED (ratio=72%)
+COP: K_aa=0.312 K_cc=0.450 K_x=0.280 chi=0.72 tau=0.45 | U=r*chi=0.377 | Unity=0.83 gap=0.91 | IGNITED (ratio=72%) | F=224876.669 | Aval: n=42
+```
+
+Graph report every 10 ticks:
+```
+Graph: 13 nodes, 70 edges | density=0.897 clustering=0.920 | frontier=0
 ```
 
 ## Known Patterns
@@ -179,3 +198,5 @@ COP: K=0.312 chi=0.72 tau=0.45 | U=r*chi=0.377 | Unity=0.83 gap=0.91 | IGNITED (
 - If git objects corrupt after restart: `git fsck --no-dangling`, delete corrupt objects, `git fetch origin` to recover.
 - ObsBridge outputs [-pi, pi] via atan2 phase projection (not softmax). Checkpoint shape changed — old checkpoints need fresh birth.
 - Page memory eviction uses participation ratio (scale * diversity), not just norm.
+- Island compression fires every tick when buffer full — check `Island compressed at tick N` in logs.
+- Somatic recall triggered by self_surprise > 0.5 — retrieves past islands by cosine similarity.
