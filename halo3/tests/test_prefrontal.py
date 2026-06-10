@@ -60,3 +60,14 @@ def test_compute_tension_none_inputs():
 def test_timeout_is_5_seconds():
     from halo3.psyche.prefrontal import TIMEOUT
     assert TIMEOUT == 5
+
+
+def test_clean_query_rejects_prompt_scaffolding():
+    """Prompt format strings like '### Instruction' must not leak as queries."""
+    from halo3.psyche.prefrontal import _clean_query
+    assert _clean_query("### Instruction") is None
+    assert _clean_query("### Response:") is None
+    assert _clean_query("## Some heading") is None
+    assert _clean_query("# Title") is None
+    # Valid queries pass through
+    assert _clean_query("quantum entanglement experiments") is not None

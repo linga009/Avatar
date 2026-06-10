@@ -520,6 +520,9 @@ class Organism:
         self, emotion: str, r_mean: float, current_query: str, texts: list[str]
     ) -> str:
         """Emotion-driven query selection — the organism's instinct."""
+        # Sanitize: if current_query is prompt scaffolding, replace with seed
+        if current_query.startswith("#") or "instruction" in current_query.lower():
+            current_query = self._next_seed_topic()
 
         if emotion == "satisfaction":
             self._exploit_streak += 1
