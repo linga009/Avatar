@@ -513,7 +513,7 @@ class CriticalDynamics:
 
         Block-specific bounds bracket each population's critical coupling:
           Analytical (omega_std=0.03): K_c ≈ 0.048, bounds [0.02, 0.20]
-          Creative   (omega_std=0.80): K_c ≈ 1.277, bounds [0.50, 4.00]
+          Creative   (omega_std=0.30): K_c ≈ 0.479, bounds [0.20, 2.00]
 
         Stochastic perturbation (noise_scale * eta) prevents the controller
         from locking at clamp boundaries — real SOC needs continuous drive.

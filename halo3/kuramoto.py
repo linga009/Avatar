@@ -51,14 +51,14 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
     # body_tension = |r_a - r_c| now measures genuine functional divergence,
     # not arbitrary noise from a uniform population.
     omega_analytical = jax.random.normal(k2, (cfg.n_clusters, mid)) * 0.03
-    omega_creative   = jax.random.normal(jax.random.fold_in(k2, 1), (cfg.n_clusters, cfg.n_hidden - mid)) * 0.8
+    omega_creative   = jax.random.normal(jax.random.fold_in(k2, 1), (cfg.n_clusters, cfg.n_hidden - mid)) * 0.3
     omega = jnp.concatenate([omega_analytical, omega_creative], axis=1)
 
     return KuramotoState(
         theta=jax.random.uniform(k1, (cfg.n_clusters, cfg.n_hidden)) * 2 * jnp.pi,
         omega=omega,
         coupling_aa=0.10,             # within analytical bounds [0.02, 0.20], above K_c≈0.048
-        coupling_cc=1.00,             # within creative bounds [0.50, 4.00], below K_c≈1.277
+        coupling_cc=0.50,             # within creative bounds [0.20, 2.00], near K_c≈0.479
         coupling_cross=cfg.init_coupling * 0.5,  # cross-coupling starts weaker
         key=key,
     )

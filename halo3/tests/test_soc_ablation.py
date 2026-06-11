@@ -13,7 +13,7 @@ def test_soc_disabled_k_unchanged():
     """With SOC disabled, K values should not change after observe()."""
     cfg = Halo3Config(disable_soc_controller=True)
     cop = CriticalDynamics(cfg)
-    # Use values within block-specific bounds: analytical [0.02, 0.20], creative [0.50, 4.00]
+    # Use values within block-specific bounds: analytical [0.02, 0.20], creative [0.20, 2.00]
     for i in range(10):
         cop.observe(r_mean=0.3, r_a=0.15, r_c=0.15, fe_delta=0.0,
                     K_aa=0.10, K_cc=1.0, K_cross=0.25, theta=_make_theta())
@@ -28,7 +28,7 @@ def test_soc_enabled_k_changes():
     """With SOC enabled (default), K should change after warmup."""
     cfg = Halo3Config(disable_soc_controller=False)
     cop = CriticalDynamics(cfg)
-    # Start within bounds: analytical [0.02, 0.20], creative [0.50, 4.00]
+    # Start within bounds: analytical [0.02, 0.20], creative [0.20, 2.00]
     for i in range(10):
         cop.observe(r_mean=0.3, r_a=0.15, r_c=0.15, fe_delta=0.0,
                     K_aa=0.05, K_cc=0.80, K_cross=0.25, theta=_make_theta())
