@@ -29,6 +29,10 @@ from halo3.psyche.temporal import TemporalBinder
 from halo3.psyche.meditation import MeditationState
 from halo3.psyche.cop import CriticalDynamics
 from halo3.psyche.knowledge_graph import KnowledgeGraph
+from halo3.cerebellum import (
+    Cerebellum, CerebellumState, encode_action,
+    ACTION_STAY, ACTION_EXPLORE, ACTION_EXPLOIT, ACTION_REST,
+)
 from halo3.config import Halo3Config
 
 log = logging.getLogger(__name__)
@@ -81,6 +85,9 @@ class Organism:
         self._carry_cache = None  # set by main.py each tick
         self._W_query = None       # set by main.py each tick
         self._memory_ref = None    # set by main.py each tick
+        # v4.5 Cerebellum — forward model for action preview
+        self.cerebellum = Cerebellum(self._cfg) if self._cfg.enable_cerebellum else None
+        self._last_action_type: int = ACTION_STAY
 
     def tick(
         self,
@@ -370,10 +377,31 @@ class Organism:
                 vision_stability=sensory_stability):
             self.meditation.enter(r_mean)
 
+        # 6b. Cerebellum: record experience + preview (v4.5)
+        if self.cerebellum is not None:
+            cb_state = CerebellumState(
+                r=r_mean, r_a=r_a, r_c=r_c,
+                chi=chi_norm, tau=tau_norm,
+                K_aa=cop["K_aa"], K_cc=cop["K_cc"], K_cross=cop["K_cross"],
+                hunger=self.drives.hunger, curiosity=self.drives.curiosity,
+                satiation=self.drives.satiation,
+            )
+            k_delta = (
+                cop["K_aa"] - K_aa,
+                cop["K_cc"] - K_cc,
+                cop["K_cross"] - K_cross,
+            )
+            action_vec = encode_action(self._last_action_type, k_delta)
+            self.cerebellum.record(cb_state, action_vec)
+
         # 7. Decide next query — with layered fallbacks + volatility valuation
         next_query = self._decide_query(emotion, r_mean, current_query, texts)
 
-        # Track
+        # Track action type for cerebellum
+        if next_query != current_query:
+            self._last_action_type = ACTION_EXPLORE
+        else:
+            self._last_action_type = ACTION_STAY
         self._recent_queries.append(next_query)
 
         # 8. COP K is always used — meditation no longer overrides K
@@ -442,6 +470,9 @@ class Organism:
             # v4.1.1 thermodynamic
             "dF_dt": _dF_dt,
             "F_thermo": cop.get("F_thermo"),
+            # v4.5 cerebellum
+            "cerebellum_confidence": self.cerebellum.confidence if self.cerebellum else 0.0,
+            "cerebellum_buffer_size": len(self.cerebellum.buffer) if self.cerebellum else 0,
         }
 
     def _decide_query(
@@ -622,6 +653,29 @@ class Organism:
             adjusted.sort(key=lambda x: x[1], reverse=True)
             ranked = adjusted
 
+        # Cerebellum preview: re-rank top candidates by predicted outcome
+        if self.cerebellum is not None and ranked and len(ranked) > 1:
+            import numpy as np
+            cb_state = CerebellumState(
+                r=self._last_r, r_a=0.5, r_c=0.5,
+                chi=0.0, tau=0.0,
+                K_aa=self.cop._last_K_aa if hasattr(self.cop, '_last_K_aa') else 0.10,
+                K_cc=self.cop._last_K_cc if hasattr(self.cop, '_last_K_cc') else 0.50,
+                K_cross=self.cop._last_K_cross if hasattr(self.cop, '_last_K_cross') else 0.15,
+                hunger=self.drives.hunger,
+                curiosity=self.drives.curiosity,
+                satiation=self.drives.satiation,
+            )
+            previewed = []
+            for topic_key_r, bs_value in ranked[:5]:  # preview top 5 only
+                action_vec = encode_action(ACTION_EXPLORE)
+                pred = self.cerebellum.predict(cb_state, action_vec)
+                # Blend BS value with predicted chi gain
+                combined = bs_value + 0.3 * pred.delta_chi
+                previewed.append((topic_key_r, combined))
+            previewed.sort(key=lambda x: x[1], reverse=True)
+            ranked = previewed + ranked[5:]
+
         # Map back to full topic string
         key_to_full = {self._extract_topic(c): c for c in candidates}
         if ranked:
@@ -752,6 +806,13 @@ class Organism:
             self._experience_log.clear()
         except Exception as e:
             log.warning(f"Dream fine-tuning failed: {e}")
+
+        # Train cerebellum on accumulated experience
+        if self.cerebellum is not None and len(self.cerebellum.buffer) >= 32:
+            loss = self.cerebellum.train()
+            if loss is not None:
+                log.info(f"Dream: cerebellum trained, loss={loss:.6f}, "
+                         f"confidence={self.cerebellum.confidence:.3f}")
 
         self.drives.dream_reset()
         self.clock.mark_dreamed()

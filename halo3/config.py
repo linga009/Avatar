@@ -118,6 +118,15 @@ class Halo3Config:
     cop_coherence_ema: float = 0.02   # memory ~50 ticks — slow enough to resolve fragmentation
     cop_warmup: int = 5
 
+    # Cerebellum (forward model) — v4.5
+    enable_cerebellum: bool = False
+    cerebellum_horizon: int = 5
+    cerebellum_lr: float = 0.001
+    cerebellum_buffer_size: int = 2000
+    cerebellum_train_steps: int = 50
+    cerebellum_confidence_scale: float = 500.0
+    cerebellum_soc_damping: float = 0.7
+
     # Experiment flags (ablation study)
     disable_quantum_potential: bool = False
     disable_soc_controller: bool = False

@@ -44,6 +44,8 @@ class CriticalDynamics:
         self._coherence_ema = cfg.cop_coherence_ema  # 0.02
         self._warmup = cfg.cop_warmup          # 5
         self._N = cfg.n_clusters * cfg.n_hidden  # n_clusters * n_hidden
+        self._enable_cerebellum = cfg.enable_cerebellum
+        self._soc_damping = cfg.cerebellum_soc_damping
 
         self._r_history: deque[float] = deque(maxlen=self._window)
         self._fe_history: deque[float] = deque(maxlen=self._window)
@@ -535,6 +537,31 @@ class CriticalDynamics:
         K_aa_new = max(self._K_min_aa, min(self._K_max_aa, K_aa_new))
         K_cc_new = max(self._K_min_cc, min(self._K_max_cc, K_cc_new))
         K_cross_new = max(self._K_min, min(self._K_max, K_cross_new))
+
+        # Cerebellum SOC preview: dampen if predicted r overshoots
+        if self._enable_cerebellum:
+            from halo3.cerebellum import FastPredictor
+            _fp = FastPredictor()
+            for K_new, K_old, r_block, omega_std in [
+                (K_aa_new, K_aa, r_a, 0.03),
+                (K_cc_new, K_cc, r_c, 0.30),
+            ]:
+                traj = _fp.predict_r(r_block, K_new, omega_std, n_ticks=5)
+                r_end = traj[-1]
+                if r_end > 0.85 or r_end < 0.1:
+                    # Dampen: blend back toward old K
+                    if K_new == K_aa_new:
+                        K_aa_new = K_aa + self._soc_damping * (K_aa_new - K_aa)
+                        K_aa_new = max(self._K_min_aa, min(self._K_max_aa, K_aa_new))
+                    else:
+                        K_cc_new = K_cc + self._soc_damping * (K_cc_new - K_cc)
+                        K_cc_new = max(self._K_min_cc, min(self._K_max_cc, K_cc_new))
+
+        # Store last K values for cerebellum state snapshot
+        self._last_K_aa = K_aa_new
+        self._last_K_cc = K_cc_new
+        self._last_K_cross = K_cross_new
+
         return K_aa_new, K_cc_new, K_cross_new
 
     @property
