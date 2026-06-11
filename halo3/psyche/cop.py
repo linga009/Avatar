@@ -40,7 +40,8 @@ class CriticalDynamics:
         self._K_max_aa = cfg.cop_K_max_aa      # 0.20
         self._K_min_cc = cfg.cop_K_min_cc      # 0.50
         self._K_max_cc = cfg.cop_K_max_cc      # 4.00
-        self._soc_noise = cfg.cop_soc_noise    # 0.1 (fraction of eta)
+        self._soc_noise = cfg.cop_soc_noise    # 0.5 (fraction of eta)
+        self._boundary_repulsion = cfg.cop_boundary_repulsion  # 3.0
         self._coherence_ema = cfg.cop_coherence_ema  # 0.02
         self._warmup = cfg.cop_warmup          # 5
         self._N = cfg.n_clusters * cfg.n_hidden  # n_clusters * n_hidden
@@ -513,30 +514,41 @@ class CriticalDynamics:
           K_cc: creative self-coupling, targets r_c ~ 0.5, bounds [K_min_cc, K_max_cc]
           K_cross: cross-coupling, targets global r ~ 0.5, bounds [K_min, K_max]
 
-        Block-specific bounds bracket each population's critical coupling:
-          Analytical (omega_std=0.03): K_c ≈ 0.048, bounds [0.02, 0.20]
-          Creative   (omega_std=0.30): K_c ≈ 0.479, bounds [0.20, 2.00]
-
-        Stochastic perturbation (noise_scale * eta) prevents the controller
-        from locking at clamp boundaries — real SOC needs continuous drive.
+        Four anti-clamp-lock mechanisms:
+          1. Strong stochastic noise (0.5 * eta) — real SOC needs continuous drive
+          2. Widened K_aa ceiling (0.40) — more headroom before clamping
+          3. Boundary repulsion — 3x extra noise when K within 10% of bound
+          4. Eta attenuation at bounds — proportional term fades near clamps
         """
         import random
         # chi is raw (N*Var(r)), typically 1-50. Floor of 1.0 lets
         # the controller bootstrap when fluctuations are very small.
         eff_chi = max(chi, 1.0)
 
-        # Stochastic perturbation — prevents equilibrium lock at clamp bounds
-        noise_aa = self._eta * self._soc_noise * (2.0 * random.random() - 1.0)
-        noise_cc = self._eta * self._soc_noise * (2.0 * random.random() - 1.0)
-        noise_x  = self._eta * self._soc_noise * (2.0 * random.random() - 1.0)
+        def _update_one(K: float, r_block: float, K_min: float, K_max: float) -> float:
+            K_range = K_max - K_min
 
-        K_aa_new = K_aa + self._eta * (0.5 - r_a) * eff_chi + noise_aa
-        K_cc_new = K_cc + self._eta * (0.5 - r_c) * eff_chi + noise_cc
-        K_cross_new = K_cross + self._eta * (0.5 - r) * eff_chi + noise_x
+            # Fix 3: Boundary repulsion — extra noise near bounds
+            dist_to_min = (K - K_min) / K_range  # 0 at min, 1 at max
+            dist_to_max = (K_max - K) / K_range  # 1 at min, 0 at max
+            near_bound = min(dist_to_min, dist_to_max)  # 0 at either bound
+            # Repulsion multiplier: 1x in middle, up to boundary_repulsion at edges
+            repulsion = 1.0 + self._boundary_repulsion * max(0, 1.0 - near_bound / 0.1)
 
-        K_aa_new = max(self._K_min_aa, min(self._K_max_aa, K_aa_new))
-        K_cc_new = max(self._K_min_cc, min(self._K_max_cc, K_cc_new))
-        K_cross_new = max(self._K_min, min(self._K_max, K_cross_new))
+            # Fix 1: Stronger base noise (0.5 * eta) * repulsion at boundaries
+            noise = self._eta * self._soc_noise * repulsion * (2.0 * random.random() - 1.0)
+
+            # Fix 4: Attenuate eta when near clamp — let noise dominate at boundaries
+            # Full eta in middle, fades to 0.2*eta within 10% of bounds
+            eta_scale = max(0.2, min(1.0, near_bound / 0.1))
+            eff_eta = self._eta * eta_scale
+
+            K_new = K + eff_eta * (0.5 - r_block) * eff_chi + noise
+            return max(K_min, min(K_max, K_new))
+
+        K_aa_new = _update_one(K_aa, r_a, self._K_min_aa, self._K_max_aa)
+        K_cc_new = _update_one(K_cc, r_c, self._K_min_cc, self._K_max_cc)
+        K_cross_new = _update_one(K_cross, r, self._K_min, self._K_max)
 
         # Cerebellum SOC preview: dampen if predicted r overshoots
         if self._enable_cerebellum:
@@ -549,7 +561,6 @@ class CriticalDynamics:
                 traj = _fp.predict_r(r_block, K_new, omega_std, n_ticks=5)
                 r_end = traj[-1]
                 if r_end > 0.85 or r_end < 0.1:
-                    # Dampen: blend back toward old K
                     if K_new == K_aa_new:
                         K_aa_new = K_aa + self._soc_damping * (K_aa_new - K_aa)
                         K_aa_new = max(self._K_min_aa, min(self._K_max_aa, K_aa_new))

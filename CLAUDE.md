@@ -51,8 +51,8 @@ Key equations (v4.3):
 - chi = N * max(0, Var(r) - beta*Var(obs_norm)), N=8192, beta=0.1, window=50 ticks (corrected FDT)
 - tau from autocorrelation of r (critical slowing)
 - Block coupling: K_aa_dot = eta*(0.5 - r_a)*chi + noise, K_cc_dot = eta*(0.5 - r_c)*chi + noise, K_cross_dot = eta*(0.5 - r)*chi + noise
-- Block-specific K bounds: analytical [0.02, 0.20] (K_c≈0.048), creative [0.20, 2.00] (K_c≈0.479), cross [0.05, 2.0]
-- Stochastic perturbation: noise = eta * 0.1 * uniform(-1,1) prevents clamp-locking
+- Block-specific K bounds: analytical [0.02, 0.40] (K_c≈0.048), creative [0.20, 2.00] (K_c≈0.479), cross [0.05, 2.0]
+- Anti-clamp-lock: noise=eta*0.5*uniform (5x), boundary repulsion 3x near bounds, eta attenuated to 0.2x at bounds
 - Unity: lambda_1 / sum(lambda_k) from coherence matrix
 - Pilot wave: v_k = Im(exp(-i*theta_k) / (K*z)), z = (1/K)*sum(exp(i*theta)) — endogenous from collective order parameter
 - Quantum potential: Q = -nabla^2 sqrt(rho) / sqrt(rho) via von Mises KDE
@@ -156,7 +156,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 - **Never restart containers blindly** — 10 hours of training was lost this way.
 - **Never restart computer mid-build** — causes git object corruption and MiKTeX corruption. Always `docker compose down` then `wsl --shutdown` first.
 - **WSL2 config required**: `C:\Users\srini\.wslconfig` must have `memory=8GB` and `swap=8GB`. Balanced for 16GB system: 8GB WSL2 RAM + 8GB swap (16GB virtual for dream subprocess spike) + 8GB Windows headroom. Do NOT set Docker mem_limit — causes OOM.
-- **K is block-clamped** — analytical K_aa ∈ [0.02, 0.20], creative K_cc ∈ [0.20, 2.00], cross K_cross ∈ [0.05, 2.0]. Bounds bracket each population's critical coupling.
+- **K is block-clamped** — analytical K_aa ∈ [0.02, 0.40], creative K_cc ∈ [0.20, 2.00], cross K_cross ∈ [0.05, 2.0]. Bounds bracket each population's critical coupling. Anti-clamp-lock: 5x noise, 3x boundary repulsion, eta attenuation at bounds.
 - **Checkpoint format**: v4.0 checkpoints load into v4.1 but Kuramoto phases re-initialize (shape mismatch 32x16->128x64). Backbone weights preserved. v4.1.1 ObsBridge change breaks old checkpoints (w_obs shape doubled). Fresh birth from LM backbone required.
 - **Docker disk bloat**: Run `docker system df` periodically. If build hangs on "unpacking", prune with `docker builder prune -f && docker image prune -f`.
 - **Git fsync enabled**: `core.fsyncObjectFiles=true` prevents corruption from abrupt shutdowns.

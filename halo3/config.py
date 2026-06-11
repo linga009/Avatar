@@ -108,13 +108,14 @@ class Halo3Config:
     cop_K_min: float = 0.05           # global floor (used for K_cross)
     cop_K_max: float = 2.0            # global ceiling (used for K_cross)
     # Block-specific K bounds — bracket each population's critical coupling
-    # Analytical: omega_std=0.03, K_c≈0.048 → [0.02, 0.20]
+    # Analytical: omega_std=0.03, K_c≈0.048 → [0.02, 0.40] (widened ceiling for headroom)
     # Creative:   omega_std=0.30, K_c≈0.479 → [0.20, 2.00]
     cop_K_min_aa: float = 0.02
-    cop_K_max_aa: float = 0.20
+    cop_K_max_aa: float = 0.40
     cop_K_min_cc: float = 0.20
     cop_K_max_cc: float = 2.00
-    cop_soc_noise: float = 0.1        # stochastic perturbation scale (fraction of eta)
+    cop_soc_noise: float = 0.5        # stochastic perturbation scale (fraction of eta)
+    cop_boundary_repulsion: float = 3.0  # extra noise multiplier near bounds
     cop_coherence_ema: float = 0.02   # memory ~50 ticks — slow enough to resolve fragmentation
     cop_warmup: int = 5
 
