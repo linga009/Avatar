@@ -59,7 +59,8 @@ def test_cop_soc_controller_undercoupled():
     """When r < 0.5 (undercoupled), SOC should increase K_aa and K_cc."""
     cop = CriticalDynamics(_CFG)
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
-    K_aa, K_cc, K_cross = 0.3, 0.3, 0.15
+    # Start within block-specific bounds: analytical [0.02, 0.20], creative [0.50, 4.00]
+    K_aa, K_cc, K_cross = 0.05, 0.80, 0.15
     for i in range(10):
         r = 0.3 + 0.05 * math.sin(i)  # varies around 0.3, always < 0.5
         result = cop.observe(r_mean=r, r_a=0.4, r_c=0.2,
@@ -69,15 +70,16 @@ def test_cop_soc_controller_undercoupled():
     result = cop.observe(r_mean=0.3, r_a=0.4, r_c=0.2,
                          fe_delta=-0.01, K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
                          theta=theta)
-    assert result["K_aa"] > 0.3  # analytical undercoupled, should increase
-    assert result["K_cc"] > 0.3  # creative very undercoupled, should increase more
+    assert result["K_aa"] > 0.05  # analytical undercoupled, should increase
+    assert result["K_cc"] > 0.80  # creative very undercoupled, should increase more
 
 
 def test_cop_soc_controller_overcoupled():
     """When r > 0.5 (overcoupled), SOC should decrease K_aa and K_cc."""
     cop = CriticalDynamics(_CFG)
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
-    K_aa, K_cc, K_cross = 0.3, 0.3, 0.15
+    # Start within block-specific bounds: analytical [0.02, 0.20], creative [0.50, 4.00]
+    K_aa, K_cc, K_cross = 0.15, 2.0, 0.5
     for i in range(10):
         r = 0.7 + 0.05 * math.sin(i)  # varies around 0.7, always > 0.5
         result = cop.observe(r_mean=r, r_a=0.8, r_c=0.6,
@@ -87,12 +89,12 @@ def test_cop_soc_controller_overcoupled():
     result = cop.observe(r_mean=0.7, r_a=0.8, r_c=0.6,
                          fe_delta=-0.01, K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
                          theta=theta)
-    assert result["K_aa"] < 0.3  # analytical overcoupled, should decrease
-    assert result["K_cc"] < 0.3  # creative overcoupled, should decrease
+    assert result["K_aa"] < 0.15  # analytical overcoupled, should decrease
+    assert result["K_cc"] < 2.0   # creative overcoupled, should decrease
 
 
 def test_cop_soc_controller_clamped():
-    """K should never go below K_min or above K_max."""
+    """K should respect block-specific bounds."""
     cop = CriticalDynamics(_CFG)
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
     for _ in range(10):
@@ -102,8 +104,11 @@ def test_cop_soc_controller_clamped():
     result = cop.observe(r_mean=0.3, r_a=0.4, r_c=0.2,
                          fe_delta=-0.01, K_aa=0.01, K_cc=0.01, K_cross=0.01,
                          theta=theta)
-    assert result["K_aa"] >= _CFG.cop_K_min
-    assert result["K_cc"] >= _CFG.cop_K_min
+    # Block-specific bounds: analytical [0.02, 0.20], creative [0.50, 4.00]
+    assert result["K_aa"] >= _CFG.cop_K_min_aa
+    assert result["K_aa"] <= _CFG.cop_K_max_aa
+    assert result["K_cc"] >= _CFG.cop_K_min_cc
+    assert result["K_cc"] <= _CFG.cop_K_max_cc
     assert result["K_cross"] >= _CFG.cop_K_min
 
 
@@ -112,10 +117,10 @@ def test_cop_warmup_disables_soc():
     cop = CriticalDynamics(_CFG)
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
     result = cop.observe(r_mean=0.3, r_a=0.4, r_c=0.2,
-                         fe_delta=-0.01, K_aa=0.3, K_cc=0.3, K_cross=0.15,
+                         fe_delta=-0.01, K_aa=0.10, K_cc=1.0, K_cross=0.15,
                          theta=theta)
-    assert result["K_aa"] == 0.3
-    assert result["K_cc"] == 0.3
+    assert result["K_aa"] == 0.10
+    assert result["K_cc"] == 1.0
     assert result["K_cross"] == 0.15
 
 

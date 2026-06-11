@@ -57,8 +57,8 @@ def init_kuramoto(cfg: Halo3Config, key: jnp.ndarray) -> KuramotoState:
     return KuramotoState(
         theta=jax.random.uniform(k1, (cfg.n_clusters, cfg.n_hidden)) * 2 * jnp.pi,
         omega=omega,
-        coupling_aa=cfg.init_coupling,
-        coupling_cc=cfg.init_coupling,
+        coupling_aa=0.10,             # within analytical bounds [0.02, 0.20], above K_c≈0.048
+        coupling_cc=1.00,             # within creative bounds [0.50, 4.00], below K_c≈1.277
         coupling_cross=cfg.init_coupling * 0.5,  # cross-coupling starts weaker
         key=key,
     )

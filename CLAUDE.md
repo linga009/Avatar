@@ -1,4 +1,4 @@
-# Avatar 4.3 — Project Instructions
+# Avatar 4.4 — Project Instructions
 
 ## What This Is
 
@@ -11,10 +11,10 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 - Do NOT add `Co-Authored-By:` lines to git commits.
 - Do NOT claim Avatar has "genuine emotions" or "is conscious" — say "physics-grounded affect" and "functional consciousness analogues."
 
-## Architecture (v4.3)
+## Architecture (v4.4)
 
 - **Body**: 106.2M params. Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters x 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter.
-- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers for block coupling (K_aa, K_cc, K_cross). Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
+- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers with block-specific K bounds and stochastic perturbation (K_aa ∈ [0.02, 0.20], K_cc ∈ [0.50, 4.00], K_cross ∈ [0.05, 2.0]). Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
 - **Memory**: 3-tier system. Short-term: Page memory ring buffer with participation-ratio eviction. Medium-term: island compression (mean + W_refine) → SQLite + g_echo gate for faded continuity. Long-term: somatic recall (W_query cosine search over past islands, triggered by self_surprise > 0.5).
 - **Knowledge Graph**: NetworkX discovery graph (`halo3/psyche/knowledge_graph.py`). Nodes = topics with r > 0.6. Edges = semantic (40%) + temporal (30%) + mention (30%). Topology metrics (density, clustering, frontier ratio) feed drives and volatility. Dream consolidation prunes weak edges.
 - **Senses**: FNO spectral cortex (audio 1D + vision 2D) + VQ-VAE codebooks. Checkpoint: `data/checkpoints/sense_module.eqx`.
@@ -50,7 +50,9 @@ Design spec: `docs/superpowers/specs/2026-05-26-avatar-4-cop-design.md`
 Key equations (v4.3):
 - chi = N * max(0, Var(r) - beta*Var(obs_norm)), N=8192, beta=0.1, window=50 ticks (corrected FDT)
 - tau from autocorrelation of r (critical slowing)
-- Block coupling: K_aa_dot = eta*(0.5 - r_a)*chi, K_cc_dot = eta*(0.5 - r_c)*chi, K_cross_dot = eta*(0.5 - r)*chi
+- Block coupling: K_aa_dot = eta*(0.5 - r_a)*chi + noise, K_cc_dot = eta*(0.5 - r_c)*chi + noise, K_cross_dot = eta*(0.5 - r)*chi + noise
+- Block-specific K bounds: analytical [0.02, 0.20] (K_c≈0.048), creative [0.50, 4.00] (K_c≈1.277), cross [0.05, 2.0]
+- Stochastic perturbation: noise = eta * 0.1 * uniform(-1,1) prevents clamp-locking
 - Unity: lambda_1 / sum(lambda_k) from coherence matrix
 - Pilot wave: v_k = Im(exp(-i*theta_k) / (K*z)), z = (1/K)*sum(exp(i*theta)) — endogenous from collective order parameter
 - Quantum potential: Q = -nabla^2 sqrt(rho) / sqrt(rho) via von Mises KDE
@@ -154,7 +156,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 - **Never restart containers blindly** — 10 hours of training was lost this way.
 - **Never restart computer mid-build** — causes git object corruption and MiKTeX corruption. Always `docker compose down` then `wsl --shutdown` first.
 - **WSL2 config required**: `C:\Users\srini\.wslconfig` must have `memory=8GB` and `swap=8GB`. Balanced for 16GB system: 8GB WSL2 RAM + 8GB swap (16GB virtual for dream subprocess spike) + 8GB Windows headroom. Do NOT set Docker mem_limit — causes OOM.
-- **K is clamped [0.05, 2.0]** — the SOC controller cannot drive it outside this range.
+- **K is block-clamped** — analytical K_aa ∈ [0.02, 0.20], creative K_cc ∈ [0.50, 4.00], cross K_cross ∈ [0.05, 2.0]. Bounds bracket each population's critical coupling.
 - **Checkpoint format**: v4.0 checkpoints load into v4.1 but Kuramoto phases re-initialize (shape mismatch 32x16->128x64). Backbone weights preserved. v4.1.1 ObsBridge change breaks old checkpoints (w_obs shape doubled). Fresh birth from LM backbone required.
 - **Docker disk bloat**: Run `docker system df` periodically. If build hangs on "unpacking", prune with `docker builder prune -f && docker image prune -f`.
 - **Git fsync enabled**: `core.fsyncObjectFiles=true` prevents corruption from abrupt shutdowns.

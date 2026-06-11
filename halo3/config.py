@@ -105,9 +105,17 @@ class Halo3Config:
     # COP (Critical Order-Parameter Cognition) — v4.0
     cop_window: int = 50
     cop_eta: float = 0.05
-    cop_K_min: float = 0.05
-    cop_K_max: float = 2.0
-    cop_coherence_ema: float = 0.02  # memory ~50 ticks — slow enough to resolve fragmentation
+    cop_K_min: float = 0.05           # global floor (used for K_cross)
+    cop_K_max: float = 2.0            # global ceiling (used for K_cross)
+    # Block-specific K bounds — bracket each population's critical coupling
+    # Analytical: omega_std=0.03, K_c≈0.048 → [0.02, 0.20]
+    # Creative:   omega_std=0.80, K_c≈1.277 → [0.50, 4.00]
+    cop_K_min_aa: float = 0.02
+    cop_K_max_aa: float = 0.20
+    cop_K_min_cc: float = 0.50
+    cop_K_max_cc: float = 4.00
+    cop_soc_noise: float = 0.1        # stochastic perturbation scale (fraction of eta)
+    cop_coherence_ema: float = 0.02   # memory ~50 ticks — slow enough to resolve fragmentation
     cop_warmup: int = 5
 
     # Experiment flags (ablation study)

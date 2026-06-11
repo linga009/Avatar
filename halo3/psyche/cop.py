@@ -33,8 +33,14 @@ class CriticalDynamics:
     def __init__(self, cfg: Halo3Config) -> None:
         self._window = cfg.cop_window          # 50
         self._eta = cfg.cop_eta                # 0.05
-        self._K_min = cfg.cop_K_min            # 0.05
-        self._K_max = cfg.cop_K_max            # 2.0
+        self._K_min = cfg.cop_K_min            # 0.05 (for K_cross)
+        self._K_max = cfg.cop_K_max            # 2.0  (for K_cross)
+        # Block-specific bounds bracket each population's critical coupling
+        self._K_min_aa = cfg.cop_K_min_aa      # 0.02
+        self._K_max_aa = cfg.cop_K_max_aa      # 0.20
+        self._K_min_cc = cfg.cop_K_min_cc      # 0.50
+        self._K_max_cc = cfg.cop_K_max_cc      # 4.00
+        self._soc_noise = cfg.cop_soc_noise    # 0.1 (fraction of eta)
         self._coherence_ema = cfg.cop_coherence_ema  # 0.02
         self._warmup = cfg.cop_warmup          # 5
         self._N = cfg.n_clusters * cfg.n_hidden  # n_clusters * n_hidden
@@ -500,29 +506,36 @@ class CriticalDynamics:
                     r: float, r_a: float, r_c: float, chi: float) -> tuple[float, float, float]:
         """Proportional criticality controller — block coupling.
 
-        Three independent controllers:
-          K_aa: analytical self-coupling, targets r_a ~ 0.5
-          K_cc: creative self-coupling, targets r_c ~ 0.5
-          K_cross: cross-coupling, targets global r ~ 0.5
+        Three independent controllers with block-specific K bounds:
+          K_aa: analytical self-coupling, targets r_a ~ 0.5, bounds [K_min_aa, K_max_aa]
+          K_cc: creative self-coupling, targets r_c ~ 0.5, bounds [K_min_cc, K_max_cc]
+          K_cross: cross-coupling, targets global r ~ 0.5, bounds [K_min, K_max]
 
-        Drives each K toward r~0.5 where susceptibility peaks. Not true SOC
-        in the BTW sandpile sense -- this is a feedback loop, not
-        emergent criticality.
+        Block-specific bounds bracket each population's critical coupling:
+          Analytical (omega_std=0.03): K_c ≈ 0.048, bounds [0.02, 0.20]
+          Creative   (omega_std=0.80): K_c ≈ 1.277, bounds [0.50, 4.00]
 
-        Uses max(chi, 0.1) as effective chi so the controller can
-        bootstrap from far-from-critical states where chi ~ 0.
-        Near criticality chi >> 0.1, so the floor has no effect.
+        Stochastic perturbation (noise_scale * eta) prevents the controller
+        from locking at clamp boundaries — real SOC needs continuous drive.
         """
+        import random
         # chi is raw (N*Var(r)), typically 1-50. Floor of 1.0 lets
         # the controller bootstrap when fluctuations are very small.
         eff_chi = max(chi, 1.0)
 
-        K_aa_new = K_aa + self._eta * (0.5 - r_a) * eff_chi
-        K_cc_new = K_cc + self._eta * (0.5 - r_c) * eff_chi
-        K_cross_new = K_cross + self._eta * (0.5 - r) * eff_chi
+        # Stochastic perturbation — prevents equilibrium lock at clamp bounds
+        noise_aa = self._eta * self._soc_noise * (2.0 * random.random() - 1.0)
+        noise_cc = self._eta * self._soc_noise * (2.0 * random.random() - 1.0)
+        noise_x  = self._eta * self._soc_noise * (2.0 * random.random() - 1.0)
 
-        clamp = lambda x: max(self._K_min, min(self._K_max, x))
-        return clamp(K_aa_new), clamp(K_cc_new), clamp(K_cross_new)
+        K_aa_new = K_aa + self._eta * (0.5 - r_a) * eff_chi + noise_aa
+        K_cc_new = K_cc + self._eta * (0.5 - r_c) * eff_chi + noise_cc
+        K_cross_new = K_cross + self._eta * (0.5 - r) * eff_chi + noise_x
+
+        K_aa_new = max(self._K_min_aa, min(self._K_max_aa, K_aa_new))
+        K_cc_new = max(self._K_min_cc, min(self._K_max_cc, K_cc_new))
+        K_cross_new = max(self._K_min, min(self._K_max, K_cross_new))
+        return K_aa_new, K_cc_new, K_cross_new
 
     @property
     def coherence_weights(self):
