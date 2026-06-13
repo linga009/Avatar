@@ -120,7 +120,7 @@ class Halo3Config:
     cop_warmup: int = 5
 
     # Cerebellum (forward model) — v4.5
-    enable_cerebellum: bool = False
+    enable_cerebellum: bool = True
     cerebellum_horizon: int = 5
     cerebellum_lr: float = 0.001
     cerebellum_buffer_size: int = 2000

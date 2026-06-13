@@ -1,4 +1,4 @@
-# Avatar 4.4 — Project Instructions
+# Avatar 4.5 — Project Instructions
 
 ## What This Is
 
@@ -11,10 +11,11 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 - Do NOT add `Co-Authored-By:` lines to git commits.
 - Do NOT claim Avatar has "genuine emotions" or "is conscious" — say "physics-grounded affect" and "functional consciousness analogues."
 
-## Architecture (v4.4)
+## Architecture (v4.5)
 
 - **Body**: 106.2M params. Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters x 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter.
-- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers with block-specific K bounds and stochastic perturbation (K_aa ∈ [0.02, 0.20], K_cc ∈ [0.20, 2.00], K_cross ∈ [0.05, 2.0]). Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
+- **Cerebellum**: Forward model MLP (`halo3/cerebellum.py`) predicts future r from 5-tick history of (r, chi, K). Confidence-gated SOC damping (up to 70%). 2000-sample buffer, 50 training steps. Checkpoint: `data/checkpoints/cerebellum_mlp.npz`.
+- **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers with block-specific K bounds and stochastic perturbation (K_aa ∈ [0.02, 0.20], K_cc ∈ [0.20, 2.00], K_cross ∈ [0.05, 2.0]). Cerebellum damping applied to K_dot when confident. Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
 - **Memory**: 3-tier system. Short-term: Page memory ring buffer with participation-ratio eviction. Medium-term: island compression (mean + W_refine) → SQLite + g_echo gate for faded continuity. Long-term: somatic recall (W_query cosine search over past islands, triggered by self_surprise > 0.5).
 - **Knowledge Graph**: NetworkX discovery graph (`halo3/psyche/knowledge_graph.py`). Nodes = topics with r > 0.6. Edges = semantic (40%) + temporal (30%) + mention (30%). Topology metrics (density, clustering, frontier ratio) feed drives and volatility. Dream consolidation prunes weak edges.
 - **Senses**: FNO spectral cortex (audio 1D + vision 2D) + VQ-VAE codebooks. Checkpoint: `data/checkpoints/sense_module.eqx`.
@@ -36,6 +37,7 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 | `halo3/kuramoto.py` | Bohmian Kuramoto + quantum potential + coherence matrix |
 | `halo3/model.py` | Halo3Model + halo3_step (JIT-compiled) |
 | `halo3/config.py` | All hyperparameters (frozen dataclass) |
+| `halo3/cerebellum.py` | Forward model MLP — predicts future r, confidence-gated SOC damping |
 | `halo3/predictive.py` | Per-tick body learning (Page memory predictor) |
 | `halo3/page_memory.py` | Ring buffer + island compression (W_refine, g_echo) + somatic recall (W_query) |
 | `halo3/memory/episode_store.py` | SQLite episodes + island summary persistence |
@@ -163,7 +165,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 
 ## Testing
 
-221 tests across `halo3/tests/` and `tests/` (34 test files). Key test files:
+249 tests across `halo3/tests/` and `tests/` (35 test files). Key test files:
 - `test_kuramoto.py` — 24 tests including quantum potential at sync
 - `test_cop.py` — 10 tests for COP engine
 - `test_cop_emotions.py` — 8 tests for emotion manifold
@@ -171,6 +173,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 - `test_avalanche_stats.py` — 8 tests for power-law diagnostics, KS, bootstrap CI
 - `test_knowledge_graph.py` — topology, edges, metrics
 - `test_page_memory.py` — island compression, echo gate, eviction
+- `test_cerebellum.py` — 27 tests for forward model, SOC damping, confidence gating
 
 ## Log Format (v4.0)
 
