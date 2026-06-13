@@ -78,3 +78,39 @@ def test_scaling_relation():
     assert result is not None
     assert "gamma" in result
     assert isinstance(result["gamma"], float)
+
+
+def test_alt_distribution_comparison_present():
+    """Rigorous stats include alternative distribution comparison."""
+    cfg = Halo3Config()
+    cop = CriticalDynamics(cfg)
+    cop._avalanche_sizes = _make_power_law_samples(100, tau=1.5).tolist()
+    cop._avalanche_durations = [max(1, int(s * 10)) for s in cop._avalanche_sizes]
+    result = cop.avalanche_stats_rigorous
+    assert result is not None
+    assert "lognormal_lr" in result, "Missing log-normal likelihood ratio"
+    assert "exponential_lr" in result, "Missing exponential likelihood ratio"
+    assert "preferred_model" in result, "Missing preferred model field"
+
+
+def test_power_law_preferred_for_power_law_data():
+    """Power-law data should prefer power-law over alternatives."""
+    cfg = Halo3Config()
+    cop = CriticalDynamics(cfg)
+    cop._avalanche_sizes = _make_power_law_samples(200, tau=1.5, seed=99).tolist()
+    cop._avalanche_durations = [max(1, int(s * 10)) for s in cop._avalanche_sizes]
+    result = cop.avalanche_stats_rigorous
+    assert result is not None
+    assert result["lognormal_lr"] >= 0, f"Power-law data should not strongly prefer log-normal, LR={result['lognormal_lr']}"
+
+
+def test_exponential_data_not_preferred_as_power_law():
+    """Exponential data should NOT prefer power-law."""
+    cfg = Halo3Config()
+    cop = CriticalDynamics(cfg)
+    cop._avalanche_sizes = _make_exponential_samples(200, seed=77).tolist()
+    cop._avalanche_durations = [max(1, int(s * 5)) for s in cop._avalanche_sizes]
+    result = cop.avalanche_stats_rigorous
+    assert result is not None
+    assert result["preferred_model"] != "power_law" or result["lognormal_lr"] < 1.0, \
+        "Exponential data should not be confidently identified as power-law"

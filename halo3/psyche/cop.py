@@ -384,6 +384,35 @@ class CriticalDynamics:
             return (float(np.percentile(estimates, 2.5)),
                     float(np.percentile(estimates, 97.5)))
 
+        def _log_likelihood_power_law(data, tau, x_min):
+            """Log-likelihood of data under power-law with exponent tau."""
+            valid = data[data >= x_min]
+            n = len(valid)
+            if n < 5 or tau <= 1.0:
+                return -np.inf
+            return n * np.log(tau - 1) - n * np.log(x_min) - tau * np.sum(np.log(valid / x_min))
+
+        def _log_likelihood_lognormal(data, x_min):
+            """Log-likelihood of data under log-normal (MLE fit)."""
+            valid = data[data >= x_min]
+            if len(valid) < 5:
+                return -np.inf
+            log_valid = np.log(valid)
+            mu = np.mean(log_valid)
+            sigma = np.std(log_valid)
+            if sigma < 1e-12:
+                return -np.inf
+            return np.sum(-0.5 * ((log_valid - mu) / sigma) ** 2
+                          - np.log(sigma) - 0.5 * np.log(2 * np.pi) - log_valid)
+
+        def _log_likelihood_exponential(data, x_min):
+            """Log-likelihood of data under exponential (MLE fit)."""
+            valid = data[data >= x_min]
+            if len(valid) < 5:
+                return -np.inf
+            lam = 1.0 / (np.mean(valid) - x_min + 1e-12)
+            return len(valid) * np.log(lam) - lam * np.sum(valid - x_min)
+
         tau_est, s_min = _mle_exponent(sizes)
         ks_d_size = _ks_distance(sizes, tau_est, s_min) if tau_est else 1.0
         ks_p_size = _bootstrap_p(sizes, tau_est, s_min, ks_d_size) if tau_est else 0.0
@@ -411,6 +440,23 @@ class CriticalDynamics:
         if tau_est and alpha_est and alpha_est > 1.0:
             gamma = (tau_est - 1.0) / (alpha_est - 1.0)
 
+        # Alternative distribution comparison (Clauset-Shalizi-Newman 2009)
+        ll_pl = _log_likelihood_power_law(sizes, tau_est, s_min) if tau_est else -np.inf
+        ll_ln = _log_likelihood_lognormal(sizes, s_min)
+        ll_exp = _log_likelihood_exponential(sizes, s_min)
+
+        # Likelihood ratios: positive = power-law preferred
+        lognormal_lr = ll_pl - ll_ln
+        exponential_lr = ll_pl - ll_exp
+
+        # Determine preferred model
+        if lognormal_lr > 0 and exponential_lr > 0:
+            preferred = "power_law"
+        elif ll_ln > ll_pl and ll_ln > ll_exp:
+            preferred = "lognormal"
+        else:
+            preferred = "exponential"
+
         return {
             "n": n,
             "tau_est": float(tau_est) if tau_est else None,
@@ -424,6 +470,9 @@ class CriticalDynamics:
             "ks_d_dur": ks_d_dur,
             "ks_p_dur": ks_p_dur,
             "gamma": gamma,
+            "lognormal_lr": float(lognormal_lr) if np.isfinite(lognormal_lr) else 0.0,
+            "exponential_lr": float(exponential_lr) if np.isfinite(exponential_lr) else 0.0,
+            "preferred_model": preferred,
         }
 
     def _compute_chi(self) -> tuple[float, float]:
