@@ -1477,11 +1477,15 @@ Avatar/                              ← Default branch: avatar
 - Bak, P., Tang, C. & Wiesenfeld, K. (1987). Self-organized criticality: An explanation of 1/f noise. *Physical Review Letters*, 59(4), 381–384.
 - Harada, T. & Sasa, S. (2005). Equality connecting energy dissipation with a violation of the fluctuation-response relation. *Physical Review Letters*, 95(13), 130602.
 - Stanley, H. E. (1971). *Introduction to Phase Transitions and Critical Phenomena*. Oxford University Press.
+- Hesse, J. & Gross, T. (2014). Self-organized criticality as a fundamental property of neural systems. *Frontiers in Systems Neuroscience*, 8, 166.
+- Wilting, J. & Priesemann, V. (2022). How critical is brain criticality? *Trends in Neurosciences*. *(Brain is slightly subcritical: σ ≈ 0.98, not exactly critical)*
 
 ### Coupled Oscillators & Synchronization
 
 - Kuramoto, Y. (1984). *Chemical Oscillations, Waves, and Turbulence*. Springer.
 - Strogatz, S. H. (2000). From Kuramoto to Crawford: exploring the onset of synchronization in populations of coupled oscillators. *Physica D*, 143(1–4), 1–20.
+- Miyato, T., Lowe, S., Geiger, A. & Welling, M. (2024). Artificial Kuramoto Oscillatory Neurons. [arXiv:2410.13821](https://arxiv.org/abs/2410.13821) *(ICLR 2025 Oral — Kuramoto for perceptual binding; Avatar uses Kuramoto for affect/criticality)*
+- Villegas, P. et al. (2019). Critical synchronization dynamics of the Kuramoto model on connectome and small world graphs. *Scientific Reports*, 9, 54769.
 
 ### Tensor Networks & Holography
 
@@ -1529,6 +1533,8 @@ Avatar/                              ← Default branch: avatar
 ### Free Energy Principle & Active Inference
 
 - Friston, K. (2010). The free-energy principle: a unified brain theory? *Nature Reviews Neuroscience*, 11(2), 127–138.
+- Hesp, C. et al. (2021). Deeply felt affect: The emergence of valence in deep active inference. *Neural Computation*, 33(2), 398–446. *(Valence = -dF/dt, arousal = precision — maps to Avatar's COP: f_dot and chi)*
+- Millidge, B., Tschantz, A. & Buckley, C. (2022). The free energy principle for perception and action: A deep learning perspective. *Entropy*, 24(2), 301.
 
 ### Machine Learning Architectures
 
@@ -1552,6 +1558,7 @@ Avatar/                              ← Default branch: avatar
 - Ray, T. S. (1991). An approach to the synthesis of life. In *Artificial Life II* (pp. 371–408). Addison-Wesley.
 - Sims, K. (1994). Evolving virtual creatures. In *Proceedings of SIGGRAPH '94* (pp. 15–22). ACM.
 - Chan, B. W.-C. (2019). Lenia: Biology of artificial life. *Complex Systems*, 28(3), 251–286.
+- Plantec, E. et al. (2025). Flow-Lenia: Emergent evolutionary dynamics in mass conservative continuous cellular automata. *Artificial Life*, 31(2), 228+.
 
 ### Language & AI
 
