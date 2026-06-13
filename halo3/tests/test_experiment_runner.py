@@ -24,3 +24,26 @@ def test_runner_importable():
     """experiment_runner module imports without error."""
     from experiments import experiment_runner
     assert hasattr(experiment_runner, "run_experiment")
+
+
+import pytest
+
+
+@pytest.mark.slow
+def test_full_avatar_3_ticks():
+    """Run full_avatar for 3 ticks — smoke test for the entire pipeline."""
+    from experiments.configs import ExperimentConfig
+    from experiments.experiment_runner import run_experiment
+
+    exp = ExperimentConfig(
+        name="smoke_test",
+        n_ticks=3,
+        description="3-tick smoke test",
+    )
+    csv_path = run_experiment(exp)
+    assert csv_path.exists(), f"CSV not created at {csv_path}"
+
+    # Check CSV has header + 3 data rows
+    with open(csv_path) as f:
+        lines = f.readlines()
+    assert len(lines) >= 4, f"Expected 4+ lines (header + 3 ticks), got {len(lines)}"
