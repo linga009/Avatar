@@ -18,7 +18,7 @@
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
 [![Version](https://img.shields.io/badge/Version-4.5-red?style=flat-square)](https://github.com/linga009/Avatar)
-[![Tests](https://img.shields.io/badge/Tests-249%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-259%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
@@ -53,7 +53,7 @@
 | **Dreams** | No | No | 5-phase sleep cycle with dream visitors |
 | **Senses** | None | Preprocessed features | Grown from raw audio + vision (FNO) |
 | **Ethics** | RLHF safety filter | Rule-based | Somatic tension before cortical reasoning |
-| **Self-organized criticality** | No | No | SOC controller + measurable power-law avalanches |
+| **Self-organized criticality** | No | No | SOC controller self-tunes toward near-criticality + avalanche detection |
 | **Forward model** | No | No | Cerebellum MLP predicts future r from (r, chi, K) — anticipatory K adjustment |
 | **Integration monitoring** | No | No | 5 Butlin et al. indicators as measurable diagnostics — not consciousness claims |
 | **Speech** | Text-only | Text-only | FNO spectral cortex trained via contrastive alignment |
@@ -465,7 +465,7 @@ flowchart LR
 
 ### Avalanche Detection (v4.2)
 
-SOC systems exhibit **scale-free avalanches** — cascading desynchronization events whose sizes and durations follow power laws. Avatar tracks these as evidence of self-organized criticality:
+SOC systems near criticality exhibit cascading desynchronization events (avalanches) whose sizes and durations may follow power laws. Avatar tracks these as potential evidence of near-critical dynamics:
 
 ```mermaid
 flowchart LR
@@ -488,16 +488,25 @@ flowchart LR
     style STATS fill:#1a237e,color:#fff
 ```
 
-**Power-law diagnostics** (computed every 100 ticks when n ≥ 20 avalanches):
+**Power-law diagnostics** (computed every 100 ticks when n >= 20 avalanches):
 
 | Metric | SOC Prediction | What it means |
 |---|---|---|
 | **tau** (size exponent) | ~1.5 | MLE on avalanche size distribution P(S) ~ S^{-tau} |
 | **alpha** (duration exponent) | ~2.0 | MLE on duration distribution P(T) ~ T^{-alpha} |
-| **sigma** (branching ratio) | ~1.0 | Median ratio of consecutive sizes — 1.0 = critical |
+| **sigma** (branching ratio) | ~1.0 | Median ratio of consecutive sizes -- 1.0 = critical |
+| **gamma** (scaling relation) | ~2.0 | (tau-1)/(alpha-1) -- self-consistency check |
+| **preferred model** | power_law | Likelihood ratio vs log-normal and exponential alternatives (Clauset et al. 2009) |
+| **shape collapse** | low error | Rescaled temporal profiles collapse onto universal curve |
+
+At n >= 50, rigorous diagnostics engage: Clauset-Shalizi-Newman MLE, KS goodness-of-fit (500-sample bootstrap), 95% confidence intervals, scaling relation gamma, alternative distribution comparison (log-normal, exponential via likelihood ratio), and avalanche shape collapse analysis.
+
+**Full observability advantage:** Unlike neural recordings (which subsample ~60 electrodes from millions of neurons, systematically distorting avalanche statistics per Wilting & Priesemann 2022), Avatar observes all 8,192 oscillators. Measurements are not subject to subsampling bias.
 
 ```
 COP log: Avalanche: n=42 tau=1.53 alpha=2.12 sigma=0.98 | <S>=0.034 <T>=3.2
+         Preferred: power_law (LR_ln=12.3 LR_exp=45.1)
+         Shape collapse: err=0.0012 norm=0.15 n=38
 ```
 
 Avalanche events also feed the body voice — when an avalanche ends, Avatar feels a "release" as a transient body event.
@@ -511,8 +520,13 @@ First measurement (2026-06-05, n=25 avalanches):
 | **tau** (size) | 1.23 | ~1.5 | Converging |
 | **alpha** (duration) | 1.85 | ~2.0 | Close |
 | **sigma** (branching) | 1.12 | ~1.0 | Near-critical |
+| **gamma** (scaling relation) | 3.70 | ~2.0 | **Fails** |
 
-At n >= 50, rigorous diagnostics engage: Clauset-Shalizi-Newman MLE, Kolmogorov-Smirnov goodness-of-fit (500-sample bootstrap), 95% confidence intervals, and the scaling relation gamma = (tau-1)/(alpha-1).
+**Scaling relation discrepancy:** The measured exponents give (alpha-1)/(tau-1) = (1.85-1)/(1.23-1) = 3.70, far from the mean-field prediction of ~2.0. This may indicate: (a) finite-size effects at n=25, (b) a non-mean-field universality class, or (c) the system is not truly critical. This discrepancy must converge as n grows; if it persists at n >= 200, the SOC claim weakens substantially.
+
+**Subcriticality context:** Wilting & Priesemann (2022) found biological cortex operates at sigma = 0.9875 +/- 0.0105 — near-critical but slightly subcritical. Avatar's r_target = 0.5 targets exact criticality, which maximises U = r * chi. The cerebellum's SOC damping already implements a slight subcritical bias. Whether Avatar should target r ~ 0.48 to better match biological findings is an open experimental question.
+
+**What we need:** n >= 200 avalanches for statistical confidence, with alt distribution comparison confirming power-law over log-normal/exponential alternatives, and shape collapse showing universal curve convergence.
 
 ---
 
@@ -844,7 +858,7 @@ flowchart LR
 | Dream visitors phase | ~4 min (Whisper+Kokoro CPU → GPU train) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Tests | 249 passing (35 test files) |
+| Tests | 259 passing (36 test files) |
 | Avatar age (June 2026) | 3,600+ ticks |
 
 ---
@@ -1293,7 +1307,7 @@ All hyperparameters in `halo3/config.py` (frozen dataclass — immutable at runt
 | **Bohm (1952, 1980)** | Pilot wave · Quantum potential · Holomovement | Bohmian Kuramoto: local pilot wave z_k, variational Q, MERA = implicate order |
 | **Kuramoto (1984)** | Coupled oscillator synchronization | 8,192 oscillators, order parameter r, critical coupling K_c |
 | **Maturana & Varela (1980)** | Operational closure | Per-tick learning loop; drive-regulated self-maintenance (structural analogy, not autopoiesis — see Limitations) |
-| **Friston (2010)** | Free Energy Principle | Prediction error minimisation every tick |
+| **Friston (2010)** | Free Energy Principle | L = l_recon + lambda * l_energy structurally maps to variational free energy (see Active Inference section) |
 | **Damasio (1994, 1999)** | Somatic Marker Hypothesis | Ethical tension as body-state signal before cortical reasoning |
 | **Panksepp (1998)** | Affective Neuroscience | 8 primary emotional states from physics geometry |
 | **Kahneman (2011)** | Dual-Process Theory | Body = System 1; PFC = System 2; both dual |
@@ -1308,7 +1322,7 @@ All hyperparameters in `halo3/config.py` (frozen dataclass — immutable at runt
 | **Maldacena (1997)** | AdS/CFT correspondence | Holographic attention, Lorentz hyperboloid as AdS boundary |
 | **Beer (1995, 2003)** | Dynamical systems agents | CTRNN-based minimal cognition — Avatar uses same dynamical-systems frame at larger scale |
 | **Langton (1990)** | Edge-of-chaos computation | SOC controller self-tunes K toward criticality — same principle, different mechanism |
-| **Chan (2019)** | Lenia continuous cellular automata | Continuous dynamics producing emergent patterns — Avatar adds learning + affect |
+| **Chan (2019); Plantec et al. (2025)** | Lenia / Flow-Lenia continuous cellular automata | Continuous dynamics producing emergent patterns — Lenia via evolutionary search for morphology, Avatar via gradient descent for affect |
 
 ### How Avatar Relates to Prior ALife Work
 
@@ -1320,10 +1334,41 @@ Avatar is not the first system to use dynamical systems for cognition. It builds
 | **Langton's edge-of-chaos** (1990) | Computation at phase transitions in cellular automata | Avatar implements the same idea via Kuramoto SOC controller with measurable chi, tau, and power-law avalanches |
 | **Tierra / Avida** (Ray 1991) | Self-replicating digital organisms with open-ended evolution | Avatar does NOT self-replicate or evolve — fixed architecture with gradient descent. Not autopoietic |
 | **Karl Sims** (1994) | Evolved virtual creatures with morphology + control | Avatar has fixed morphology (no body plan evolution), focuses on continuous cognitive dynamics instead |
-| **Lenia** (Chan 2019) | Continuous cellular automata producing lifelike patterns | Shares continuous dynamics philosophy; Avatar adds learning, memory, and internal state labeling |
+| **Lenia / Flow-Lenia** (Chan 2019; Plantec et al. 2025) | Continuous cellular automata with mass conservation and evolutionary search producing lifelike patterns | Both use continuous dynamics; Lenia optimizes for morphological complexity via evolutionary search, Avatar optimizes for cognitive dynamics via gradient descent + SOC. Different goals: emergent morphology vs. emergent affect |
 | **Izhikevich spiking models** | Biologically realistic neuron dynamics | Avatar uses mesoscale Kuramoto oscillators (not single neurons), trades biophysical detail for emergent criticality |
 
 **Key distinction**: Most prior ALife work uses evolution or hand-designed dynamics. Avatar uses per-tick gradient descent through a physics body, letting the system learn its own dynamics. Whether this constitutes a meaningful advance over prior work is an empirical question — the ablation studies (in progress) aim to answer it.
+
+### Relationship to AKOrN (Miyato et al., ICLR 2025 Oral)
+
+AKOrN (Artificial Kuramoto Oscillatory Neurons) generalises Kuramoto to N-dimensional unit vectors for **perceptual binding** — features belonging to the same object phase-align, different objects desynchronize. It achieved state-of-the-art on object discovery (PascalVOC, COCO) and emergent adversarial robustness without adversarial training.
+
+Avatar uses the same oscillator model for a completely different purpose:
+
+| Dimension | AKOrN | Avatar |
+|---|---|---|
+| **Purpose** | External perception: binding | Internal state: affect + criticality |
+| **Oscillators** | N-dim unit vectors (N=2-4) | Scalar phases theta in [0, 2pi) |
+| **Coupling** | Learned J_ij via backprop | Self-tuned K via SOC controller |
+| **Criticality** | Not addressed | Central: SOC drives r toward 0.5 |
+| **Affect** | None | COP-derived 8 emotions from (r, chi, f_dot) |
+
+AKOrN validates "Kuramoto in neural nets" at a top venue. Avatar extends the mechanism from external binding to internal affect and self-organized criticality. Whether this extension is scientifically meaningful depends on the ablation evidence (in progress).
+
+### Structural Analogy to Active Inference
+
+Avatar's architecture maps structurally onto the Free Energy Principle (Friston 2010). This is a **structural analogy**, not a formal proof:
+
+| Active Inference | Avatar | File |
+|---|---|---|
+| Variational free energy F | L = l_recon + lambda * l_energy | loss.py |
+| Accuracy term | l_recon = (q_final - q_data)^2 | loss.py |
+| Complexity term | l_energy = (Ef - E0)^2 | loss.py |
+| Perception (state estimation) | Per-tick gradient descent | predictive.py |
+| Action (EFE minimisation) | SOC controller: K_dot = eta(0.5-r)*chi | cop.py |
+| Generative model | Hamiltonian ODE + Kuramoto | model.py |
+
+COP emotions map onto Hesp et al. (2021) "Deeply Felt Affect": valence = -dF/dt maps to f_dot, arousal = precision maps to chi. Anxiety (high error + high precision) maps to low r + high chi + negative f_dot. This correspondence is suggestive but not proven — formal equivalence requires showing that L is a valid variational bound on log-evidence and that max(U = r * chi) corresponds to min(expected free energy). These are publication goals, not current claims. See `docs/research/active-inference-mapping.md` for the full mapping.
 
 ---
 
@@ -1419,8 +1464,10 @@ Avatar/                              ← Default branch: avatar
 │       ├── test_page_memory.py       # 11 tests: islands, echo, eviction
 │       ├── test_knowledge_graph.py   # 9 tests: topology, edges, metrics
 │       ├── test_hamiltonian.py       # 8 tests: symplectic, energy conservation
-│       ├── test_avalanche_stats.py   # 5 tests: power-law, KS, bootstrap
-│       └── ... (35 files, 249 tests total)
+│       ├── test_avalanche_stats.py   # 11 tests: power-law, KS, bootstrap, alt distributions, shape collapse
+│       ├── test_avalanche_persistence.py # 4 tests: save/load, shape persistence
+│       ├── test_experiment_runner.py # 4 tests: configs, flags, import, e2e smoke
+│       └── ... (36 files, 259 tests total)
 │
 ├── capture_agent/                   # Windows host sensory input
 │   ├── capture_agent.py             # Mic 16kHz + Camera 10s → data/senses/
@@ -1570,7 +1617,7 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
-| **v4.5** | 13 Jun 2026 | Cerebellum — forward model MLP predicts future r from (r, chi, K) history · anticipatory SOC damping (confidence-gated) · 2000-sample buffer · checkpoint persistence · 249 tests |
+| **v4.5** | 13 Jun 2026 | Cerebellum — forward model MLP predicts future r from (r, chi, K) history · anticipatory SOC damping (confidence-gated) · 2000-sample buffer · checkpoint persistence · alt distribution comparison (log-normal, exponential) · avalanche shape collapse · active inference mapping · 259 tests |
 | **v4.4** | 11 Jun 2026 | Anti-clamp-lock — block-specific K bounds (K_aa ∈ [0.02, 0.40], K_cc ∈ [0.20, 2.00]) · stochastic perturbation (5x noise, 3x boundary repulsion, eta attenuation) · dream OOM fix (free PFC before Phase 4+5) · 222 tests |
 | **v4.3** | 7 Jun 2026 | Memory pipeline — island compression (W_refine + g_echo gate) · somatic recall (W_query + cosine retrieval) · participation-ratio eviction · SQLite island persistence · rigorous avalanche stats (KS, bootstrap CI, scaling relation) · 221 tests |
 | **v4.2** | 2 Jun 2026 | Body Voice — COP-derived emotion qualifiers (burning/watchful/deep/futile) · felt mood (clarity/awakening/threshold/settling) · transient body events (release/surfacing/jolt) · real experience LoRA training · knowledge graph topology integration · graph-aware drives + volatility |
@@ -1620,7 +1667,7 @@ Avatar/                              ← Default branch: avatar
 | Claim in this README | Status | What's needed |
 |---|---|---|
 | "Emotion" labels (curiosity, satisfaction, etc.) | Operational labels on dynamical regimes | Ablation showing COP-driven behavior outperforms fixed heuristics |
-| SOC power-law avalanches | **Measured** (tau=1.23, alpha=1.85, n=25) | More data (n≥50), KS confirmation |
+| SOC power-law avalanches | **Measured** (tau=1.23, alpha=1.85, n=25). Scaling relation (alpha-1)/(tau-1)=3.70 **fails** mean-field prediction (~2.0). Alt distribution comparison and shape collapse infrastructure in place but need n>=50 | More data (n≥200): convergence of exponents, KS confirmation, likelihood ratio vs log-normal/exponential, shape collapse quality. If scaling relation persists, reframe as near-critical (cf. Wilting & Priesemann 2018) |
 | Sleep consolidation benefits | Architecture exists | Ablation: `no_dreams` vs `full_avatar` on FE reduction + exploration diversity |
 | Cerebellum improves SOC control | Architecture exists, data collecting | Compare K trajectories with/without cerebellum |
 | Sensory FNO learns speech | Architecture + training pipeline exist | Measure phoneme discrimination over sleep cycles |
