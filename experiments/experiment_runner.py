@@ -256,7 +256,7 @@ def run_experiment(exp: ExperimentConfig) -> Path:
             fe_delta=round(fe_delta, 6),
             chi=round(psyche_output.get("chi", 0.0), 6),
             tau=round(psyche_output.get("tau", 0.0), 6),
-            K=round(float(new_K), 6),
+            K=round(psyche_output.get("K", 0.0), 6),
             unity=round(psyche_output.get("unity", 0.0), 6),
             emotion=emotion,
             intensity=round(intensity, 4),
@@ -272,7 +272,7 @@ def run_experiment(exp: ExperimentConfig) -> Path:
         log.info(
             f"[{exp.name}] Tick {tick:4d}/{exp.n_ticks} | "
             f"r=[{r_bar}] {r_mean:.3f} | {emotion:12s} i={intensity:.2f} | "
-            f"K={new_K:.3f} chi={psyche_output.get('chi', 0):.2f} | "
+            f"K={psyche_output.get('K', 0.0):.3f} chi={psyche_output.get('chi', 0):.2f} | "
             f"FE={fe_delta:+.2e} | {elapsed:.1f}s"
         )
 
