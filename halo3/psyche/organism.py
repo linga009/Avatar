@@ -349,6 +349,19 @@ class Organism:
                         f"KS_dur={rstats['ks_d_dur']:.2f} p={rstats['ks_p_dur']:.2f} | "
                         f"{gamma_s}"
                     )
+                    if rstats.get("preferred_model"):
+                        log.info(
+                            f"    Preferred: {rstats['preferred_model']} "
+                            f"(LR_ln={rstats.get('lognormal_lr', 0):.1f} "
+                            f"LR_exp={rstats.get('exponential_lr', 0):.1f})"
+                        )
+                    collapse = self.cop.shape_collapse_quality
+                    if collapse:
+                        log.info(
+                            f"    Shape collapse: err={collapse['collapse_error']:.4f} "
+                            f"norm={collapse['normalized_error']:.2f} "
+                            f"n={collapse['n_shapes_used']}"
+                        )
 
         # 4a. Auto-saturation: topics visited many times without r progress
         # are stuck — mark dead so PFC/BS avoid them, then force escape.
