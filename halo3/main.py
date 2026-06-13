@@ -547,6 +547,16 @@ def main() -> None:
             except Exception as e:
                 log.warning(f"  ☽ GEPA failed (non-critical): {e}")
 
+            # === FREE PFC before heavy phases ===
+            # Qwen3 0.6B (float32, ~2.4GB) loaded in Phase 2 is no longer
+            # needed. Free it before Phase 4+5 to prevent OOM during dream
+            # visitors (Whisper+Kokoro). PFC reloads lazily on first waking tick.
+            organism.prefrontal._model = None
+            organism.prefrontal._tokenizer = None
+            organism.prefrontal._adapter_loaded = False
+            import gc; gc.collect()
+            log.info("  ☽ PFC model freed (~2.4GB) before Phase 4+5")
+
             # === PHASE 4: FineWeb active learning (GPU subprocess) ===
             # Save BS state for active learning subprocess
             try:
