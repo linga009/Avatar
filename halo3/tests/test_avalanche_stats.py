@@ -135,3 +135,38 @@ def test_avalanche_shapes_recorded():
     assert isinstance(shape, list), "Shape should be a list of per-tick deficits"
     assert len(shape) > 0, "Shape should not be empty"
     assert all(s >= 0 for s in shape), "All shape values should be non-negative"
+
+
+def test_shape_collapse_computable():
+    """Shape collapse metric is computable with sufficient shapes."""
+    cfg = Halo3Config()
+    cop = CriticalDynamics(cfg)
+
+    # Create 20 synthetic avalanche shapes of varying duration
+    rng = np.random.RandomState(42)
+    shapes = []
+    for _ in range(20):
+        dur = rng.randint(3, 15)
+        # Parabolic shape (universal for mean-field branching)
+        t = np.linspace(0, 1, dur)
+        profile = (4 * t * (1 - t) * rng.uniform(0.5, 1.5)).tolist()
+        shapes.append(profile)
+
+    cop._avalanche_shapes = shapes
+    cop._avalanche_durations = [len(s) for s in shapes]
+    cop._avalanche_sizes = [sum(s) for s in shapes]
+
+    result = cop.shape_collapse_quality
+    assert result is not None, "Should return collapse metrics"
+    assert "collapse_error" in result, "Missing collapse_error"
+    assert "n_shapes_used" in result, "Missing n_shapes_used"
+    assert result["n_shapes_used"] >= 10, f"Should use >=10 shapes, got {result['n_shapes_used']}"
+    assert result["collapse_error"] >= 0, "Collapse error should be non-negative"
+
+
+def test_shape_collapse_none_below_threshold():
+    """Shape collapse returns None with too few shapes."""
+    cfg = Halo3Config()
+    cop = CriticalDynamics(cfg)
+    cop._avalanche_shapes = [[0.1, 0.2], [0.3, 0.1]]  # only 2
+    assert cop.shape_collapse_quality is None

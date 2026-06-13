@@ -489,6 +489,57 @@ class CriticalDynamics:
             "preferred_model": preferred,
         }
 
+    @property
+    def shape_collapse_quality(self) -> dict | None:
+        """Avalanche shape collapse analysis.
+
+        Rescales each avalanche profile to normalized time [0,1] and
+        amplitude, then measures how well they collapse onto a single
+        universal curve. Good collapse (low error) supports criticality.
+
+        Returns None if fewer than 10 shapes with duration >= 3.
+        """
+        # Filter shapes with duration >= 3 (too short = noisy)
+        valid = [(s, d) for s, d in zip(self._avalanche_shapes, self._avalanche_durations)
+                 if d >= 3 and len(s) >= 3]
+
+        if len(valid) < 10:
+            return None
+
+        n_bins = 20  # normalized time bins
+
+        # Rescale each shape to [0,1] time and unit area
+        rescaled = []
+        for shape, dur in valid:
+            arr = np.array(shape, dtype=float)
+            area = np.sum(arr) + 1e-12
+            # Normalize: time to [0,1], amplitude so area = 1
+            t_orig = np.linspace(0, 1, len(arr))
+            t_bins = np.linspace(0, 1, n_bins)
+            # Interpolate to common grid
+            interp = np.interp(t_bins, t_orig, arr / area)
+            rescaled.append(interp)
+
+        rescaled = np.array(rescaled)  # (n_shapes, n_bins)
+
+        # Universal curve = mean of all rescaled shapes
+        mean_curve = np.mean(rescaled, axis=0)
+
+        # Collapse error: mean squared deviation from universal curve
+        deviations = rescaled - mean_curve[None, :]
+        collapse_error = float(np.mean(deviations ** 2))
+
+        # Normalized collapse error (relative to variance of mean curve)
+        mean_var = float(np.var(mean_curve))
+        normalized_error = collapse_error / (mean_var + 1e-12)
+
+        return {
+            "collapse_error": collapse_error,
+            "normalized_error": normalized_error,
+            "n_shapes_used": len(valid),
+            "mean_shape": mean_curve.tolist(),
+        }
+
     def _compute_chi(self) -> tuple[float, float]:
         """Susceptibility with Harada-Sasa FDT-violation correction.
 
