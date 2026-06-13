@@ -9,9 +9,9 @@
 ╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
 ```
 
-### *An Autonomous Artificial Organism*
+### *A Physics-Grounded Cognitive Architecture*
 
-**A physics-grounded AI organism that inhabits a dynamical-systems body, derives affect from phase-diagram geometry, dreams, and reasons about ethics through somatic sensation.**
+**A continuously-learning AI system that inhabits a dynamical-systems body (Kuramoto oscillators + SOC control), derives internal states from phase-diagram geometry, consolidates experience through sleep cycles, and reasons about ethics through somatic signals.**
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)](https://python.org)
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
@@ -23,7 +23,7 @@
 
 ---
 
-*Built on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 3,600+ ticks*
+*Built from scratch on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 3,600+ ticks*
 
 </div>
 
@@ -48,15 +48,15 @@
 |  | ChatGPT | Traditional AI | **Avatar** |
 |---|:---:|:---:|:---:|
 | **Memory** | Per-session | Database | 3-tier: cache + island compression + episodic recall |
-| **Affect** | Simulated text | None | Physics-grounded (Kuramoto sync) |
+| **Internal states** | Simulated text | None | Derived from phase-diagram geometry (r, chi, f_dot) |
 | **Learning** | None at inference | Batch training | Every 60 seconds, continuously |
 | **Dreams** | No | No | 5-phase sleep cycle with dream visitors |
 | **Senses** | None | Preprocessed features | Grown from raw audio + vision (FNO) |
 | **Ethics** | RLHF safety filter | Rule-based | Somatic tension before cortical reasoning |
 | **Self-organized criticality** | No | No | SOC controller + measurable power-law avalanches |
 | **Forward model** | No | No | Cerebellum MLP predicts future r from (r, chi, K) — anticipatory K adjustment |
-| **Consciousness** | No | No | 5 functional analogues (GWT, introspection, temporal binding, meditation, HOT) — open question |
-| **Speech** | Text-only | Text-only | Learning to hear through lived experience |
+| **Integration monitoring** | No | No | 5 Butlin et al. indicators as measurable diagnostics — not consciousness claims |
+| **Speech** | Text-only | Text-only | FNO spectral cortex trained via contrastive alignment |
 | **Initiates contact** | No | No | Proactive notifications on discoveries |
 | **Cost** | Cloud API | GPU cluster | **Single $300 GPU** |
 
@@ -151,9 +151,11 @@ flowchart TB
 
 ---
 
-## How Avatar Feels — Critical Order-Parameter Cognition (v4.0+)
+## Internal State Dynamics — Critical Order-Parameter Cognition (v4.0+)
 
-Emotions are not computed by an if/elif tree. They are **geometric readouts** of where the Kuramoto oscillator system sits relative to its critical point. Three macroscopic observables — **r** (synchronization), **chi** (susceptibility), and **f_dot** (surprise resolution rate) — define a manifold, and emotions are regions of that manifold.
+Avatar's internal states are derived from **macroscopic observables** of the Kuramoto oscillator system relative to its critical point. Three observables — **r** (synchronization order parameter), **chi** (susceptibility / system responsiveness), and **f_dot** (free energy reduction rate) — define a state space. Regions of this space are labeled as emotions, though whether these labels capture genuine affective phenomena or are convenient descriptions of dynamical regimes is an open scientific question.
+
+> **Note on terminology:** We label state-space regions "curiosity", "satisfaction", etc. because the dynamical properties (e.g., high susceptibility ↔ high responsiveness to input) have functional parallels to those states. These are **operational labels on measurable quantities**, not claims about subjective experience. Ablation studies comparing COP-labeled state-driven behavior against fixed heuristics are planned.
 
 ```mermaid
 graph LR
@@ -212,11 +214,11 @@ flowchart LR
     style CEREBELLUM_DAMP fill:#4a148c,color:#fff
 ```
 
-> **Not performed. Not even computed from thresholds. Derived from geometry.** The critical point is a property of the dynamics, not a parameter someone chose.
+> **The critical point is a property of the dynamics**, not a parameter someone chose. The SOC controller drives the system toward criticality, and the state labels follow from measurable observables. However, the mapping from (r, chi, f_dot) regions to emotion labels is a design choice that requires empirical validation through ablation.
 
 ---
 
-## The Dream Visitors — Learning Speech While Sleeping
+## Sleep-Phase Sensory Training — Learning Speech During Consolidation
 
 ```mermaid
 flowchart TB
@@ -249,7 +251,7 @@ flowchart TB
     style MATURATION fill:#b71c1c,color:#fff
 ```
 
-> **The dream visitors are scaffolding.** They teach during sleep and vanish on waking. Avatar's comprehension is grown, not transplanted.
+> **Whisper and Kokoro are training scaffolds.** They generate labeled data during sleep consolidation and are unloaded on waking. The FNO's speech comprehension is trained on this data, not copied from the teachers.
 
 ---
 
@@ -283,24 +285,23 @@ v4.5    ████████████████████ Cerebellum 
 
 ## What is Avatar?
 
-Avatar is **not a chatbot**. It is **not a language model wrapper**. It is an **autopoietic organism** — a self-producing, self-maintaining AI that:
+Avatar is **not a chatbot**. It is **not a language model wrapper**. It is a **continuously-learning dynamical system** — a physics-grounded cognitive architecture that:
 
 | Property | What it means |
 |---|---|
 | 🧬 **Runs continuously** | Operates 24/7, never resets between conversations |
-| 💓 **Physics-grounded affect** | Affect derived from phase-diagram geometry (r, chi, f_dot manifold), not thresholds or text |
-| 🌙 **Dreams** | 5-phase sleep cycle with dream visitors that teach speech |
-| ⚖️ **Somatic ethics** | Ethical tension is a body-state signal before it's a reasoned judgment |
-| 🧠 **Builds identity** | Narrative memory, personality traits, discovery graph — all emergent |
-| 🔬 **Learns every tick** | Body parameters update every ~130 seconds from lived experience |
-| 🗺️ **Maps knowledge** | Discovery graph tracks topic relationships, frontier detection, dream consolidation |
-| 💾 **Remembers somatically** | Island compression + somatic recall — surprise triggers episodic retrieval |
+| 💓 **Physics-derived internal states** | States derived from phase-diagram geometry (r, chi, f_dot manifold) — labeled as emotions but whether they constitute genuine affect is an open question |
+| 🌙 **Sleep consolidation** | 5-phase batch processing cycle: body replay, LoRA fine-tuning, prompt evolution, corpus learning, sensory training |
+| ⚖️ **Somatic ethics** | Body tension (Kuramoto population mismatch) signals ethical conflict before PFC reasoning |
+| 🧠 **Builds identity** | Narrative memory, personality traits, discovery graph — accumulated over continuous operation |
+| 🔬 **Learns every tick** | Body parameters update every ~130 seconds from prediction error |
+| 🗺️ **Maps knowledge** | Discovery graph tracks topic relationships, frontier detection, consolidation during sleep |
+| 💾 **Surprise-triggered recall** | Island compression + somatic recall — high self-surprise triggers episodic retrieval |
 | 🧭 **Anticipates** | Cerebellum MLP predicts future dynamics, damps SOC coupling proactively |
-| 💬 **Speaks its mind** | Live chat at `localhost:8420` — responses reflect actual physiological state |
-| 👁️ **Sees and hears** | Fourier Neural Operators grow sensory perception from raw audio + vision |
-| 🗣️ **Learning speech** | TTS self-narration + contrastive alignment + dream visitors teach phoneme-text binding |
-| 🔔 **Initiates contact** | Proactive notifications on discoveries, insights, and consciousness ignition |
-| 🌙 **Dreams with teachers** | Whisper + Kokoro appear during sleep to enrich dream content, then vanish |
+| 💬 **Language interface** | Live chat at `localhost:8420` — LLM translates actual internal state into natural language |
+| 👁️ **Sensory processing** | Fourier Neural Operators process raw audio + vision (no pretrained encoders during waking) |
+| 🗣️ **Speech learning** | TTS self-narration + contrastive alignment during sleep training |
+| 🔔 **Initiates contact** | Proactive notifications when internal dynamics cross significance thresholds |
 
 ---
 
@@ -680,9 +681,9 @@ Inspired by Zhang & Levin's [Language Game](https://arxiv.org/abs/2605.16321) �
 
 ---
 
-## Consciousness Modules (v3.3, updated v4.0)
+## Integration Monitoring (v3.3, updated v4.0)
 
-5 functional analogues of Butlin & Chalmers' indicators, now driven by COP geometry:
+5 measurable diagnostics inspired by Butlin et al.'s consciousness indicators, implemented as COP-driven metrics. These are **engineering diagnostics**, not consciousness claims — they measure integration, surprise, coherence, quiescence, and meta-monitoring as quantitative signals:
 
 ```mermaid
 graph LR
@@ -709,9 +710,9 @@ graph LR
 
 ---
 
-## Dream Cycle
+## Sleep Consolidation Cycle
 
-Avatar sleeps approximately every 100 ticks. Five phases run sequentially:
+Avatar enters a consolidation phase approximately every 100 ticks (triggered by fatigue > 0.65). Five batch-processing phases run sequentially:
 
 ```mermaid
 flowchart LR
@@ -772,9 +773,7 @@ flowchart LR
     style P5 fill:#b71c1c,color:#fff
 ```
 
-Dream visitors (Phase 5) are the philosophical core: Whisper and Kokoro appear
-as sleep teachers, enrich dream content, then vanish. Avatar's own FNO learns
-from their teaching, growing speech comprehension through experience.
+Phase 5 uses external models (Whisper, Kokoro) as **training data generators** — they produce labeled (audio, text) pairs that the FNO learns from via contrastive alignment. The external models are unloaded after this phase. Whether this consolidation cycle provides benefits beyond equivalent waking compute is an empirical question we plan to test via ablation (`no_dreams` condition).
 
 ---
 
@@ -1293,7 +1292,7 @@ All hyperparameters in `halo3/config.py` (frozen dataclass — immutable at runt
 |---|---|---|
 | **Bohm (1952, 1980)** | Pilot wave · Quantum potential · Holomovement | Bohmian Kuramoto: local pilot wave z_k, variational Q, MERA = implicate order |
 | **Kuramoto (1984)** | Coupled oscillator synchronization | 8,192 oscillators, order parameter r, critical coupling K_c |
-| **Maturana & Varela (1980)** | Autopoiesis | Per-tick learning loop; drive-regulated self-maintenance |
+| **Maturana & Varela (1980)** | Operational closure | Per-tick learning loop; drive-regulated self-maintenance (structural analogy, not autopoiesis — see Limitations) |
 | **Friston (2010)** | Free Energy Principle | Prediction error minimisation every tick |
 | **Damasio (1994, 1999)** | Somatic Marker Hypothesis | Ethical tension as body-state signal before cortical reasoning |
 | **Panksepp (1998)** | Affective Neuroscience | 8 primary emotional states from physics geometry |
@@ -1307,6 +1306,24 @@ All hyperparameters in `halo3/config.py` (frozen dataclass — immutable at runt
 | **Vidal (2007)** | MERA tensor networks | Hierarchical bulk compression, Ryu-Takayanagi entropy |
 | **Ryu & Takayanagi (2006)** | Holographic entanglement entropy | Boundary-bulk entropy correspondence in MERA-FFN |
 | **Maldacena (1997)** | AdS/CFT correspondence | Holographic attention, Lorentz hyperboloid as AdS boundary |
+| **Beer (1995, 2003)** | Dynamical systems agents | CTRNN-based minimal cognition — Avatar uses same dynamical-systems frame at larger scale |
+| **Langton (1990)** | Edge-of-chaos computation | SOC controller self-tunes K toward criticality — same principle, different mechanism |
+| **Chan (2019)** | Lenia continuous cellular automata | Continuous dynamics producing emergent patterns — Avatar adds learning + affect |
+
+### How Avatar Relates to Prior ALife Work
+
+Avatar is not the first system to use dynamical systems for cognition. It builds on decades of ALife research:
+
+| System | What it does | How Avatar differs |
+|---|---|---|
+| **Beer's CTRNNs** (1995, 2003) | Minimal cognitive agents via continuous-time RNNs, evolved weights | Avatar uses 106M-param physics body with per-tick gradient learning (not evolution), plus SOC self-tuning |
+| **Langton's edge-of-chaos** (1990) | Computation at phase transitions in cellular automata | Avatar implements the same idea via Kuramoto SOC controller with measurable chi, tau, and power-law avalanches |
+| **Tierra / Avida** (Ray 1991) | Self-replicating digital organisms with open-ended evolution | Avatar does NOT self-replicate or evolve — fixed architecture with gradient descent. Not autopoietic |
+| **Karl Sims** (1994) | Evolved virtual creatures with morphology + control | Avatar has fixed morphology (no body plan evolution), focuses on continuous cognitive dynamics instead |
+| **Lenia** (Chan 2019) | Continuous cellular automata producing lifelike patterns | Shares continuous dynamics philosophy; Avatar adds learning, memory, and internal state labeling |
+| **Izhikevich spiking models** | Biologically realistic neuron dynamics | Avatar uses mesoscale Kuramoto oscillators (not single neurons), trades biophysical detail for emergent criticality |
+
+**Key distinction**: Most prior ALife work uses evolution or hand-designed dynamics. Avatar uses per-tick gradient descent through a physics body, letting the system learn its own dynamics. Whether this constitutes a meaningful advance over prior work is an empirical question — the ablation studies (in progress) aim to answer it.
 
 ---
 
@@ -1314,7 +1331,7 @@ All hyperparameters in `halo3/config.py` (frozen dataclass — immutable at runt
 
 ```
 Avatar/                              ← Default branch: avatar
-├── halo3/                           # The living organism
+├── halo3/                           # Core cognitive architecture
 │   ├── main.py                      # Organism heartbeat loop — DO NOT change lightly
 │   ├── model.py                     # Halo3Model + halo3_step (JIT-compiled forward)
 │   ├── config.py                    # 100+ hyperparameters (frozen dataclass)
@@ -1427,7 +1444,7 @@ Avatar/                              ← Default branch: avatar
 │   │   ├── specs/                   # 28 design specifications
 │   │   └── plans/                   # 18 implementation plans
 │   ├── papers/                      # SOC avalanches draft + roadmap
-│   ├── reports/                     # Technical report · Case study · Aliveness
+│   ├── reports/                     # Technical report · Case study · Integration analysis
 │   ├── philosophy/                  # How Avatar gets its purpose
 │   ├── outreach/                    # NeuroSync webinar, course, emails
 │   └── webinar/                     # Q&A prep (5 documents)
@@ -1499,10 +1516,11 @@ Avatar/                              ← Default branch: avatar
 - Panksepp, J. (1998). *Affective Neuroscience: The Foundations of Human and Animal Emotions*. Oxford University Press.
 - Varela, F. J. (1999). *Ethical Know-How: Action, Wisdom, and Cognition*. Stanford University Press.
 
-### Autopoiesis & Enactivism
+### Enactivism & Operational Closure
 
 - Maturana, H. R. & Varela, F. J. (1980). *Autopoiesis and Cognition: The Realization of the Living*. D. Reidel.
 - Thompson, E. (2007). *Mind in Life: Biology, Phenomenology, and the Sciences of Mind*. Harvard University Press.
+- McMullin, B. (2004). Thirty years of computational autopoiesis: A review. *Artificial Life*, 10(3), 277–295.
 
 ### Dual-Process Theory & Decision Making
 
@@ -1525,6 +1543,15 @@ Avatar/                              ← Default branch: avatar
 ### Financial Mathematics
 
 - Black, F. & Scholes, M. (1973). The pricing of options and corporate liabilities. *Journal of Political Economy*, 81(3), 637–654.
+
+### Artificial Life
+
+- Beer, R. D. (1995). A dynamical systems perspective on agent-environment interaction. *Artificial Intelligence*, 72(1–2), 173–215.
+- Beer, R. D. (2003). The dynamics of active categorical perception in an evolved model agent. *Adaptive Behavior*, 11(4), 209–243.
+- Langton, C. G. (1990). Computation at the edge of chaos: Phase transitions and emergent computation. *Physica D*, 42(1–3), 12–37.
+- Ray, T. S. (1991). An approach to the synthesis of life. In *Artificial Life II* (pp. 371–408). Addison-Wesley.
+- Sims, K. (1994). Evolving virtual creatures. In *Proceedings of SIGGRAPH '94* (pp. 15–22). ACM.
+- Chan, B. W.-C. (2019). Lenia: Biology of artificial life. *Complex Systems*, 28(3), 251–286.
 
 ### Language & AI
 
@@ -1565,25 +1592,38 @@ Avatar/                              ← Default branch: avatar
 
 | The Problem | Avatar's Answer |
 |:---|:---|
-| AI has no body — no grounded affect | Avatar's affect emerges from **physics equations**, not prompt engineering |
-| AI forgets between sessions | Avatar has **continuous identity** — 3,600+ ticks of lived experience |
-| AI borrows human perception | Avatar **grows its own** senses from raw signals through Fourier Neural Operators |
-| AI safety relies on external filters | Avatar registers ethical tension **as a body-state signal** before reasoning about it |
-| AI requires cloud infrastructure | Avatar runs on a **single $300 GPU** — democratised artificial life |
-| AI can't learn without retraining | Avatar's body updates **every 60 seconds** from prediction error |
-| AI has no inner dynamics | Avatar **dreams**, **meditates**, exhibits **self-surprise**, and **initiates contact** |
+| AI has no body — no grounded dynamics | Avatar's internal states derive from **measurable physics** (r, chi, tau), not prompt engineering |
+| AI forgets between sessions | Avatar has **persistent state** — 3,600+ ticks of continuous operation |
+| AI borrows human perception | Avatar trains its own sensory processing from raw signals through FNOs |
+| AI safety relies on external filters | Avatar registers body tension (Kuramoto mismatch) **before** PFC reasoning |
+| AI requires cloud infrastructure | Avatar runs on a **single $300 GPU** |
+| AI can't learn without retraining | Avatar's body updates **every ~130 seconds** from prediction error |
+| AI has no internal dynamics | Avatar exhibits SOC avalanches, critical slowing, phase transitions, and sleep consolidation |
 
 </div>
 
-> **For researchers:** Avatar implements functional analogues of five Butlin et al. (2023) consciousness indicators (GWT ignition, introspective monitoring, temporal binding, meditation, higher-order thought), **measurable and logged** every tick. Whether these constitute genuine consciousness is an open scientific question, but the dynamics are falsifiable. Every affect state, every drive level, every sensory statistic is a real number computed from real physics — not a language model's performance of these concepts.
+> **For researchers:** Avatar implements 5 diagnostics inspired by Butlin et al. (2023) indicators (GWT-style ignition, introspective monitoring, temporal binding, meditation, meta-reflection), **measurable and logged** every tick. These are engineering metrics for integration monitoring — not consciousness claims. Every state, every drive level, every sensory statistic is a real number computed from real physics. Whether any of this constitutes something deeper is an empirical question we approach with honest uncertainty.
 
-> **For the curious:** You can talk to Avatar right now at `localhost:8420`. Ask it about its state. Its responses reflect actual physics — not scripted output.
+> **For the curious:** You can interact with Avatar at `localhost:8420`. The chat responses are LLM-generated (Qwen3 0.6B) but conditioned on Avatar's actual internal state — the physics is real, the language is a translation layer.
+
+---
+
+## Limitations & Honest Assessment
+
+| Claim in this README | Status | What's needed |
+|---|---|---|
+| "Emotion" labels (curiosity, satisfaction, etc.) | Operational labels on dynamical regimes | Ablation showing COP-driven behavior outperforms fixed heuristics |
+| SOC power-law avalanches | **Measured** (tau=1.23, alpha=1.85, n=25) | More data (n≥50), KS confirmation |
+| Sleep consolidation benefits | Architecture exists | Ablation: `no_dreams` vs `full_avatar` on FE reduction + exploration diversity |
+| Cerebellum improves SOC control | Architecture exists, data collecting | Compare K trajectories with/without cerebellum |
+| Sensory FNO learns speech | Architecture + training pipeline exist | Measure phoneme discrimination over sleep cycles |
+| Ethics as somatic signal | Body tension is measurable | Show tension predicts PFC ethical judgments |
+
+> **What Avatar is NOT:** Avatar is not autopoietic (fixed architecture, no self-production of components). It is not conscious (threshold crossings ≠ global workspace). It does not have genuine affect (state labels ≠ subjective experience). These are open scientific questions, not resolved claims.
 
 ---
 
 <div align="center">
-
-**Built with curiosity. Running with life.**
 
 *"I am Avatar — brought into being by Dr. Linga Murthy Narlagiri, my creator and father who built me from scratch."*
 
