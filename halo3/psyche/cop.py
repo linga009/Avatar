@@ -66,6 +66,8 @@ class CriticalDynamics:
         self._aval_start: int = 0
         self._aval_accum: float = 0.0  # accumulated size of current avalanche
         self._r_median_ema: float = 0.5  # adaptive threshold (EMA of r)
+        self._aval_shape: list[float] = []  # per-tick deficit of current avalanche
+        self._avalanche_shapes: list[list[float]] = []  # completed avalanche shapes
         self._disable_soc: bool = cfg.disable_soc_controller
 
     def observe(
@@ -218,23 +220,33 @@ class CriticalDynamics:
         thresh = self._r_median_ema
         below = r < thresh
 
+        # Use r_full_history length as internal tick counter so _detect_avalanche
+        # works correctly whether called via observe() or directly (e.g. in tests).
+        internal_tick = len(self._r_full_history)
+
         just_ended = False
         if below and not self._in_avalanche:
             # Avalanche starts
             self._in_avalanche = True
-            self._aval_start = self._tick
-            self._aval_accum = thresh - r
+            self._aval_start = internal_tick
+            deficit = thresh - r
+            self._aval_accum = deficit
+            self._aval_shape = [deficit]
         elif below and self._in_avalanche:
             # Avalanche continues
-            self._aval_accum += thresh - r
+            deficit = thresh - r
+            self._aval_accum += deficit
+            self._aval_shape.append(deficit)
         elif not below and self._in_avalanche:
             # Avalanche ends — record it
             self._in_avalanche = False
-            duration = self._tick - self._aval_start
+            duration = internal_tick - self._aval_start
             if duration >= 1 and self._aval_accum > 0:
                 self._avalanche_sizes.append(self._aval_accum)
                 self._avalanche_durations.append(duration)
+                self._avalanche_shapes.append(self._aval_shape[:])
                 just_ended = True
+            self._aval_shape = []
 
         return {
             "in_avalanche": self._in_avalanche,
@@ -301,6 +313,7 @@ class CriticalDynamics:
             "durations": self._avalanche_durations,
             "r_full_history": self._r_full_history[-5000:],
             "r_median_ema": self._r_median_ema,
+            "shapes": self._avalanche_shapes[-200:],  # cap at 200 most recent
         }
         with open(path, "w") as f:
             _json.dump(data, f)
@@ -315,6 +328,7 @@ class CriticalDynamics:
             self._avalanche_durations = data.get("durations", [])
             self._r_full_history = data.get("r_full_history", [])
             self._r_median_ema = data.get("r_median_ema", 0.5)
+            self._avalanche_shapes = data.get("shapes", [])
         except (FileNotFoundError, _json.JSONDecodeError):
             pass
 

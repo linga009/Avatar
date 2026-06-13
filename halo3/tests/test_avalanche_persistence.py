@@ -53,3 +53,19 @@ def test_r_history_capped():
         # Should keep the LAST 5000
         assert data["r_full_history"][0] == 3000.0
         assert data["r_full_history"][-1] == 7999.0
+
+
+def test_shapes_persist():
+    """Avalanche shapes survive save/load roundtrip."""
+    cfg = Halo3Config()
+    cop = CriticalDynamics(cfg)
+    cop._avalanche_shapes = [[0.1, 0.2, 0.15], [0.05, 0.08]]
+
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "avalanche_history.json")
+        cop.save_avalanche_history(path)
+
+        cop2 = CriticalDynamics(cfg)
+        cop2.load_avalanche_history(path)
+
+        assert cop2._avalanche_shapes == [[0.1, 0.2, 0.15], [0.05, 0.08]]

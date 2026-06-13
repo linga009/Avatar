@@ -114,3 +114,24 @@ def test_exponential_data_not_preferred_as_power_law():
     assert result is not None
     assert result["preferred_model"] != "power_law" or result["lognormal_lr"] < 1.0, \
         "Exponential data should not be confidently identified as power-law"
+
+
+def test_avalanche_shapes_recorded():
+    """Avalanche temporal profiles are recorded."""
+    cfg = Halo3Config()
+    cop = CriticalDynamics(cfg)
+
+    # Simulate: 10 ticks above threshold, 5 ticks below, 10 ticks above
+    for i in range(10):
+        cop._detect_avalanche(0.6)
+    for i in range(5):
+        cop._detect_avalanche(0.3)  # below EMA threshold
+    for i in range(10):
+        cop._detect_avalanche(0.6)  # ends avalanche
+
+    assert hasattr(cop, "_avalanche_shapes"), "Missing _avalanche_shapes attribute"
+    assert len(cop._avalanche_shapes) >= 1, "Should have recorded at least 1 shape"
+    shape = cop._avalanche_shapes[-1]
+    assert isinstance(shape, list), "Shape should be a list of per-tick deficits"
+    assert len(shape) > 0, "Shape should not be empty"
+    assert all(s >= 0 for s in shape), "All shape values should be non-negative"
