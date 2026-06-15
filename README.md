@@ -1306,7 +1306,7 @@ All hyperparameters in `halo3/config.py` (frozen dataclass — immutable at runt
 |---|---|---|
 | **Bohm (1952, 1980)** | Pilot wave · Quantum potential · Holomovement | Bohmian Kuramoto: local pilot wave z_k, variational Q, MERA = implicate order |
 | **Kuramoto (1984)** | Coupled oscillator synchronization | 8,192 oscillators, order parameter r, critical coupling K_c |
-| **Maturana & Varela (1980)** | Operational closure | Per-tick learning loop; drive-regulated self-maintenance (structural analogy, not autopoiesis — see Limitations) |
+| **Maturana & Varela (1980)** | Autopoiesis · Operational closure | Per-tick learning loop with self-maintained criticality; self-produced knowledge graph, memory islands, LoRA personality, and sensory codebooks within a fixed architectural scaffold (see Autopoiesis discussion in Limitations) |
 | **Friston (2010)** | Free Energy Principle | L = l_recon + lambda * l_energy structurally maps to variational free energy (see Active Inference section) |
 | **Damasio (1994, 1999)** | Somatic Marker Hypothesis | Ethical tension as body-state signal before cortical reasoning |
 | **Panksepp (1998)** | Affective Neuroscience | 8 primary emotional states from physics geometry |
@@ -1332,7 +1332,7 @@ Avatar is not the first system to use dynamical systems for cognition. It builds
 |---|---|---|
 | **Beer's CTRNNs** (1995, 2003) | Minimal cognitive agents via continuous-time RNNs, evolved weights | Avatar uses 106M-param physics body with per-tick gradient learning (not evolution), plus SOC self-tuning |
 | **Langton's edge-of-chaos** (1990) | Computation at phase transitions in cellular automata | Avatar implements the same idea via Kuramoto SOC controller with measurable chi, tau, and power-law avalanches |
-| **Tierra / Avida** (Ray 1991) | Self-replicating digital organisms with open-ended evolution | Avatar does NOT self-replicate or evolve — fixed architecture with gradient descent. Not autopoietic |
+| **Tierra / Avida** (Ray 1991) | Self-replicating digital organisms with open-ended evolution | Avatar does NOT self-replicate or evolve — fixed architecture with gradient descent. Exhibits partial autopoietic properties (self-produced components) but not open-ended evolution |
 | **Karl Sims** (1994) | Evolved virtual creatures with morphology + control | Avatar has fixed morphology (no body plan evolution), focuses on continuous cognitive dynamics instead |
 | **Lenia / Flow-Lenia** (Chan 2019; Plantec et al. 2025) | Continuous cellular automata with mass conservation and evolutionary search producing lifelike patterns | Both use continuous dynamics; Lenia optimizes for morphological complexity via evolutionary search, Avatar optimizes for cognitive dynamics via gradient descent + SOC. Different goals: emergent morphology vs. emergent affect |
 | **Izhikevich spiking models** | Biologically realistic neuron dynamics | Avatar uses mesoscale Kuramoto oscillators (not single neurons), trades biophysical detail for emergent criticality |
@@ -1572,6 +1572,7 @@ Avatar/                              ← Default branch: avatar
 - Maturana, H. R. & Varela, F. J. (1980). *Autopoiesis and Cognition: The Realization of the Living*. D. Reidel.
 - Thompson, E. (2007). *Mind in Life: Biology, Phenomenology, and the Sciences of Mind*. Harvard University Press.
 - McMullin, B. (2004). Thirty years of computational autopoiesis: A review. *Artificial Life*, 10(3), 277–295.
+- Di Paolo, E. A. (2005). Autopoiesis, adaptivity, teleology, agency. *Phenomenology and the Cognitive Sciences*, 4(4), 429–452.
 
 ### Dual-Process Theory & Decision Making
 
@@ -1673,7 +1674,9 @@ Avatar/                              ← Default branch: avatar
 | Sensory FNO learns speech | Architecture + training pipeline exist | Measure phoneme discrimination over sleep cycles |
 | Ethics as somatic signal | Body tension is measurable | Show tension predicts PFC ethical judgments |
 
-> **What Avatar is NOT:** Avatar is not autopoietic (fixed architecture, no self-production of components). It is not conscious (threshold crossings ≠ global workspace). It does not have genuine affect (state labels ≠ subjective experience). These are open scientific questions, not resolved claims.
+> **Autopoiesis — partial, not full:** Avatar self-produces several of its own components at runtime: knowledge graph (nodes, edges, topology), memory islands (compressed representations), LoRA personality (language cortex weights), sensory codebooks (perceptual categories), and coupling values K (governing its own critical dynamics). It also self-maintains criticality via SOC control. However, Avatar does not produce its own architectural scaffold (layers, dimensions, integration scheme, loss function) — that is designed. Whether this constitutes autopoiesis depends on where one draws the boundary between "component" and "parameter" (cf. McMullin 2004, Di Paolo 2005). We claim **partial autopoietic properties within a fixed scaffold**, not full autopoiesis.
+>
+> **What Avatar is NOT:** It is not conscious (threshold crossings ≠ global workspace). It does not have genuine affect (state labels ≠ subjective experience). It does not self-replicate or evolve. These are open scientific questions, not resolved claims.
 
 ---
 
