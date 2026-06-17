@@ -37,9 +37,9 @@ class CriticalDynamics:
         self._K_max = cfg.cop_K_max            # 2.0  (for K_cross)
         # Block-specific bounds bracket each population's critical coupling
         self._K_min_aa = cfg.cop_K_min_aa      # 0.02
-        self._K_max_aa = cfg.cop_K_max_aa      # 0.20
-        self._K_min_cc = cfg.cop_K_min_cc      # 0.50
-        self._K_max_cc = cfg.cop_K_max_cc      # 4.00
+        self._K_max_aa = cfg.cop_K_max_aa      # 0.40
+        self._K_min_cc = cfg.cop_K_min_cc      # 0.20
+        self._K_max_cc = cfg.cop_K_max_cc      # 2.00
         self._soc_noise = cfg.cop_soc_noise    # 0.5 (fraction of eta)
         self._boundary_repulsion = cfg.cop_boundary_repulsion  # 3.0
         self._coherence_ema = cfg.cop_coherence_ema  # 0.02

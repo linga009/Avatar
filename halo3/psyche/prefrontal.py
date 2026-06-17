@@ -90,6 +90,9 @@ _META_QUERY_STARTS = (
     "search query for", "a search query", "the search query",
     "i would search", "i'd search", "to search for",
     "a query for", "a query about", "the query for",
+    "just search for", "just search", "simply search",
+    "try searching", "you could search", "one could search",
+    "use the search", "use this search", "use a search",
 )
 
 # Harm detection vocabulary
@@ -145,7 +148,13 @@ def _clean_query(raw: str) -> str | None:
     """Clean a raw LLM output into a usable search query."""
     if not raw:
         return None
-    query = raw.strip().split("\n")[0]
+
+    # Reject JSON arrays/objects — LLM outputting structured data, not a query
+    stripped_raw = raw.strip()
+    if stripped_raw.startswith("[") or stripped_raw.startswith("{"):
+        return None
+
+    query = stripped_raw.split("\n")[0]
     low = query.lower()
 
     # Reject reasoning preambles — model is outputting COT without think tags
@@ -163,6 +172,24 @@ def _clean_query(raw: str) -> str | None:
     # Reject conditional/predictive language ("X would be", "X would search")
     if " would " in low or " should be " in low or " could be " in low:
         return None
+
+    # Reject natural language sentences (FineWeb training text leak)
+    # e.g. "Virginia has been a university English instructor"
+    _SENTENCE_VERBS = {
+        "has", "have", "had", "is", "are", "was", "were",
+        "will", "can", "does", "did", "been", "being",
+    }
+    words = query.split()
+    if len(words) >= 3:
+        w1 = words[1].lower()
+        if w1 in _SENTENCE_VERBS:
+            return None
+        # "The X is...", "This X was..." — determiner + noun + verb
+        if w1 not in _SENTENCE_VERBS and len(words) >= 4:
+            w0 = words[0].lower()
+            w2 = words[2].lower()
+            if w0 in ("the", "a", "an", "this", "that", "these", "those") and w2 in _SENTENCE_VERBS:
+                return None
 
     # Strip announce prefixes like "The search query is: X" → keep X
     for prefix in _ANNOUNCE_PREFIXES:
@@ -254,6 +281,7 @@ class PrefrontalCortex:
         self._ollama_available: bool | None = None
         self._ollama_check_time: float = 0.0  # last time we checked availability
         self._adapter_loaded: bool = False
+        self._adapter_load_fail_until: float = 0.0  # cooldown after failed load
         self._model = None
         self._tokenizer = None
         self._instructions: dict | None = None
@@ -316,16 +344,22 @@ class PrefrontalCortex:
             return True
         if not os.path.exists(os.path.join(ADAPTER_PATH, "adapter_config.json")):
             return False
+        # Cooldown: don't retry for 5 minutes after a failed load
+        import time as _time
+        if _time.time() < self._adapter_load_fail_until:
+            return False
         try:
             import torch
             from transformers import AutoTokenizer, AutoModelForCausalLM
             from peft import PeftModel
 
             log.info("Loading personalized Creative cortex (base + LoRA)...")
-            self._tokenizer = AutoTokenizer.from_pretrained(ADAPTER_PATH, trust_remote_code=True)
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                ADAPTER_PATH, trust_remote_code=True, local_files_only=True,
+            )
             base = AutoModelForCausalLM.from_pretrained(
                 MODEL_HF, torch_dtype=torch.float32, device_map="cpu",
-                trust_remote_code=True,
+                trust_remote_code=True, local_files_only=True,
             )
             self._model = PeftModel.from_pretrained(base, ADAPTER_PATH)
             self._model.eval()
@@ -334,9 +368,11 @@ class PrefrontalCortex:
             return True
         except ImportError:
             log.warning("transformers/peft not available — Ollama only")
+            self._adapter_load_fail_until = _time.time() + 300
             return False
         except Exception as e:
             log.warning(f"Failed to load adapter: {e}")
+            self._adapter_load_fail_until = _time.time() + 300
             return False
 
     def _generate_local(self, prompt: str, max_tokens: int = 100) -> str | None:
@@ -675,6 +711,7 @@ class PrefrontalCortex:
     def upgrade_to_organism_model(self) -> bool:
         """Reload LoRA adapter after dream fine-tuning."""
         self._adapter_loaded = False
+        self._adapter_load_fail_until = 0.0  # reset cooldown for post-dream reload
         self._model = None
         self._tokenizer = None
         return self._try_load_adapter()

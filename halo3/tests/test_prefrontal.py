@@ -88,6 +88,20 @@ def test_clean_query_rejects_meta_queries():
     # Conditional/predictive language
     assert _clean_query("resonance experiments would be interesting") is None
     assert _clean_query("quantum computing should be explored") is None
+    # "Just search for" meta pattern (from production tick 73)
+    assert _clean_query("Just search for resonance 0.33") is None
+    assert _clean_query("just search quantum computing") is None
+    assert _clean_query("simply search for AI agents") is None
+    assert _clean_query('Use the search query "Resonance 0.34" to find') is None
+    # JSON array output (from production tick 72)
+    assert _clean_query('["resonance 0.34 search query", "resonance 0."]') is None
+    assert _clean_query('[{"query": "test"}]') is None
+    # FineWeb text leak — sentence fragments (from production tick 79-90)
+    assert _clean_query("Virginia has been a university English instructor") is None
+    assert _clean_query("The algorithm is designed for parallel computing") is None
+    assert _clean_query("Studies have shown significant improvements") is None
+    assert _clean_query("Researchers were investigating the effects") is None
+    assert _clean_query("This can be applied to many domains") is None
     # Valid queries still pass
     assert _clean_query("quantum error correction 2026") is not None
     assert _clean_query("tensor networks machine learning") is not None
