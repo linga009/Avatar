@@ -15,7 +15,7 @@ class ObsBridge(eqx.Module):
         self.w_obs = eqx.nn.Linear(cfg.d_model, cfg.n_obs * 2, key=key)
 
     def __call__(self, h_out):
-        assignment = jax.nn.softmax(self.assignment_logits, axis=-1)
+        assignment = jax.nn.softmax(jax.lax.stop_gradient(self.assignment_logits), axis=-1)
         h_pooled = assignment @ h_out  # (K, d_model)
         raw = jax.vmap(self.w_obs)(h_pooled)  # (K, n_obs * 2)
         # Phase projection: atan2(sin_part, cos_part) -> [-pi, pi]

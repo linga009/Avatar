@@ -18,5 +18,5 @@ class BeliefBridge(eqx.Module):
         """theta: (K, n_hidden) phases -> (n_tokens, d_model) conditioning."""
         encoded = jnp.concatenate([jnp.sin(theta), jnp.cos(theta)], axis=-1)
         agent_bias = jax.vmap(self.w_belief)(encoded)
-        assignment = jax.nn.softmax(self.assignment_logits, axis=-1)
+        assignment = jax.nn.softmax(jax.lax.stop_gradient(self.assignment_logits), axis=-1)
         return assignment.T @ agent_bias

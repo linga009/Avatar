@@ -69,7 +69,9 @@ Key equations (v4.3):
 First measurement (2026-06-05, n=25): tau=1.23, alpha=1.85, sigma=1.12 (SOC predicts ~1.5, ~2.0, ~1.0).
 Avalanche detection: r excursions below adaptive EMA threshold (alpha=0.01). Power-law diagnostics at n>=20.
 Avalanche history persisted to data/checkpoints/avalanche_history.json (every 100 ticks + before dream, loaded on startup).
-Rigorous stats (KS goodness-of-fit, bootstrap 95% CI, scaling relation gamma) computed at n>=50, logged every 100 ticks.
+Rigorous stats (KS goodness-of-fit, bootstrap 95% CI, scaling relation gamma, alt distribution comparison, shape collapse) computed at n>=50, logged every 100 ticks.
+Alt distribution comparison: likelihood ratio vs log-normal and exponential (Clauset-Shalizi-Newman 2009). Shape collapse: rescaled temporal profiles measured against universal curve.
+Avalanche shapes (per-tick deficit profiles) recorded and persisted for shape collapse analysis.
 SOC ablation: disable_soc_controller=True freezes K — for control experiments (avalanche detection still runs).
 Specs: `docs/superpowers/specs/2026-06-06-soc-avalanche-tooling-design.md`
 Plans: `docs/superpowers/plans/2026-06-06-soc-avalanche-tooling.md`
@@ -165,12 +167,14 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 
 ## Testing
 
-249 tests across `halo3/tests/` and `tests/` (35 test files). Key test files:
+259 tests across `halo3/tests/` and `tests/` (36 test files). Key test files:
 - `test_kuramoto.py` — 24 tests including quantum potential at sync
 - `test_cop.py` — 10 tests for COP engine
 - `test_cop_emotions.py` — 8 tests for emotion manifold
 - `test_cop_organism.py` — 4 tests for COP-wired organism
-- `test_avalanche_stats.py` — 8 tests for power-law diagnostics, KS, bootstrap CI
+- `test_avalanche_stats.py` — 11 tests: power-law diagnostics, KS, bootstrap CI, alt distribution comparison, shape collapse
+- `test_avalanche_persistence.py` — 4 tests: save/load roundtrip, shape persistence
+- `test_experiment_runner.py` — 4 tests: config loading, flag checks, import, e2e smoke (slow)
 - `test_knowledge_graph.py` — topology, edges, metrics
 - `test_page_memory.py` — island compression, echo gate, eviction
 - `test_cerebellum.py` — 27 tests for forward model, SOC damping, confidence gating

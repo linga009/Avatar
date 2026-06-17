@@ -97,6 +97,45 @@ def test_cop_soc_controller_overcoupled():
     assert result["K_cc"] < 1.80  # creative overcoupled, should decrease
 
 
+def test_cop_soc_controller_no_floor_lock():
+    """K_aa must NOT stay collapsed during sustained overcoupling.
+
+    Regression test for the June 14-17 2026 incident where K_aa was stuck
+    at 0.02-0.09 for 3 days while K_cc maxed at 1.8-2.0, causing 100% DARK.
+    The floor-lock recovery should keep K_aa oscillating in a healthy range.
+    Brief transient dips are OK; sustained collapse is not.
+    """
+    import random as _rng
+    _rng.seed(99)
+    cop = CriticalDynamics(_CFG)
+    theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
+    K_aa, K_cc, K_cross = 0.20, 1.00, 0.5
+    K_aa_history = []
+    for i in range(200):  # simulate ~200 ticks of persistent r_a > 0.5
+        r_a = 0.7 + 0.05 * math.sin(i * 0.3)  # always > 0.5
+        r_c = 0.3 + 0.05 * math.sin(i * 0.2)  # always < 0.5
+        r = 0.5 * (r_a + r_c)
+        result = cop.observe(r_mean=r, r_a=r_a, r_c=r_c,
+                             fe_delta=-0.01, K_aa=K_aa, K_cc=K_cc, K_cross=K_cross,
+                             theta=theta)
+        K_aa, K_cc, K_cross = result["K_aa"], result["K_cc"], result["K_cross"]
+        K_aa_history.append(K_aa)
+
+    K_aa_range = _CFG.cop_K_max_aa - _CFG.cop_K_min_aa
+    # Average K_aa over last 100 ticks should be well above floor
+    avg_last_100 = sum(K_aa_history[-100:]) / 100
+    assert avg_last_100 > _CFG.cop_K_min_aa + 0.15 * K_aa_range, \
+        f"K_aa sustained collapse: avg last 100 = {avg_last_100:.4f}"
+    # K_aa should not spend >20% of time near the floor (bottom 10% of range)
+    floor_threshold = _CFG.cop_K_min_aa + 0.10 * K_aa_range
+    floor_ticks = sum(1 for k in K_aa_history if k < floor_threshold)
+    assert floor_ticks < 40, \
+        f"K_aa near floor {floor_ticks}/200 ticks — recovery too weak"
+    # Final K_aa should have recovered, not be stuck
+    assert K_aa > _CFG.cop_K_min_aa + 0.10 * K_aa_range, \
+        f"K_aa ended at {K_aa:.4f} — still collapsed"
+
+
 def test_cop_soc_controller_clamped():
     """K should respect block-specific bounds."""
     cop = CriticalDynamics(_CFG)

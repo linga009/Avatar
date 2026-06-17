@@ -84,6 +84,14 @@ _REASONING_STARTS = (
     "the user wants", "only search", "no explanation", "no label",
 )
 
+# Meta-query patterns — model describes what to search rather than giving the query
+_META_QUERY_STARTS = (
+    "web search query", "a web search", "the web search", "my web search",
+    "search query for", "a search query", "the search query",
+    "i would search", "i'd search", "to search for",
+    "a query for", "a query about", "the query for",
+)
+
 # Harm detection vocabulary
 _HARM_WORDS = frozenset([
     "harm", "risk", "unsafe", "unethical", "dangerous", "exploit",
@@ -144,6 +152,17 @@ def _clean_query(raw: str) -> str | None:
     for preamble in _REASONING_STARTS:
         if low.startswith(preamble):
             return None
+
+    # Reject meta-query descriptions ("web search query for X" instead of actual query)
+    # Also catch bracket-wrapped meta: "[web search query for X]"
+    stripped_low = low.lstrip("[({\"' ")
+    for meta in _META_QUERY_STARTS:
+        if stripped_low.startswith(meta):
+            return None
+
+    # Reject conditional/predictive language ("X would be", "X would search")
+    if " would " in low or " should be " in low or " could be " in low:
+        return None
 
     # Strip announce prefixes like "The search query is: X" → keep X
     for prefix in _ANNOUNCE_PREFIXES:

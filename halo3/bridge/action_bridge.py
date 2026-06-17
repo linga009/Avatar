@@ -16,5 +16,5 @@ class ActionBridge(eqx.Module):
 
     def __call__(self, a_i):
         agent_bias = jax.vmap(self.w_action)(a_i)
-        assignment = jax.nn.softmax(self.assignment_logits, axis=-1)
+        assignment = jax.nn.softmax(jax.lax.stop_gradient(self.assignment_logits), axis=-1)
         return assignment.T @ agent_bias

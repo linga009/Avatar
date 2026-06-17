@@ -71,3 +71,24 @@ def test_clean_query_rejects_prompt_scaffolding():
     assert _clean_query("# Title") is None
     # Valid queries pass through
     assert _clean_query("quantum entanglement experiments") is not None
+
+
+def test_clean_query_rejects_meta_queries():
+    """Meta-query descriptions must be rejected — these describe queries, not actual queries."""
+    from halo3.psyche.prefrontal import _clean_query
+    # Exact patterns from production logs (June 14-17 2026)
+    assert _clean_query("web search query for resonance 0.45") is None
+    assert _clean_query("The web search query for resonance 0.45 would") is None
+    assert _clean_query("[web search query for resonance 0.45]") is None
+    # Other meta-query variants
+    assert _clean_query("a web search query about quantum computing") is None
+    assert _clean_query("search query for tensor networks") is None
+    assert _clean_query("the search query for this topic would be") is None
+    assert _clean_query("I would search for quantum error correction") is None
+    # Conditional/predictive language
+    assert _clean_query("resonance experiments would be interesting") is None
+    assert _clean_query("quantum computing should be explored") is None
+    # Valid queries still pass
+    assert _clean_query("quantum error correction 2026") is not None
+    assert _clean_query("tensor networks machine learning") is not None
+    assert _clean_query("Bohmian mechanics pilot wave") is not None
