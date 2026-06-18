@@ -255,6 +255,7 @@ class Organism:
             chi_norm=chi_norm,
             sensory_novelty=sensory_novelty,
             binding_familiarity=binding_familiarity,
+            unity=cop["unity"],
         )
         if ws["just_ignited"]:
             log.info(f"  ★ IGNITION: conscious of '{ws['broadcast_content'][:50]}'")
@@ -264,6 +265,8 @@ class Organism:
             self.emotions.mood = "awakening"
             if ws.get("dark_duration_before", 0) > 10:
                 self.emotions.body_event = "surfacing"
+            elif ws.get("transition_sharpness", 0) > 0.3:
+                self.emotions.body_event = "crystallizing"
         elif ws["is_ignited"]:
             self.emotions.mood = "clarity"
         elif chi_norm > 0.4:
