@@ -60,24 +60,30 @@ from halo3.psyche.workspace import GlobalWorkspace
 
 
 def test_sensory_novelty_boosts_ignition():
-    """COP v4.0: ignition is from chi-geometry, not r threshold.
-    Test that workspace accepts sensory_novelty without error and
-    returns valid ignition state."""
+    """Sensory novelty boosts effective_r, tipping sub-threshold r into ignition."""
+    # r=0.48 alone -> dark (below 0.5 threshold)
     ws = GlobalWorkspace()
-    result = ws.update(r_mean=0.57, current_topic="test", emotion="curiosity",
-                       sensory_novelty=0.9, chi_norm=0.5)
-    assert isinstance(result["is_ignited"], bool)
-    assert "broadcast_content" in result
+    result = ws.update(r_mean=0.48, current_topic="test", emotion="curiosity",
+                       sensory_novelty=0.0)
+    assert result["is_ignited"] is False
+
+    # r=0.48 + sensory_novelty=0.9 -> effective_r=0.525 -> ignited
+    ws2 = GlobalWorkspace()
+    result2 = ws2.update(r_mean=0.48, current_topic="test", emotion="curiosity",
+                         sensory_novelty=0.9)
+    assert result2["is_ignited"] is True
 
 
 def test_binding_strengthens_broadcast():
-    ws = GlobalWorkspace(ignition_threshold=0.5)
+    """binding_familiarity > 0.7 boosts broadcast intensity by 1.1x."""
+    ws = GlobalWorkspace()
     r1 = ws.update(r_mean=0.7, current_topic="test", emotion="pride",
-                   binding_familiarity=0.0)
-    ws2 = GlobalWorkspace(ignition_threshold=0.5)
+                   binding_familiarity=0.0, unity=0.5)
+
+    ws2 = GlobalWorkspace()
     r2 = ws2.update(r_mean=0.7, current_topic="test", emotion="pride",
-                    binding_familiarity=0.9)
-    assert r2["broadcast_intensity"] >= r1["broadcast_intensity"]
+                    binding_familiarity=0.9, unity=0.5)
+    assert r2["broadcast_intensity"] > r1["broadcast_intensity"]
 
 
 from halo3.psyche.meditation import MeditationState
