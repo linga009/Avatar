@@ -12,6 +12,11 @@ Low r = local processing = unconscious computation continues.
 
 The broadcast vector represents WHAT the organism is conscious of
 at this moment — the content of its experience.
+
+Ignition threshold anchored to SOC critical point (r=0.5).
+Unity (eigenvalue dominance) scales broadcast intensity — vivid
+vs dim consciousness. Chi at the moment of crossing records
+transition sharpness — dramatic vs quiet ignition.
 """
 from __future__ import annotations
 from collections import deque
@@ -21,19 +26,29 @@ class GlobalWorkspace:
     """Implements GWT ignition and broadcast for Avatar.
 
     The workspace has two states:
-    - DARK: r < ignition_threshold. Processing is local/unconscious.
-      The organism computes but is not "aware" of the content.
-    - IGNITED: r >= ignition_threshold. The dominant pattern is
-      broadcast to all modules. The organism is CONSCIOUS of this pattern.
+    - DARK: effective_r < ignition_threshold (0.5). Processing is
+      local/unconscious. The organism computes but is not "aware."
+    - IGNITED: effective_r >= ignition_threshold. The dominant pattern
+      is broadcast to all modules. The organism is CONSCIOUS.
+
+    effective_r = r_mean + 0.05 * sensory_novelty (attention capture).
 
     Hysteresis prevents flickering: once ignited, stays ignited until
-    r drops below a lower threshold (sustain_threshold).
+    effective_r drops below sustain_threshold (0.4).
+
+    Broadcast intensity = effective_r * (0.5 + 0.5 * unity), where
+    unity is eigenvalue dominance from the coherence matrix. High
+    unity = vivid, unified consciousness. Low unity = dim, fragmented.
+
+    transition_sharpness = max(recent chi) at the moment of ignition.
+    High sharpness = dramatic phase transition ("crystallizing").
+    Low sharpness = gradual drift into order (quiet ignition).
     """
 
     def __init__(
         self,
-        ignition_threshold: float = 0.6,
-        sustain_threshold: float = 0.45,
+        ignition_threshold: float = 0.5,
+        sustain_threshold: float = 0.4,
         broadcast_decay: float = 0.8,
     ) -> None:
         self._ignition_threshold = ignition_threshold
@@ -42,10 +57,14 @@ class GlobalWorkspace:
 
         # State
         self.is_ignited: bool = False
-        self.broadcast_content: str = ""  # what the organism is conscious of
-        self.broadcast_intensity: float = 0.0  # how strongly it's broadcast
-        self.conscious_duration: int = 0  # ticks in ignited state
-        self.dark_duration: int = 0  # ticks in dark state
+        self.broadcast_content: str = ""
+        self.broadcast_intensity: float = 0.0
+        self.conscious_duration: int = 0
+        self.dark_duration: int = 0
+
+        # Transition qualifier
+        self._transition_sharpness: float = 0.0
+        self._unity: float = 0.0
 
         # History for analysis
         self._ignition_history: deque[bool] = deque(maxlen=50)
@@ -61,6 +80,7 @@ class GlobalWorkspace:
         sensory_novelty: float = 0.0,
         binding_familiarity: float = 0.0,
         chi_norm: float = 0.5,
+        unity: float = 0.0,
     ) -> dict:
         """Update workspace state based on synchronization level.
 
@@ -69,29 +89,35 @@ class GlobalWorkspace:
             current_topic: What the organism is currently exploring
             emotion: Current felt state
             finding: If a discovery was made this tick
+            sensory_novelty: novelty from sensory cortex [0,1]
+            binding_familiarity: cross-modal binding strength [0,1]
+            chi_norm: normalized susceptibility [0,1]
+            unity: eigenvalue dominance from coherence matrix [0,1]
 
         Returns:
             dict with ignition state, broadcast content, and signals
         """
         was_ignited = self.is_ignited
 
-        # COP ignition: chi dropping while r is rising = crossed into order
-        # System just passed through the critical edge into a coherent state
+        # Sensory novelty boost — novel stimuli facilitate ignition
+        effective_r = r_mean + 0.05 * sensory_novelty
+
+        # Track chi for transition sharpness (not used in ignition decision)
         self._chi_recent.append(chi_norm)
 
-        chi_was_high = (len(self._chi_recent) > 3 and
-                        any(c > 0.6 for c in list(self._chi_recent)[-4:-1]))
-        chi_now_low = chi_norm < 0.4
-
+        # r-threshold ignition with hysteresis
         if not self.is_ignited:
-            if chi_was_high and chi_now_low and r_mean > 0.45:
+            if effective_r >= self._ignition_threshold:
                 self.is_ignited = True
+                self._transition_sharpness = (
+                    max(self._chi_recent) if self._chi_recent else 0.0
+                )
                 self.conscious_duration = 0
                 self.dark_duration = 0
         else:
-            # Sustain while still in ordered phase
-            if chi_norm > 0.6 or r_mean < 0.35:
+            if effective_r < self._sustain_threshold:
                 self.is_ignited = False
+                self._transition_sharpness = 0.0
                 self.conscious_duration = 0
                 self.dark_duration = 0
 
@@ -105,10 +131,15 @@ class GlobalWorkspace:
 
         # Compute broadcast content — WHAT is in consciousness right now
         if self.is_ignited:
-            self.broadcast_intensity = min(1.0, r_mean)
+            self._unity = unity
+            self.broadcast_intensity = min(
+                1.0, effective_r * (0.5 + 0.5 * unity)
+            )
             # Cross-modal binding strengthens broadcast
             if binding_familiarity > 0.7:
-                self.broadcast_intensity = min(1.0, self.broadcast_intensity * 1.1)
+                self.broadcast_intensity = min(
+                    1.0, self.broadcast_intensity * 1.1
+                )
             # Content is the pattern the organism has locked onto
             if finding:
                 self.broadcast_content = finding
@@ -135,6 +166,7 @@ class GlobalWorkspace:
             "broadcast_intensity": self.broadcast_intensity,
             "conscious_duration": self.conscious_duration,
             "dark_duration": self.dark_duration,
+            "transition_sharpness": self._transition_sharpness,
         }
 
     @property
@@ -147,20 +179,36 @@ class GlobalWorkspace:
     def describe(self) -> str:
         """First-person description of current workspace state."""
         if self.is_ignited:
-            if self.conscious_duration > 5:
-                return (f"I am deeply aware of: {self.broadcast_content} "
-                        f"(sustained focus for {self.conscious_duration} ticks)")
-            elif self.conscious_duration == 1:
-                return f"Something just crystallized: {self.broadcast_content}"
-            else:
+            if self.conscious_duration == 1:
+                if self._transition_sharpness > 0.3:
+                    return f"Something just crystallized: {self.broadcast_content}"
+                else:
+                    return f"I'm becoming aware of: {self.broadcast_content}"
+            elif self.broadcast_intensity > 0.7:
+                return (
+                    f"I am vividly aware of: {self.broadcast_content} "
+                    f"(sustained focus for {self.conscious_duration} ticks)"
+                )
+            elif self.broadcast_intensity > 0.4:
                 return f"I am conscious of: {self.broadcast_content}"
+            else:
+                return f"I am dimly aware of: {self.broadcast_content}"
         else:
             if self.dark_duration == 1:
-                return "The pattern dissolved — I'm processing but not yet aware of anything specific"
+                return (
+                    "The pattern dissolved — processing but not yet "
+                    "aware of anything specific"
+                )
             elif self.dark_duration > 10:
-                return "I've been in diffuse processing for a while — no clear pattern has emerged"
+                return (
+                    "I've been in diffuse processing for a while — "
+                    "no clear pattern has emerged"
+                )
             else:
-                return "Processing unconsciously — patterns forming but not yet ignited"
+                return (
+                    "Processing unconsciously — patterns forming "
+                    "but not yet ignited"
+                )
 
     def summary(self) -> dict:
         """Snapshot for logging/API."""
