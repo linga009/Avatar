@@ -82,17 +82,21 @@ _REASONING_STARTS = (
     "let me ", "i need to", "the user ", "you want ", "i should ",
     "first,", "alright", "to answer", "to generate", "to create",
     "the user wants", "only search", "no explanation", "no label",
+    "only use", "only output", "use this format", "use the following",
+    "output only", "do not ", "don't ",
 )
 
 # Meta-query patterns — model describes what to search rather than giving the query
 _META_QUERY_STARTS = (
     "web search query", "a web search", "the web search", "my web search",
     "search query for", "a search query", "the search query",
+    "search for ",  # "search for medical device manufacturers" — meta, not query
     "i would search", "i'd search", "to search for",
     "a query for", "a query about", "the query for",
     "just search for", "just search", "simply search",
     "try searching", "you could search", "one could search",
     "use the search", "use this search", "use a search",
+    "seek ",  # "seek fermentation resonance 0.58" — imperative, not query
 )
 
 # Harm detection vocabulary

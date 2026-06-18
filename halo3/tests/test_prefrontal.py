@@ -102,6 +102,16 @@ def test_clean_query_rejects_meta_queries():
     assert _clean_query("Studies have shown significant improvements") is None
     assert _clean_query("Researchers were investigating the effects") is None
     assert _clean_query("This can be applied to many domains") is None
+    # "search for X" meta pattern (from production ticks 80-89)
+    assert _clean_query("search for medical device manufacturers") is None
+    assert _clean_query("search for resonance experiments") is None
+    # "seek X" imperative (from production tick 78)
+    assert _clean_query("seek fermentation resonance 0.58") is None
+    # Prompt instruction echoes (from production tick 90)
+    assert _clean_query("Only use this format") is None
+    assert _clean_query("only output a search query") is None
+    assert _clean_query("do not include explanations") is None
+    assert _clean_query("don't add any labels") is None
     # Valid queries still pass
     assert _clean_query("quantum error correction 2026") is not None
     assert _clean_query("tensor networks machine learning") is not None

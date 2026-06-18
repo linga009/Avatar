@@ -348,3 +348,31 @@ def test_cop_avalanche_stats_exponents():
     assert stats["alpha_est"] is not None
     assert stats["mean_size"] > 0
     assert stats["mean_duration"] > 0
+
+
+# --- Post-dream reset tests ---
+
+def test_cop_post_dream_chi_nonzero():
+    """post_dream_reset must NOT crash chi to zero.
+
+    Regression test for June 18 2026: identical pre-fill values gave
+    Var(r)=0, so chi_raw=N*0=0. Chi stayed at ~0 for 40+ ticks, killing
+    the SOC controller and preventing consciousness ignition.
+    """
+    cop = CriticalDynamics(_CFG)
+    theta = jax.random.uniform(jax.random.PRNGKey(77),
+                               (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
+    # Build up some history first
+    for i in range(20):
+        r = 0.5 + 0.1 * math.sin(i * 0.3)
+        cop.observe(r_mean=r, r_a=0.6, r_c=0.4,
+                    fe_delta=-0.01, K_aa=0.2, K_cc=1.0, K_cross=0.5,
+                    theta=theta)
+    # Dream reset
+    cop.post_dream_reset(terminal_r=0.55)
+    # First post-dream tick should have nonzero chi_raw
+    result = cop.observe(r_mean=0.55, r_a=0.6, r_c=0.5,
+                         fe_delta=-0.01, K_aa=0.2, K_cc=1.0, K_cross=0.5,
+                         theta=theta)
+    assert result["chi_raw"] > 0.1, \
+        f"chi_raw={result['chi_raw']:.4f} — post-dream pre-fill has no variance"

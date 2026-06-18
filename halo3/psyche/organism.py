@@ -76,6 +76,7 @@ class Organism:
         self.current_query: str = seed_topics[0] if seed_topics else "research"
         self._exploit_streak = 0
         self._consecutive_zero_results = 0
+        self._same_query_ticks: int = 0  # how many ticks on same query
         self._recent_queries: deque = deque(maxlen=20)
         self._prev_query: str = ""
         self._exploration_plan: list[str] = []  # post-dream topics to explore
@@ -409,6 +410,16 @@ class Organism:
 
         # 7. Decide next query — with layered fallbacks + volatility valuation
         next_query = self._decide_query(emotion, r_mean, current_query, texts)
+
+        # Query staleness: force switch after 5 consecutive ticks on same query
+        if next_query == current_query:
+            self._same_query_ticks += 1
+            if self._same_query_ticks >= 5:
+                next_query = self._highest_value_topic(exclude=current_query)
+                log.warning(f"STALENESS: same query {self._same_query_ticks} ticks → BS switch '{next_query}'")
+                self._same_query_ticks = 0
+        else:
+            self._same_query_ticks = 0
 
         # Track action type for cerebellum
         if next_query != current_query:

@@ -186,14 +186,19 @@ class CriticalDynamics:
     def post_dream_reset(self, terminal_r: float) -> None:
         """Reset transient COP state after a dream cycle.
 
-        - Pre-fills r_history with terminal_r to prevent variance collapse
+        - Pre-fills r_history with noisy terminal_r to prevent variance collapse
         - Resets C_avg coherence matrix (stale after phase changes)
         - Does NOT reset chi_max (it decays naturally via 0.995 factor)
+
+        The noise (±0.02) gives Var(r) ≈ 1.3e-4, so chi_raw ≈ N*Var ≈ 1.1
+        instead of zero. Without this, chi stays at 0 for ~40 ticks while
+        the 50-tick window fills with naturally varied r values — killing
+        the SOC controller and preventing consciousness ignition.
         """
-        # Pre-fill so the 50-tick window starts from a known state
+        import random as _rng
         self._r_history.clear()
         for _ in range(min(10, self._window)):
-            self._r_history.append(terminal_r)
+            self._r_history.append(terminal_r + _rng.uniform(-0.02, 0.02))
         # Reset coherence matrix — it will re-accumulate from fresh phases
         self._C_avg = None
 
