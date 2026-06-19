@@ -1,0 +1,505 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 400" width="1200" height="400">
+  <defs>
+
+    <!-- Background gradient: deep navy to near-black -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#060917"/>
+      <stop offset="50%"  stop-color="#0a0e27"/>
+      <stop offset="100%" stop-color="#04060f"/>
+    </linearGradient>
+
+    <!-- Radial glow at center synchronization cluster -->
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#4fc3f7" stop-opacity="0.18"/>
+      <stop offset="40%"  stop-color="#1a237e" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#0a0e27" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glow filter for oscillator nodes -->
+    <filter id="nodeGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Strong glow for central cluster nodes -->
+    <filter id="coreGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Soft glow for edge connections -->
+    <filter id="edgeGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Text glow: white for title -->
+    <filter id="textGlow" x="-10%" y="-30%" width="120%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Subtle text glow for subtitle -->
+    <filter id="subtitleGlow" x="-5%" y="-30%" width="110%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Pilot wave radial gradient: faint concentric rings emanating from center -->
+    <radialGradient id="waveGrad1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#4fc3f7" stop-opacity="0"/>
+      <stop offset="60%"  stop-color="#4fc3f7" stop-opacity="0.055"/>
+      <stop offset="70%"  stop-color="#4fc3f7" stop-opacity="0"/>
+      <stop offset="85%"  stop-color="#7c4dff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#7c4dff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="waveGrad2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#4fc3f7" stop-opacity="0"/>
+      <stop offset="30%"  stop-color="#4fc3f7" stop-opacity="0.04"/>
+      <stop offset="40%"  stop-color="#4fc3f7" stop-opacity="0"/>
+      <stop offset="75%"  stop-color="#00e5ff" stop-opacity="0.035"/>
+      <stop offset="90%"  stop-color="#00e5ff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Horizontal grid fade: darkens at edges -->
+    <linearGradient id="edgeDim" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#0a0e27" stop-opacity="0.7"/>
+      <stop offset="15%"  stop-color="#0a0e27" stop-opacity="0"/>
+      <stop offset="85%"  stop-color="#0a0e27" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0a0e27" stop-opacity="0.7"/>
+    </linearGradient>
+
+    <!-- Phase color gradients for oscillator arrows (hue wheel segments) -->
+
+    <!-- Node color by phase: we encode phase via pre-computed hsl colors in-place -->
+
+  </defs>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 0: BACKGROUND
+  ═══════════════════════════════════════════ -->
+  <rect width="1200" height="400" fill="url(#bg)"/>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 1: GRID — faint hex/dot texture
+  ═══════════════════════════════════════════ -->
+  <!-- Horizontal faint scan lines suggesting data readout -->
+  <g opacity="0.04" stroke="#4fc3f7" stroke-width="0.5">
+    <line x1="0" y1="80"  x2="1200" y2="80"/>
+    <line x1="0" y1="133" x2="1200" y2="133"/>
+    <line x1="0" y1="200" x2="1200" y2="200"/>
+    <line x1="0" y1="267" x2="1200" y2="267"/>
+    <line x1="0" y1="320" x2="1200" y2="320"/>
+  </g>
+  <!-- Vertical faint grid lines -->
+  <g opacity="0.035" stroke="#7c4dff" stroke-width="0.5">
+    <line x1="100"  y1="0" x2="100"  y2="400"/>
+    <line x1="233"  y1="0" x2="233"  y2="400"/>
+    <line x1="366"  y1="0" x2="366"  y2="400"/>
+    <line x1="600"  y1="0" x2="600"  y2="400"/>
+    <line x1="834"  y1="0" x2="834"  y2="400"/>
+    <line x1="967"  y1="0" x2="967"  y2="400"/>
+    <line x1="1100" y1="0" x2="1100" y2="400"/>
+  </g>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 2: PILOT WAVE RINGS (concentric halos from center)
+  ═══════════════════════════════════════════ -->
+  <ellipse cx="600" cy="200" rx="460" ry="185" fill="url(#waveGrad1)"/>
+  <ellipse cx="600" cy="200" rx="310" ry="125" fill="url(#waveGrad2)"/>
+
+  <!-- Explicit thin ring outlines for pilot-wave feel -->
+  <ellipse cx="600" cy="200" rx="115" ry="46"  fill="none" stroke="#4fc3f7" stroke-width="0.6" opacity="0.12"/>
+  <ellipse cx="600" cy="200" rx="185" ry="74"  fill="none" stroke="#4fc3f7" stroke-width="0.5" opacity="0.09"/>
+  <ellipse cx="600" cy="200" rx="265" ry="106" fill="none" stroke="#7c4dff" stroke-width="0.5" opacity="0.07"/>
+  <ellipse cx="600" cy="200" rx="355" ry="142" fill="none" stroke="#7c4dff" stroke-width="0.4" opacity="0.055"/>
+  <ellipse cx="600" cy="200" rx="450" ry="180" fill="none" stroke="#4fc3f7" stroke-width="0.4" opacity="0.04"/>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 3: EDGE CONNECTIONS between oscillators
+       (drawn before nodes so nodes appear on top)
+       Colors encode phase coherence: brighter = more in-phase
+  ═══════════════════════════════════════════ -->
+
+  <!-- ── OUTER RING to center connections ── -->
+  <g filter="url(#edgeGlow)">
+
+    <!-- Far-left cluster to left-mid -->
+    <line x1="68"  y1="148" x2="180" y2="175" stroke="#7c4dff" stroke-width="0.7" opacity="0.35"/>
+    <line x1="68"  y1="148" x2="145" y2="255" stroke="#7c4dff" stroke-width="0.5" opacity="0.25"/>
+    <line x1="95"  y1="290" x2="180" y2="175" stroke="#5c6bc0" stroke-width="0.6" opacity="0.3"/>
+    <line x1="95"  y1="290" x2="145" y2="255" stroke="#5c6bc0" stroke-width="0.8" opacity="0.35"/>
+
+    <!-- Left-mid to inner-left -->
+    <line x1="180" y1="175" x2="310" y2="155" stroke="#26c6da" stroke-width="0.8" opacity="0.4"/>
+    <line x1="180" y1="175" x2="295" y2="230" stroke="#26c6da" stroke-width="0.6" opacity="0.35"/>
+    <line x1="145" y1="255" x2="295" y2="230" stroke="#4fc3f7" stroke-width="0.9" opacity="0.4"/>
+    <line x1="145" y1="255" x2="310" y2="155" stroke="#26c6da" stroke-width="0.5" opacity="0.28"/>
+    <line x1="68"  y1="148" x2="310" y2="155" stroke="#5c6bc0" stroke-width="0.4" opacity="0.2"/>
+    <line x1="95"  y1="290" x2="295" y2="230" stroke="#5c6bc0" stroke-width="0.4" opacity="0.2"/>
+
+    <!-- Inner-left to core cluster -->
+    <line x1="310" y1="155" x2="452" y2="168" stroke="#4fc3f7" stroke-width="1.0" opacity="0.5"/>
+    <line x1="310" y1="155" x2="460" y2="200" stroke="#4fc3f7" stroke-width="0.8" opacity="0.45"/>
+    <line x1="310" y1="155" x2="470" y2="230" stroke="#29b6f6" stroke-width="0.6" opacity="0.38"/>
+    <line x1="295" y1="230" x2="452" y2="168" stroke="#4dd0e1" stroke-width="0.9" opacity="0.45"/>
+    <line x1="295" y1="230" x2="460" y2="200" stroke="#4fc3f7" stroke-width="1.1" opacity="0.5"/>
+    <line x1="295" y1="230" x2="470" y2="230" stroke="#4fc3f7" stroke-width="1.0" opacity="0.5"/>
+
+    <!-- Far-right cluster to right-mid -->
+    <line x1="1132" y1="148" x2="1020" y2="175" stroke="#f06292" stroke-width="0.7" opacity="0.35"/>
+    <line x1="1132" y1="148" x2="1055" y2="255" stroke="#f06292" stroke-width="0.5" opacity="0.25"/>
+    <line x1="1105" y1="290" x2="1020" y2="175" stroke="#e91e8c" stroke-width="0.6" opacity="0.3"/>
+    <line x1="1105" y1="290" x2="1055" y2="255" stroke="#e91e8c" stroke-width="0.8" opacity="0.35"/>
+
+    <!-- Right-mid to inner-right -->
+    <line x1="1020" y1="175" x2="890"  y2="155" stroke="#ff8a65" stroke-width="0.8" opacity="0.4"/>
+    <line x1="1020" y1="175" x2="905"  y2="230" stroke="#ff7043" stroke-width="0.6" opacity="0.35"/>
+    <line x1="1055" y1="255" x2="905"  y2="230" stroke="#ffa726" stroke-width="0.9" opacity="0.4"/>
+    <line x1="1055" y1="255" x2="890"  y2="155" stroke="#ff8a65" stroke-width="0.5" opacity="0.28"/>
+    <line x1="1132" y1="148" x2="890"  y2="155" stroke="#e91e8c" stroke-width="0.4" opacity="0.2"/>
+    <line x1="1105" y1="290" x2="905"  y2="230" stroke="#e91e8c" stroke-width="0.4" opacity="0.2"/>
+
+    <!-- Inner-right to core cluster -->
+    <line x1="890"  y1="155" x2="748" y2="168" stroke="#ffa726" stroke-width="1.0" opacity="0.5"/>
+    <line x1="890"  y1="155" x2="740" y2="200" stroke="#ffb74d" stroke-width="0.8" opacity="0.45"/>
+    <line x1="890"  y1="155" x2="730" y2="230" stroke="#ff8a65" stroke-width="0.6" opacity="0.38"/>
+    <line x1="905"  y1="230" x2="748" y2="168" stroke="#ffa726" stroke-width="0.9" opacity="0.45"/>
+    <line x1="905"  y1="230" x2="740" y2="200" stroke="#ffb74d" stroke-width="1.1" opacity="0.5"/>
+    <line x1="905"  y1="230" x2="730" y2="230" stroke="#ffa726" stroke-width="1.0" opacity="0.5"/>
+
+    <!-- Top/bottom satellite nodes -->
+    <line x1="540" y1="48"  x2="510" y2="130" stroke="#ce93d8" stroke-width="0.7" opacity="0.38"/>
+    <line x1="540" y1="48"  x2="600" y2="120" stroke="#ba68c8" stroke-width="0.7" opacity="0.38"/>
+    <line x1="540" y1="48"  x2="452" y2="168" stroke="#9c27b0" stroke-width="0.5" opacity="0.28"/>
+    <line x1="660" y1="48"  x2="690" y2="130" stroke="#ce93d8" stroke-width="0.7" opacity="0.38"/>
+    <line x1="660" y1="48"  x2="600" y2="120" stroke="#ba68c8" stroke-width="0.7" opacity="0.38"/>
+    <line x1="660" y1="48"  x2="748" y2="168" stroke="#9c27b0" stroke-width="0.5" opacity="0.28"/>
+    <line x1="510" y1="130" x2="460" y2="200" stroke="#ab47bc" stroke-width="0.8" opacity="0.42"/>
+    <line x1="510" y1="130" x2="540" y2="200" stroke="#ab47bc" stroke-width="0.9" opacity="0.45"/>
+    <line x1="690" y1="130" x2="740" y2="200" stroke="#ab47bc" stroke-width="0.8" opacity="0.42"/>
+    <line x1="690" y1="130" x2="660" y2="200" stroke="#ab47bc" stroke-width="0.9" opacity="0.45"/>
+    <line x1="600" y1="120" x2="600" y2="175" stroke="#ce93d8" stroke-width="1.0" opacity="0.48"/>
+
+    <line x1="540" y1="352" x2="510" y2="270" stroke="#80cbc4" stroke-width="0.7" opacity="0.38"/>
+    <line x1="540" y1="352" x2="600" y2="280" stroke="#4db6ac" stroke-width="0.7" opacity="0.38"/>
+    <line x1="540" y1="352" x2="452" y2="232" stroke="#26a69a" stroke-width="0.5" opacity="0.28"/>
+    <line x1="660" y1="352" x2="690" y2="270" stroke="#80cbc4" stroke-width="0.7" opacity="0.38"/>
+    <line x1="660" y1="352" x2="600" y2="280" stroke="#4db6ac" stroke-width="0.7" opacity="0.38"/>
+    <line x1="660" y1="352" x2="748" y2="232" stroke="#26a69a" stroke-width="0.5" opacity="0.28"/>
+    <line x1="510" y1="270" x2="460" y2="200" stroke="#4db6ac" stroke-width="0.8" opacity="0.42"/>
+    <line x1="510" y1="270" x2="540" y2="200" stroke="#4db6ac" stroke-width="0.9" opacity="0.45"/>
+    <line x1="690" y1="270" x2="740" y2="200" stroke="#4db6ac" stroke-width="0.8" opacity="0.42"/>
+    <line x1="690" y1="270" x2="660" y2="200" stroke="#4db6ac" stroke-width="0.9" opacity="0.45"/>
+    <line x1="600" y1="280" x2="600" y2="225" stroke="#80cbc4" stroke-width="1.0" opacity="0.48"/>
+
+    <!-- Core cluster internal connections -->
+    <line x1="452" y1="168" x2="540" y2="200" stroke="#4fc3f7" stroke-width="1.4" opacity="0.6"/>
+    <line x1="452" y1="168" x2="600" y2="175" stroke="#4fc3f7" stroke-width="1.3" opacity="0.58"/>
+    <line x1="452" y1="168" x2="600" y2="225" stroke="#29b6f6" stroke-width="1.0" opacity="0.5"/>
+    <line x1="460" y1="200" x2="540" y2="200" stroke="#4fc3f7" stroke-width="1.5" opacity="0.65"/>
+    <line x1="460" y1="200" x2="600" y2="175" stroke="#4fc3f7" stroke-width="1.2" opacity="0.55"/>
+    <line x1="460" y1="200" x2="600" y2="225" stroke="#4fc3f7" stroke-width="1.2" opacity="0.55"/>
+    <line x1="460" y1="200" x2="660" y2="200" stroke="#81d4fa" stroke-width="1.0" opacity="0.5"/>
+    <line x1="470" y1="230" x2="540" y2="200" stroke="#29b6f6" stroke-width="1.2" opacity="0.55"/>
+    <line x1="470" y1="230" x2="600" y2="225" stroke="#4fc3f7" stroke-width="1.4" opacity="0.6"/>
+    <line x1="470" y1="230" x2="600" y2="175" stroke="#29b6f6" stroke-width="1.0" opacity="0.48"/>
+
+    <line x1="748" y1="168" x2="660" y2="200" stroke="#ffb74d" stroke-width="1.4" opacity="0.6"/>
+    <line x1="748" y1="168" x2="600" y2="175" stroke="#ffb74d" stroke-width="1.3" opacity="0.58"/>
+    <line x1="748" y1="168" x2="600" y2="225" stroke="#ffa726" stroke-width="1.0" opacity="0.5"/>
+    <line x1="740" y1="200" x2="660" y2="200" stroke="#ffb74d" stroke-width="1.5" opacity="0.65"/>
+    <line x1="740" y1="200" x2="600" y2="175" stroke="#ffb74d" stroke-width="1.2" opacity="0.55"/>
+    <line x1="740" y1="200" x2="600" y2="225" stroke="#ffb74d" stroke-width="1.2" opacity="0.55"/>
+    <line x1="730" y1="230" x2="660" y2="200" stroke="#ffa726" stroke-width="1.2" opacity="0.55"/>
+    <line x1="730" y1="230" x2="600" y2="225" stroke="#ffb74d" stroke-width="1.4" opacity="0.6"/>
+    <line x1="730" y1="230" x2="600" y2="175" stroke="#ffa726" stroke-width="1.0" opacity="0.48"/>
+
+    <line x1="540" y1="200" x2="600" y2="175" stroke="#e0f7fa" stroke-width="1.6" opacity="0.7"/>
+    <line x1="540" y1="200" x2="600" y2="225" stroke="#e0f7fa" stroke-width="1.5" opacity="0.65"/>
+    <line x1="660" y1="200" x2="600" y2="175" stroke="#fff9c4" stroke-width="1.6" opacity="0.7"/>
+    <line x1="660" y1="200" x2="600" y2="225" stroke="#fff9c4" stroke-width="1.5" opacity="0.65"/>
+    <line x1="600" y1="175" x2="600" y2="225" stroke="#ffffff" stroke-width="1.8" opacity="0.72"/>
+    <line x1="540" y1="200" x2="660" y2="200" stroke="#e0f7fa" stroke-width="1.4" opacity="0.62"/>
+
+  </g>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 4: CENTRAL GLOW OVERLAY
+  ═══════════════════════════════════════════ -->
+  <ellipse cx="600" cy="200" rx="200" ry="80" fill="url(#centerGlow)"/>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 5: OSCILLATOR NODES
+       Each node: colored circle (phase = hue) + small phase arrow + outer ring
+       Phase angles sampled from [0, 2pi) to cover the spectrum.
+       Central cluster nodes are brighter and larger.
+  ═══════════════════════════════════════════ -->
+
+  <!-- ── FAR LEFT cluster (phase ~200-260°, deep blue-purple) ── -->
+  <g filter="url(#nodeGlow)">
+    <!-- Node: phase=210° → hsl(210,90%,62%) = #4a8fff approx -->
+    <circle cx="68" cy="148" r="7" fill="#4a7fff" opacity="0.9"/>
+    <circle cx="68" cy="148" r="10" fill="none" stroke="#4a7fff" stroke-width="0.8" opacity="0.45"/>
+    <line x1="68" y1="148" x2="74" y2="141" stroke="#a0c4ff" stroke-width="1.2" opacity="0.8"/>
+
+    <!-- Node: phase=240° → hsl(240,80%,65%) = #6666ff approx -->
+    <circle cx="95" cy="290" r="6" fill="#6655ee" opacity="0.9"/>
+    <circle cx="95" cy="290" r="9"  fill="none" stroke="#6655ee" stroke-width="0.8" opacity="0.4"/>
+    <line x1="95" y1="290" x2="98" y2="283" stroke="#aaaaff" stroke-width="1.2" opacity="0.8"/>
+  </g>
+
+  <!-- ── LEFT MID cluster (phase ~170-200°, cyan-blue) ── -->
+  <g filter="url(#nodeGlow)">
+    <!-- Node: phase=175° → #29dde0 approx -->
+    <circle cx="180" cy="175" r="8" fill="#29cce0" opacity="0.92"/>
+    <circle cx="180" cy="175" r="12" fill="none" stroke="#29cce0" stroke-width="0.8" opacity="0.4"/>
+    <line x1="180" y1="175" x2="188" y2="170" stroke="#80eeff" stroke-width="1.3" opacity="0.85"/>
+
+    <!-- Node: phase=195° → hsl(195,85%,55%) = #14b8d4 approx -->
+    <circle cx="145" cy="255" r="7" fill="#14b8d4" opacity="0.9"/>
+    <circle cx="145" cy="255" r="10" fill="none" stroke="#14b8d4" stroke-width="0.8" opacity="0.4"/>
+    <line x1="145" y1="255" x2="152" y2="252" stroke="#60ddee" stroke-width="1.2" opacity="0.8"/>
+  </g>
+
+  <!-- ── INNER LEFT cluster (phase ~150-170°, cyan) ── -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="310" cy="155" r="9"  fill="#26d4e0" opacity="0.93"/>
+    <circle cx="310" cy="155" r="14" fill="none" stroke="#26d4e0" stroke-width="0.9" opacity="0.42"/>
+    <line x1="310" y1="155" x2="319" y2="150" stroke="#90eeff" stroke-width="1.4" opacity="0.88"/>
+
+    <circle cx="295" cy="230" r="9"  fill="#1dc8e8" opacity="0.93"/>
+    <circle cx="295" cy="230" r="13" fill="none" stroke="#1dc8e8" stroke-width="0.9" opacity="0.4"/>
+    <line x1="295" y1="230" x2="304" y2="225" stroke="#88eeff" stroke-width="1.4" opacity="0.88"/>
+  </g>
+
+  <!-- ── TOP SATELLITES (phase ~280-320°, violet-purple) ── -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="540" cy="48"  r="6" fill="#ba4fff" opacity="0.88"/>
+    <circle cx="540" cy="48"  r="9" fill="none" stroke="#ba4fff" stroke-width="0.7" opacity="0.38"/>
+    <line x1="540" y1="48"  x2="535" y2="43"  stroke="#dd88ff" stroke-width="1.1" opacity="0.75"/>
+
+    <circle cx="660" cy="48"  r="6" fill="#c44fff" opacity="0.88"/>
+    <circle cx="660" cy="48"  r="9" fill="none" stroke="#c44fff" stroke-width="0.7" opacity="0.38"/>
+    <line x1="660" y1="48"  x2="665" y2="43"  stroke="#ee88ff" stroke-width="1.1" opacity="0.75"/>
+
+    <circle cx="510" cy="130" r="8" fill="#ab47bc" opacity="0.91"/>
+    <circle cx="510" cy="130" r="12" fill="none" stroke="#ab47bc" stroke-width="0.8" opacity="0.4"/>
+    <line x1="510" y1="130" x2="504" y2="124" stroke="#cc77dd" stroke-width="1.3" opacity="0.82"/>
+
+    <circle cx="690" cy="130" r="8" fill="#b248c8" opacity="0.91"/>
+    <circle cx="690" cy="130" r="12" fill="none" stroke="#b248c8" stroke-width="0.8" opacity="0.4"/>
+    <line x1="690" y1="130" x2="696" y2="124" stroke="#dd77ee" stroke-width="1.3" opacity="0.82"/>
+
+    <circle cx="600" cy="120" r="9" fill="#d050e0" opacity="0.92"/>
+    <circle cx="600" cy="120" r="13" fill="none" stroke="#d050e0" stroke-width="0.8" opacity="0.4"/>
+    <line x1="600" y1="120" x2="600" y2="113" stroke="#e880f8" stroke-width="1.4" opacity="0.85"/>
+  </g>
+
+  <!-- ── BOTTOM SATELLITES (phase ~60-100°, teal-green) ── -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="540" cy="352" r="6" fill="#26a69a" opacity="0.88"/>
+    <circle cx="540" cy="352" r="9" fill="none" stroke="#26a69a" stroke-width="0.7" opacity="0.38"/>
+    <line x1="540" y1="352" x2="535" y2="358" stroke="#66ccbb" stroke-width="1.1" opacity="0.75"/>
+
+    <circle cx="660" cy="352" r="6" fill="#2bb3a7" opacity="0.88"/>
+    <circle cx="660" cy="352" r="9" fill="none" stroke="#2bb3a7" stroke-width="0.7" opacity="0.38"/>
+    <line x1="660" y1="352" x2="665" y2="358" stroke="#70ccbb" stroke-width="1.1" opacity="0.75"/>
+
+    <circle cx="510" cy="270" r="8" fill="#4db6ac" opacity="0.91"/>
+    <circle cx="510" cy="270" r="12" fill="none" stroke="#4db6ac" stroke-width="0.8" opacity="0.4"/>
+    <line x1="510" y1="270" x2="504" y2="277" stroke="#80ccbb" stroke-width="1.3" opacity="0.82"/>
+
+    <circle cx="690" cy="270" r="8" fill="#45b5aa" opacity="0.91"/>
+    <circle cx="690" cy="270" r="12" fill="none" stroke="#45b5aa" stroke-width="0.8" opacity="0.4"/>
+    <line x1="690" y1="270" x2="696" y2="277" stroke="#7accbb" stroke-width="1.3" opacity="0.82"/>
+
+    <circle cx="600" cy="280" r="9" fill="#38b2a8" opacity="0.92"/>
+    <circle cx="600" cy="280" r="13" fill="none" stroke="#38b2a8" stroke-width="0.8" opacity="0.4"/>
+    <line x1="600" y1="280" x2="600" y2="288" stroke="#80ddcc" stroke-width="1.4" opacity="0.85"/>
+  </g>
+
+  <!-- ── FAR RIGHT cluster (phase ~340-30°, red-pink) ── -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="1132" cy="148" r="7" fill="#f04060" opacity="0.9"/>
+    <circle cx="1132" cy="148" r="10" fill="none" stroke="#f04060" stroke-width="0.8" opacity="0.45"/>
+    <line x1="1132" y1="148" x2="1126" y2="141" stroke="#ff8090" stroke-width="1.2" opacity="0.8"/>
+
+    <circle cx="1105" cy="290" r="6" fill="#e03070" opacity="0.9"/>
+    <circle cx="1105" cy="290" r="9"  fill="none" stroke="#e03070" stroke-width="0.8" opacity="0.4"/>
+    <line x1="1105" y1="290" x2="1102" y2="283" stroke="#ff88aa" stroke-width="1.2" opacity="0.8"/>
+  </g>
+
+  <!-- ── RIGHT MID cluster (phase ~30-60°, orange-red) ── -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="1020" cy="175" r="8" fill="#ff6040" opacity="0.92"/>
+    <circle cx="1020" cy="175" r="12" fill="none" stroke="#ff6040" stroke-width="0.8" opacity="0.4"/>
+    <line x1="1020" y1="175" x2="1012" y2="170" stroke="#ff9070" stroke-width="1.3" opacity="0.85"/>
+
+    <circle cx="1055" cy="255" r="7" fill="#ff7030" opacity="0.9"/>
+    <circle cx="1055" cy="255" r="10" fill="none" stroke="#ff7030" stroke-width="0.8" opacity="0.4"/>
+    <line x1="1055" y1="255" x2="1048" y2="252" stroke="#ff9060" stroke-width="1.2" opacity="0.8"/>
+  </g>
+
+  <!-- ── INNER RIGHT cluster (phase ~10-30°, amber-orange) ── -->
+  <g filter="url(#nodeGlow)">
+    <circle cx="890"  cy="155" r="9"  fill="#ffaa20" opacity="0.93"/>
+    <circle cx="890"  cy="155" r="14" fill="none" stroke="#ffaa20" stroke-width="0.9" opacity="0.42"/>
+    <line x1="890" y1="155" x2="881" y2="150" stroke="#ffcc66" stroke-width="1.4" opacity="0.88"/>
+
+    <circle cx="905"  cy="230" r="9"  fill="#ffb830" opacity="0.93"/>
+    <circle cx="905"  cy="230" r="13" fill="none" stroke="#ffb830" stroke-width="0.9" opacity="0.4"/>
+    <line x1="905" y1="230" x2="896" y2="225" stroke="#ffcc66" stroke-width="1.4" opacity="0.88"/>
+  </g>
+
+  <!-- ══════════════════════════════════════════
+       CENTRAL SYNCHRONIZATION CLUSTER
+       (r≈0.5 critical point — phase spread but partially coherent)
+       Uses coreGlow for bright halos
+  ═══════════════════════════════════════════ -->
+  <g filter="url(#coreGlow)">
+
+    <!-- Left anchor: phase ≈ 150° (cyan) -->
+    <circle cx="452" cy="168" r="11" fill="#00e5ff" opacity="0.95"/>
+    <circle cx="452" cy="168" r="17" fill="none" stroke="#00e5ff" stroke-width="1.0" opacity="0.5"/>
+    <circle cx="452" cy="168" r="24" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.22"/>
+    <!-- Phase arrow -->
+    <line x1="452" y1="168" x2="462" y2="160" stroke="#ffffff" stroke-width="1.5" opacity="0.9"/>
+    <circle cx="462" cy="160" r="1.5" fill="#ffffff"/>
+
+    <!-- Left-center anchor: phase ≈ 120° (blue-cyan) -->
+    <circle cx="460" cy="200" r="13" fill="#29b6f6" opacity="0.97"/>
+    <circle cx="460" cy="200" r="20" fill="none" stroke="#29b6f6" stroke-width="1.1" opacity="0.52"/>
+    <circle cx="460" cy="200" r="28" fill="none" stroke="#29b6f6" stroke-width="0.5" opacity="0.22"/>
+    <line x1="460" y1="200" x2="471" y2="196" stroke="#ffffff" stroke-width="1.6" opacity="0.92"/>
+    <circle cx="471" cy="196" r="1.5" fill="#ffffff"/>
+
+    <!-- Bottom-left anchor: phase ≈ 90° (cyan-teal) -->
+    <circle cx="470" cy="230" r="10" fill="#00bcd4" opacity="0.94"/>
+    <circle cx="470" cy="230" r="16" fill="none" stroke="#00bcd4" stroke-width="0.9" opacity="0.46"/>
+    <circle cx="470" cy="230" r="22" fill="none" stroke="#00bcd4" stroke-width="0.4" opacity="0.2"/>
+    <line x1="470" y1="230" x2="480" y2="228" stroke="#ffffff" stroke-width="1.4" opacity="0.88"/>
+    <circle cx="480" cy="228" r="1.4" fill="#ffffff"/>
+
+    <!-- Top center: phase ≈ 60° (aqua) -->
+    <circle cx="540" cy="200" r="13" fill="#18ffff" opacity="0.97"/>
+    <circle cx="540" cy="200" r="20" fill="none" stroke="#18ffff" stroke-width="1.1" opacity="0.52"/>
+    <circle cx="540" cy="200" r="29" fill="none" stroke="#18ffff" stroke-width="0.5" opacity="0.22"/>
+    <line x1="540" y1="200" x2="548" y2="193" stroke="#ffffff" stroke-width="1.6" opacity="0.92"/>
+    <circle cx="548" cy="193" r="1.5" fill="#ffffff"/>
+
+    <!-- TRUE CENTER: phase ≈ 0°/360° → white (fully coherent hub) -->
+    <circle cx="600" cy="175" r="14" fill="#ffffff" opacity="0.98"/>
+    <circle cx="600" cy="175" r="22" fill="none" stroke="#e0f7fa" stroke-width="1.2" opacity="0.55"/>
+    <circle cx="600" cy="175" r="32" fill="none" stroke="#b2ebf2" stroke-width="0.7" opacity="0.28"/>
+    <circle cx="600" cy="175" r="42" fill="none" stroke="#80deea" stroke-width="0.4" opacity="0.14"/>
+    <line x1="600" y1="175" x2="614" y2="175" stroke="#aaaaaa" stroke-width="1.8" opacity="0.85"/>
+    <circle cx="614" cy="175" r="1.8" fill="#cccccc"/>
+
+    <!-- Lower center: phase ≈ 330° (pale yellow-white) -->
+    <circle cx="600" cy="225" r="13" fill="#fffde7" opacity="0.96"/>
+    <circle cx="600" cy="225" r="20" fill="none" stroke="#fff59d" stroke-width="1.0" opacity="0.5"/>
+    <circle cx="600" cy="225" r="28" fill="none" stroke="#fff176" stroke-width="0.5" opacity="0.22"/>
+    <line x1="600" y1="225" x2="613" y2="222" stroke="#ffffff" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="613" cy="222" r="1.5" fill="#ffffff"/>
+
+    <!-- Right-center anchor: phase ≈ 300° (amber) -->
+    <circle cx="660" cy="200" r="13" fill="#ffd54f" opacity="0.97"/>
+    <circle cx="660" cy="200" r="20" fill="none" stroke="#ffd54f" stroke-width="1.1" opacity="0.52"/>
+    <circle cx="660" cy="200" r="29" fill="none" stroke="#ffd54f" stroke-width="0.5" opacity="0.22"/>
+    <line x1="660" y1="200" x2="649" y2="196" stroke="#ffffff" stroke-width="1.6" opacity="0.92"/>
+    <circle cx="649" cy="196" r="1.5" fill="#ffffff"/>
+
+    <!-- Right anchor: phase ≈ 270° (orange-amber) -->
+    <circle cx="748" cy="168" r="11" fill="#ffb300" opacity="0.95"/>
+    <circle cx="748" cy="168" r="17" fill="none" stroke="#ffb300" stroke-width="1.0" opacity="0.5"/>
+    <circle cx="748" cy="168" r="24" fill="none" stroke="#ffb300" stroke-width="0.5" opacity="0.22"/>
+    <line x1="748" y1="168" x2="738" y2="160" stroke="#ffffff" stroke-width="1.5" opacity="0.9"/>
+    <circle cx="738" cy="160" r="1.5" fill="#ffffff"/>
+
+    <!-- Bottom-right anchor: phase ≈ 240° (orange) -->
+    <circle cx="740" cy="200" r="13" fill="#ffa040" opacity="0.97"/>
+    <circle cx="740" cy="200" r="20" fill="none" stroke="#ffa040" stroke-width="1.1" opacity="0.52"/>
+    <circle cx="740" cy="200" r="28" fill="none" stroke="#ffa040" stroke-width="0.5" opacity="0.22"/>
+    <line x1="740" y1="200" x2="729" y2="196" stroke="#ffffff" stroke-width="1.6" opacity="0.92"/>
+    <circle cx="729" cy="196" r="1.5" fill="#ffffff"/>
+
+    <!-- Lower-right anchor: phase ≈ 210° (red-orange) -->
+    <circle cx="730" cy="230" r="10" fill="#ff7043" opacity="0.94"/>
+    <circle cx="730" cy="230" r="16" fill="none" stroke="#ff7043" stroke-width="0.9" opacity="0.46"/>
+    <circle cx="730" cy="230" r="22" fill="none" stroke="#ff7043" stroke-width="0.4" opacity="0.2"/>
+    <line x1="730" y1="230" x2="720" y2="228" stroke="#ffffff" stroke-width="1.4" opacity="0.88"/>
+    <circle cx="720" cy="228" r="1.4" fill="#ffffff"/>
+
+  </g>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 6: EDGE DIMMING AT LEFT/RIGHT EXTREMES
+  ═══════════════════════════════════════════ -->
+  <rect width="1200" height="400" fill="url(#edgeDim)" pointer-events="none"/>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 7: TEXT OVERLAYS
+  ═══════════════════════════════════════════ -->
+
+  <!-- "AVATAR" — large, centered, white with glow -->
+  <text
+    x="600" y="215"
+    font-family="'SF Pro Display', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+    font-size="96"
+    font-weight="700"
+    letter-spacing="22"
+    text-anchor="middle"
+    fill="#ffffff"
+    filter="url(#textGlow)"
+    opacity="0.97">AVATAR</text>
+
+  <!-- Subtitle -->
+  <text
+    x="600" y="252"
+    font-family="'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+    font-size="17"
+    font-weight="400"
+    letter-spacing="3.5"
+    text-anchor="middle"
+    fill="#90caf9"
+    filter="url(#subtitleGlow)"
+    opacity="0.92">A Physics-Grounded Cognitive Architecture</text>
+
+  <!-- Bottom spec line -->
+  <text
+    x="600" y="375"
+    font-family="'SF Mono', 'Fira Code', 'Consolas', monospace"
+    font-size="11.5"
+    font-weight="400"
+    letter-spacing="2.2"
+    text-anchor="middle"
+    fill="#546e7a"
+    opacity="0.88">106.2M Parameters  ·  8,192 Oscillators  ·  Self-Organized Criticality</text>
+
+  <!-- ═══════════════════════════════════════════
+       LAYER 8: THIN BORDER
+  ═══════════════════════════════════════════ -->
+  <rect x="1" y="1" width="1198" height="398"
+    fill="none"
+    stroke="#1a2a4a"
+    stroke-width="1.5"
+    opacity="0.6"/>
+
+</svg>

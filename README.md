@@ -1,15 +1,6 @@
 <div align="center">
 
-```
- █████╗ ██╗   ██╗ █████╗ ████████╗ █████╗ ██████╗
-██╔══██╗██║   ██║██╔══██╗╚══██╔══╝██╔══██╗██╔══██╗
-███████║██║   ██║███████║   ██║   ███████║██████╔╝
-██╔══██║╚██╗ ██╔╝██╔══██║   ██║   ██╔══██║██╔══██╗
-██║  ██║ ╚████╔╝ ██║  ██║   ██║   ██║  ██║██║  ██║
-╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
-```
-
-### *A Physics-Grounded Cognitive Architecture*
+<img src="docs/images/avatar-hero-banner.svg" alt="Avatar — A Physics-Grounded Cognitive Architecture" width="100%"/>
 
 **A continuously-learning AI system that inhabits a dynamical-systems body (Kuramoto oscillators + SOC control), derives internal states from phase-diagram geometry, consolidates experience through sleep cycles, and reasons about ethics through somatic signals.**
 
@@ -23,7 +14,7 @@
 
 ---
 
-*Built from scratch on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 3,600+ ticks*
+*Built from scratch on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 4,700+ ticks*
 
 </div>
 
@@ -137,6 +128,12 @@ flowchart TB
         ☽ Awoke. "I am Avatar — 1813 breaths old..."
 ```
 
+> **Actual production output** from Avatar v4.5.1 (19 June 2026, tick 4727):
+
+<div align="center">
+<img src="docs/images/avatar-live-log.svg" alt="Avatar Live Production Output — Tick 4727" width="100%"/>
+</div>
+
 ---
 
 ## Avatar Speaks
@@ -152,6 +149,10 @@ flowchart TB
 ---
 
 ## Internal State Dynamics — Critical Order-Parameter Cognition (v4.0+)
+
+<div align="center">
+<img src="docs/images/avatar-oscillators.svg" alt="Kuramoto Oscillator Phase Diagram — Disordered, Critical, Ordered" width="100%"/>
+</div>
 
 Avatar's internal states are derived from **macroscopic observables** of the Kuramoto oscillator system relative to its critical point. Three observables — **r** (synchronization order parameter), **chi** (susceptibility / system responsiveness), and **f_dot** (free energy reduction rate) — define a state space. Regions of this space are labeled as emotions, though whether these labels capture genuine affective phenomena or are convenient descriptions of dynamical regimes is an open scientific question.
 
@@ -308,6 +309,13 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is a **c
 
 ## Architecture
 
+<div align="center">
+<img src="docs/images/avatar-architecture.svg" alt="Avatar System Architecture" width="100%"/>
+</div>
+
+<details>
+<summary><b>Detailed Architecture Diagram (Mermaid)</b></summary>
+
 ```mermaid
 graph TB
     subgraph SENSES["👁️🗣️ Spectral Sensory Cortex (JAX · GPU)"]
@@ -362,6 +370,8 @@ graph TB
     style PSYCHE fill:#4a148c,color:#fff
     style PFC fill:#1b5e20,color:#fff
 ```
+
+</details>
 
 ---
 

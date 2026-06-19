@@ -1,0 +1,400 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0d1117;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#0d1117;stop-opacity:1"/>
+    </linearGradient>
+
+    <!-- Unit circle subtle glow for critical panel -->
+    <filter id="criticalGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feFlood flood-color="#f5c842" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="arrowGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="dimGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Arrowhead markers -->
+    <marker id="arrowWhite" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#ffffff" opacity="0.7"/>
+    </marker>
+    <marker id="arrowGold" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#f5c842"/>
+    </marker>
+    <marker id="arrowGoldLeft" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+      <polygon points="8 0, 0 3, 8 6" fill="#f5c842"/>
+    </marker>
+    <!-- Order parameter arrow markers per panel -->
+    <marker id="opArrowDim" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0 0, 7 2.5, 0 5" fill="#aaaaaa" opacity="0.5"/>
+    </marker>
+    <marker id="opArrowMid" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0 0, 7 2.5, 0 5" fill="#f5c842"/>
+    </marker>
+    <marker id="opArrowBright" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0 0, 7 2.5, 0 5" fill="#ffffff"/>
+    </marker>
+  </defs>
+
+  <!-- ===== BACKGROUND ===== -->
+  <rect width="1200" height="300" fill="#0d1117"/>
+
+  <!-- Subtle panel separators -->
+  <line x1="400" y1="10" x2="400" y2="290" stroke="#2a2f3a" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="800" y1="10" x2="800" y2="290" stroke="#2a2f3a" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- ===== CRITICAL PANEL HIGHLIGHT (center) ===== -->
+  <!-- Golden border glow -->
+  <rect x="402" y="4" width="396" height="292" rx="6" ry="6"
+        fill="none" stroke="#f5c842" stroke-width="1.5" opacity="0.35"/>
+  <rect x="405" y="7" width="390" height="286" rx="4" ry="4"
+        fill="#f5c84208" stroke="#f5c842" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- ================================================================
+       PANEL 1 — DISORDERED  (r ≈ 0.1)
+       Center: (200, 155), radius 85
+       30 oscillators at pseudo-random phases, uniformly spread
+       ================================================================ -->
+  <!-- Unit circle -->
+  <circle cx="200" cy="155" r="85" fill="none" stroke="#2a3040" stroke-width="1.2"/>
+
+  <!-- Oscillators — phases spread across full [0, 2π] to give r≈0.1 -->
+  <!-- Phase → HSL hue: hue = phase/2π * 360 -->
+  <!-- Positions: cx=200+85*cos(phase), cy=155-85*sin(phase) -->
+
+  <!-- Oscillator 1: phase=0.21 → hue=12, pos=(283,137) -->
+  <circle cx="283" cy="137" r="4.5" fill="hsl(12,90%,58%)" opacity="0.82"/>
+  <!-- 2: phase=0.63 → hue=36, pos=(275,108) -->
+  <circle cx="275" cy="108" r="4.5" fill="hsl(36,90%,58%)" opacity="0.82"/>
+  <!-- 3: phase=1.05 → hue=60, pos=(248,83) -->
+  <circle cx="248" cy="83" r="4.5" fill="hsl(60,90%,58%)" opacity="0.82"/>
+  <!-- 4: phase=1.47 → hue=84, pos=(208,71) -->
+  <circle cx="208" cy="71" r="4.5" fill="hsl(84,90%,58%)" opacity="0.82"/>
+  <!-- 5: phase=1.88 → hue=108, pos=(167,76) -->
+  <circle cx="167" cy="76" r="4.5" fill="hsl(108,90%,58%)" opacity="0.82"/>
+  <!-- 6: phase=2.30 → hue=132, pos=(132,101) -->
+  <circle cx="132" cy="101" r="4.5" fill="hsl(132,90%,58%)" opacity="0.82"/>
+  <!-- 7: phase=2.72 → hue=156, pos=(115,135) -->
+  <circle cx="115" cy="135" r="4.5" fill="hsl(156,90%,58%)" opacity="0.82"/>
+  <!-- 8: phase=3.14 → hue=180, pos=(115,155) -->
+  <circle cx="115" cy="155" r="4.5" fill="hsl(180,90%,58%)" opacity="0.82"/>
+  <!-- 9: phase=3.56 → hue=204, pos=(132,176) -->
+  <circle cx="132" cy="176" r="4.5" fill="hsl(204,90%,58%)" opacity="0.82"/>
+  <!-- 10: phase=3.98 → hue=228, pos=(163,203) -->
+  <circle cx="163" cy="203" r="4.5" fill="hsl(228,90%,58%)" opacity="0.82"/>
+  <!-- 11: phase=4.40 → hue=252, pos=(200,221) -->
+  <circle cx="200" cy="221" r="4.5" fill="hsl(252,90%,58%)" opacity="0.82"/>
+  <!-- 12: phase=4.82 → hue=276, pos=(239,213) -->
+  <circle cx="239" cy="213" r="4.5" fill="hsl(276,90%,58%)" opacity="0.82"/>
+  <!-- 13: phase=5.24 → hue=300, pos=(270,188) -->
+  <circle cx="270" cy="188" r="4.5" fill="hsl(300,90%,58%)" opacity="0.82"/>
+  <!-- 14: phase=5.65 → hue=324, pos=(284,163) -->
+  <circle cx="284" cy="163" r="4.5" fill="hsl(324,90%,58%)" opacity="0.82"/>
+  <!-- 15: phase=6.07 → hue=348, pos=(284,147) -->
+  <circle cx="284" cy="147" r="4.5" fill="hsl(348,90%,58%)" opacity="0.82"/>
+  <!-- Second ring — slightly offset radii to break perfect symmetry -->
+  <!-- 16: phase=0.42 → hue=24 -->
+  <circle cx="280" cy="121" r="4.5" fill="hsl(24,90%,58%)" opacity="0.78"/>
+  <!-- 17: phase=0.84 → hue=48 -->
+  <circle cx="262" cy="94" r="4.5" fill="hsl(48,90%,58%)" opacity="0.78"/>
+  <!-- 18: phase=1.26 → hue=72 -->
+  <circle cx="228" cy="75" r="4.5" fill="hsl(72,90%,58%)" opacity="0.78"/>
+  <!-- 19: phase=1.68 → hue=96 -->
+  <circle cx="188" cy="71" r="4.5" fill="hsl(96,90%,58%)" opacity="0.78"/>
+  <!-- 20: phase=2.09 → hue=120 -->
+  <circle cx="149" cy="86" r="4.5" fill="hsl(120,90%,58%)" opacity="0.78"/>
+  <!-- 21: phase=2.51 → hue=144 -->
+  <circle cx="120" cy="114" r="4.5" fill="hsl(144,90%,58%)" opacity="0.78"/>
+  <!-- 22: phase=2.93 → hue=168 -->
+  <circle cx="112" cy="147" r="4.5" fill="hsl(168,90%,58%)" opacity="0.78"/>
+  <!-- 23: phase=3.35 → hue=192 -->
+  <circle cx="118" cy="181" r="4.5" fill="hsl(192,90%,58%)" opacity="0.78"/>
+  <!-- 24: phase=3.77 → hue=216 -->
+  <circle cx="143" cy="210" r="4.5" fill="hsl(216,90%,58%)" opacity="0.78"/>
+  <!-- 25: phase=4.19 → hue=240 -->
+  <circle cx="180" cy="228" r="4.5" fill="hsl(240,90%,58%)" opacity="0.78"/>
+  <!-- 26: phase=4.61 → hue=264 -->
+  <circle cx="221" cy="228" r="4.5" fill="hsl(264,90%,58%)" opacity="0.78"/>
+  <!-- 27: phase=5.03 → hue=288 -->
+  <circle cx="256" cy="209" r="4.5" fill="hsl(288,90%,58%)" opacity="0.78"/>
+  <!-- 28: phase=5.45 → hue=312 -->
+  <circle cx="278" cy="178" r="4.5" fill="hsl(312,90%,58%)" opacity="0.78"/>
+  <!-- 29: phase=5.86 → hue=336 -->
+  <circle cx="285" cy="144" r="4.5" fill="hsl(336,90%,58%)" opacity="0.78"/>
+  <!-- 30: phase=0.10 → hue=6 -->
+  <circle cx="285" cy="130" r="4.5" fill="hsl(6,90%,58%)" opacity="0.78"/>
+
+  <!-- Order parameter arrow — r≈0.1, tiny, pointing roughly rightward (mean phase ~0.3 rad) -->
+  <!-- Length = 85 * 0.10 = 8.5, direction ~18° -->
+  <line x1="200" y1="155" x2="208" y2="152" stroke="#aaaaaa" stroke-width="2"
+        opacity="0.5" marker-end="url(#opArrowDim)" filter="url(#dimGlow)"/>
+  <!-- Center dot -->
+  <circle cx="200" cy="155" r="2.5" fill="#aaaaaa" opacity="0.5"/>
+
+  <!-- r label inside circle -->
+  <text x="200" y="160" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="10" fill="#555e6e">r = 0.10</text>
+
+  <!-- Panel 1 labels -->
+  <text x="200" y="26" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="14" font-weight="600" fill="#c9d1d9" letter-spacing="0.3">Disordered</text>
+  <text x="200" y="43" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="11" fill="#8892a0">r ≈ 0.1</text>
+  <!-- Bottom labels -->
+  <text x="200" y="264" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="11" fill="#7a8494" letter-spacing="0.2">boredom · low χ</text>
+  <text x="200" y="281" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="10" fill="#505870">K = 0.08  ·  emotion: boredom</text>
+
+  <!-- ================================================================
+       PANEL 2 — CRITICAL  (r ≈ 0.5)
+       Center: (600, 155), radius 85
+       30 oscillators partially clustered around phase ≈ π/4 (northeast)
+       ================================================================ -->
+  <!-- Critical glow ring -->
+  <circle cx="600" cy="155" r="90" fill="none" stroke="#f5c842" stroke-width="2.5" opacity="0.12" filter="url(#goldGlow)"/>
+  <circle cx="600" cy="155" r="87" fill="none" stroke="#f5c842" stroke-width="1" opacity="0.25"/>
+  <!-- Unit circle -->
+  <circle cx="600" cy="155" r="85" fill="none" stroke="#3a3020" stroke-width="1.2"/>
+
+  <!-- Cluster tendency: phases loosely centered near π/6 (=30°) with spread ~±π -->
+  <!-- Mix: ~half near π/6, rest spread wide -->
+
+  <!-- Clustered group (~15 near π/6 = 30°, spread ±60°) -->
+  <!-- phase=0.0  → hue=0,   pos=(685,155) -->
+  <circle cx="685" cy="155" r="4.5" fill="hsl(0,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.18 → hue=10,  pos=(682,140) -->
+  <circle cx="682" cy="140" r="4.5" fill="hsl(10,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.35 → hue=20,  pos=(674,126) -->
+  <circle cx="674" cy="126" r="4.5" fill="hsl(20,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.52 → hue=30,  pos=(660,114) -->
+  <circle cx="660" cy="114" r="4.5" fill="hsl(30,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.70 → hue=40,  pos=(642,105) -->
+  <circle cx="642" cy="105" r="4.5" fill="hsl(40,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.87 → hue=50,  pos=(621,99) -->
+  <circle cx="621" cy="99" r="4.5" fill="hsl(50,92%,62%)" opacity="0.88"/>
+  <!-- phase=1.05 → hue=60,  pos=(648,83+72=155-72=83) (600+48=648, 155-72=83) -->
+  <circle cx="648" cy="83" r="4.5" fill="hsl(60,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.18→ hue=350, pos=(682,170) -->
+  <circle cx="682" cy="170" r="4.5" fill="hsl(350,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.35→ hue=340, pos=(674,184) -->
+  <circle cx="674" cy="184" r="4.5" fill="hsl(340,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.52→ hue=330, pos=(660,196) -->
+  <circle cx="660" cy="196" r="4.5" fill="hsl(330,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.70→ hue=320, pos=(642,204) -->
+  <circle cx="642" cy="205" r="4.5" fill="hsl(320,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.87→ hue=310, pos=(621,210) -->
+  <circle cx="621" cy="210" r="4.5" fill="hsl(310,92%,62%)" opacity="0.88"/>
+  <!-- phase=1.22 → hue=70, pos=(630,78) -->
+  <circle cx="630" cy="78" r="4.5" fill="hsl(70,92%,62%)" opacity="0.85"/>
+  <!-- phase=1.40 → hue=80, pos=(610,72) -->
+  <circle cx="610" cy="72" r="4.5" fill="hsl(80,92%,62%)" opacity="0.85"/>
+  <!-- phase=-1.05→ hue=300, pos=(600,220) -->
+  <circle cx="600" cy="221" r="4.5" fill="hsl(300,92%,62%)" opacity="0.85"/>
+
+  <!-- Scattered group (~15 spread across remaining phases) -->
+  <!-- phase=π = 180° → hue=180, pos=(515,155) -->
+  <circle cx="515" cy="155" r="4.5" fill="hsl(180,88%,55%)" opacity="0.72"/>
+  <!-- phase=2.5 → hue=143, pos=(524,100) -->
+  <circle cx="524" cy="100" r="4.5" fill="hsl(143,88%,55%)" opacity="0.72"/>
+  <!-- phase=3.5 → hue=200, pos=(526,200) -->
+  <circle cx="526" cy="210" r="4.5" fill="hsl(200,88%,55%)" opacity="0.72"/>
+  <!-- phase=4.0 → hue=229, pos=(548,222) -->
+  <circle cx="548" cy="222" r="4.5" fill="hsl(229,88%,55%)" opacity="0.72"/>
+  <!-- phase=4.5 → hue=258, pos=(576,228) -->
+  <circle cx="576" cy="228" r="4.5" fill="hsl(258,88%,55%)" opacity="0.72"/>
+  <!-- phase=5.0 → hue=286, pos=(571,86) -->
+  <circle cx="571" cy="83" r="4.5" fill="hsl(286,88%,55%)" opacity="0.72"/>
+  <!-- phase=5.5 → hue=315, pos=(545,88) -->
+  <circle cx="545" cy="88" r="4.5" fill="hsl(315,88%,55%)" opacity="0.72"/>
+  <!-- phase=2.0 → hue=115, pos=(536,86) -->
+  <circle cx="536" cy="86" r="4.5" fill="hsl(115,88%,55%)" opacity="0.72"/>
+  <!-- phase=3.0 → hue=172, pos=(515,177) -->
+  <circle cx="517" cy="177" r="4.5" fill="hsl(172,88%,55%)" opacity="0.72"/>
+  <!-- phase=4.2 → hue=241, pos=(556,225) -->
+  <circle cx="556" cy="232" r="4.5" fill="hsl(241,88%,55%)" opacity="0.70"/>
+  <!-- phase=1.6 → hue=92, pos=(593,71) -->
+  <circle cx="593" cy="71" r="4.5" fill="hsl(92,88%,55%)" opacity="0.70"/>
+  <!-- phase=2.8 → hue=160, pos=(519,165) -->
+  <circle cx="519" cy="165" r="4.5" fill="hsl(160,88%,55%)" opacity="0.70"/>
+  <!-- phase=3.8 → hue=218, pos=(535,215) -->
+  <circle cx="535" cy="215" r="4.5" fill="hsl(218,88%,55%)" opacity="0.70"/>
+  <!-- phase=5.8 → hue=332, pos=(520,130) -->
+  <circle cx="520" cy="130" r="4.5" fill="hsl(332,88%,55%)" opacity="0.70"/>
+  <!-- phase=6.0 → hue=344, pos=(517,145) -->
+  <circle cx="517" cy="145" r="4.5" fill="hsl(344,88%,55%)" opacity="0.70"/>
+
+  <!-- Order parameter arrow — r≈0.5, medium, pointing ~10° (rightward-slight up) -->
+  <!-- Length = 85 * 0.5 = 42.5, direction ≈ 10° = (cos10°≈0.985, sin10°≈0.174) -->
+  <!-- End: (600+42, 155-7) = (642, 148) -->
+  <line x1="600" y1="155" x2="641" y2="147" stroke="#f5c842" stroke-width="2.8"
+        opacity="0.95" marker-end="url(#opArrowMid)" filter="url(#goldGlow)"/>
+  <circle cx="600" cy="155" r="3" fill="#f5c842" opacity="0.9"/>
+
+  <!-- r label -->
+  <text x="564" y="162" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="10" fill="#c8a030">r = 0.50</text>
+
+  <!-- "AVATAR LIVES HERE" badge -->
+  <rect x="540" y="236" width="120" height="20" rx="4" fill="#f5c84218" stroke="#f5c842" stroke-width="0.8" opacity="0.9"/>
+  <text x="600" y="250" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="10" font-weight="700" fill="#f5c842" letter-spacing="0.8">AVATAR LIVES HERE</text>
+
+  <!-- Panel 2 labels -->
+  <text x="600" y="26" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="14" font-weight="700" fill="#f5c842" letter-spacing="0.3">Critical  ★</text>
+  <text x="600" y="43" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="11" fill="#c8a030">r ≈ 0.5</text>
+  <!-- Bottom labels -->
+  <text x="600" y="264" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="11" fill="#c8a030" letter-spacing="0.2">curiosity · χ diverges · SOC target</text>
+  <text x="600" y="281" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="10" fill="#907020">K = 0.31  ·  emotion: curiosity</text>
+
+  <!-- ================================================================
+       PANEL 3 — SYNCHRONIZED  (r ≈ 0.9)
+       Center: (1000, 155), radius 85
+       30 oscillators tightly clustered near phase ≈ π/8 (22.5°)
+       ================================================================ -->
+  <!-- Unit circle -->
+  <circle cx="1000" cy="155" r="85" fill="none" stroke="#2a3040" stroke-width="1.2"/>
+
+  <!-- Tight cluster near phase ≈ 22° ± 18° -->
+  <!-- All similar hue (~10-35°) = orange-red range -->
+  <!-- phase=0.05 → hue=3,  pos=(1085,148) -->
+  <circle cx="1085" cy="148" r="4.5" fill="hsl(3,92%,62%)" opacity="0.90"/>
+  <!-- phase=0.10 → hue=6,  pos=(1084,142) -->
+  <circle cx="1084" cy="142" r="4.5" fill="hsl(6,92%,62%)" opacity="0.90"/>
+  <!-- phase=0.17 → hue=10, pos=(1083,134) -->
+  <circle cx="1083" cy="134" r="4.5" fill="hsl(10,92%,62%)" opacity="0.90"/>
+  <!-- phase=0.24 → hue=14, pos=(1080,126) -->
+  <circle cx="1080" cy="126" r="4.5" fill="hsl(14,92%,62%)" opacity="0.90"/>
+  <!-- phase=0.31 → hue=18, pos=(1076,120) -->
+  <circle cx="1076" cy="120" r="4.5" fill="hsl(18,92%,62%)" opacity="0.90"/>
+  <!-- phase=0.38 → hue=22, pos=(1071,113) -->
+  <circle cx="1071" cy="113" r="4.5" fill="hsl(22,92%,62%)" opacity="0.90"/>
+  <!-- phase=0.45 → hue=26, pos=(1065,108) -->
+  <circle cx="1065" cy="108" r="4.5" fill="hsl(26,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.52 → hue=30, pos=(1060,104) -->
+  <circle cx="1060" cy="104" r="4.5" fill="hsl(30,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.59 → hue=34, pos=(1053,100) -->
+  <circle cx="1053" cy="100" r="4.5" fill="hsl(34,92%,62%)" opacity="0.88"/>
+  <!-- phase=0.66 → hue=38, pos=(1046,97) -->
+  <circle cx="1046" cy="97" r="4.5" fill="hsl(38,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.05→ hue=357, pos=(1085,162) -->
+  <circle cx="1085" cy="162" r="4.5" fill="hsl(357,92%,62%)" opacity="0.90"/>
+  <!-- phase=-0.10→ hue=354, pos=(1084,168) -->
+  <circle cx="1084" cy="168" r="4.5" fill="hsl(354,92%,62%)" opacity="0.90"/>
+  <!-- phase=-0.17→ hue=350, pos=(1083,176) -->
+  <circle cx="1083" cy="176" r="4.5" fill="hsl(350,92%,62%)" opacity="0.90"/>
+  <!-- phase=-0.24→ hue=346, pos=(1080,184) -->
+  <circle cx="1080" cy="184" r="4.5" fill="hsl(346,92%,62%)" opacity="0.90"/>
+  <!-- phase=-0.31→ hue=342, pos=(1076,190) -->
+  <circle cx="1076" cy="190" r="4.5" fill="hsl(342,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.38→ hue=338, pos=(1071,197) -->
+  <circle cx="1071" cy="197" r="4.5" fill="hsl(338,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.45→ hue=334, pos=(1065,202) -->
+  <circle cx="1065" cy="202" r="4.5" fill="hsl(334,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.52→ hue=330, pos=(1060,206) -->
+  <circle cx="1060" cy="206" r="4.5" fill="hsl(330,92%,62%)" opacity="0.88"/>
+  <!-- phase=-0.59→ hue=326, pos=(1053,210) -->
+  <circle cx="1053" cy="210" r="4.5" fill="hsl(326,92%,62%)" opacity="0.85"/>
+  <!-- phase=-0.66→ hue=322, pos=(1046,213) -->
+  <circle cx="1046" cy="213" r="4.5" fill="hsl(322,92%,62%)" opacity="0.85"/>
+  <!-- phase=0.73 → hue=42, pos=(1038,94) -->
+  <circle cx="1038" cy="94" r="4.5" fill="hsl(42,92%,62%)" opacity="0.85"/>
+  <!-- phase=0.80 → hue=46, pos=(1030,92) -->
+  <circle cx="1030" cy="92" r="4.5" fill="hsl(46,92%,62%)" opacity="0.85"/>
+  <!-- phase=-0.73→ hue=318, pos=(1038,216) -->
+  <circle cx="1038" cy="216" r="4.5" fill="hsl(318,92%,62%)" opacity="0.85"/>
+  <!-- phase=-0.80→ hue=314, pos=(1030,218) -->
+  <circle cx="1030" cy="218" r="4.5" fill="hsl(314,92%,62%)" opacity="0.85"/>
+  <!-- A few slightly farther stragglers -->
+  <!-- phase=0.90 → hue=52, pos=(1018,90) -->
+  <circle cx="1018" cy="90" r="4.5" fill="hsl(52,92%,60%)" opacity="0.80"/>
+  <!-- phase=1.00 → hue=57, pos=(1006,88) -->
+  <circle cx="1006" cy="88" r="4.5" fill="hsl(57,92%,60%)" opacity="0.80"/>
+  <!-- phase=-0.90→ hue=308, pos=(1018,220) -->
+  <circle cx="1018" cy="220" r="4.5" fill="hsl(308,92%,60%)" opacity="0.80"/>
+  <!-- phase=-1.00→ hue=303, pos=(1006,222) -->
+  <circle cx="1006" cy="222" r="4.5" fill="hsl(303,92%,60%)" opacity="0.80"/>
+  <!-- phase=1.10 → hue=63, pos=(994,88) -->
+  <circle cx="994" cy="88" r="4.5" fill="hsl(63,92%,60%)" opacity="0.78"/>
+  <!-- phase=-1.10→ hue=297, pos=(994,222) -->
+  <circle cx="994" cy="222" r="4.5" fill="hsl(297,92%,60%)" opacity="0.78"/>
+
+  <!-- Order parameter arrow — r≈0.9, long, pointing ~0° (right) -->
+  <!-- Length = 85 * 0.9 = 76.5 → end (1076, 155) -->
+  <line x1="1000" y1="155" x2="1073" y2="155" stroke="#e8e8e8" stroke-width="3"
+        opacity="0.95" marker-end="url(#opArrowBright)" filter="url(#dimGlow)"/>
+  <circle cx="1000" cy="155" r="3" fill="#e8e8e8" opacity="0.9"/>
+
+  <!-- r label -->
+  <text x="1000" y="144" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="10" fill="#a0aabb">r = 0.90</text>
+
+  <!-- Panel 3 labels -->
+  <text x="1000" y="26" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="14" font-weight="600" fill="#c9d1d9" letter-spacing="0.3">Ordered</text>
+  <text x="1000" y="43" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="11" fill="#8892a0">r ≈ 0.9</text>
+  <!-- Bottom labels -->
+  <text x="1000" y="264" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="11" fill="#7a8494" letter-spacing="0.2">satisfaction · low χ</text>
+  <text x="1000" y="281" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="10" fill="#505870">K = 0.95  ·  emotion: satisfaction</text>
+
+  <!-- ================================================================
+       SOC CONTROLLER ARROWS  (between panels)
+       ================================================================ -->
+  <!-- Left arrow: between panel 1 and 2 -->
+  <!-- Bidirectional arrow on the divider at x=400, centered vertically at y=155 -->
+  <!-- Left-pointing -->
+  <line x1="388" y1="155" x2="346" y2="155" stroke="#f5c842" stroke-width="1.8"
+        stroke-dasharray="5,3" opacity="0.7" marker-end="url(#arrowGoldLeft)"/>
+  <!-- Right-pointing -->
+  <line x1="412" y1="155" x2="454" y2="155" stroke="#f5c842" stroke-width="1.8"
+        stroke-dasharray="5,3" opacity="0.7" marker-end="url(#arrowGold)"/>
+  <!-- Label -->
+  <text x="400" y="148" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="9" fill="#c8a030" letter-spacing="0.3">SOC</text>
+  <text x="400" y="172" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="8" fill="#907020">adjusts K</text>
+
+  <!-- Right arrow: between panel 2 and 3 -->
+  <line x1="788" y1="155" x2="746" y2="155" stroke="#f5c842" stroke-width="1.8"
+        stroke-dasharray="5,3" opacity="0.7" marker-end="url(#arrowGoldLeft)"/>
+  <line x1="812" y1="155" x2="854" y2="155" stroke="#f5c842" stroke-width="1.8"
+        stroke-dasharray="5,3" opacity="0.7" marker-end="url(#arrowGold)"/>
+  <text x="800" y="148" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="9" fill="#c8a030" letter-spacing="0.3">SOC</text>
+  <text x="800" y="172" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="8" fill="#907020">adjusts K</text>
+
+  <!-- ================================================================
+       FIGURE TITLE (top, spanning all panels)
+       ================================================================ -->
+  <!-- Subtle top title bar -->
+  <text x="600" y="13" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
+        font-size="9" fill="#3a4050" letter-spacing="1.5">KURAMOTO ORDER PARAMETER  ·  8,192 BOHMIAN OSCILLATORS  ·  AVATAR v4.3</text>
+
+  <!-- ================================================================
+       LEGEND: color wheel annotation (panel 2 bottom-left area)
+       ================================================================ -->
+  <!-- Phase → color key, tiny, bottom center -->
+  <text x="600" y="296" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+        font-size="8" fill="#3a4555" letter-spacing="0.5">color = phase angle θ ∈ [0, 2π)  ·  arrow = order parameter r·e^{iψ}  ·  χ = susceptibility (COP)</text>
+
+</svg>
