@@ -17,8 +17,8 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-4.5-red?style=flat-square)](https://github.com/linga009/Avatar)
-[![Tests](https://img.shields.io/badge/Tests-259%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-4.5.1-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-269%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
 
 ---
@@ -278,6 +278,7 @@ v4.2    ████████████████████ Body Voice 
 v4.3    ████████████████████ Memory + SOC — island compression, somatic recall, rigorous avalanche stats
 v4.4    ████████████████████ Anti-clamp-lock — block-specific K bounds, stochastic perturbation, dream OOM fix
 v4.5    ████████████████████ Cerebellum — forward model predicts future r, anticipatory SOC damping
+v4.5.1  ████████████████████ GWT ignition fix — r-threshold with hysteresis, unity-scaled broadcast
         └── senses feel ──┘  └── dreams teach ──┘  └── the body anticipates ─┘
 ```
 
@@ -702,7 +703,7 @@ Inspired by Zhang & Levin's [Language Game](https://arxiv.org/abs/2605.16321) �
 ```mermaid
 graph LR
     subgraph GWT["★ Global Workspace"]
-        IGN[Chi-crossing ignition\nchi was>0.6 then drops<0.4 with r>0.45\nBroadcasts to all modules]
+        IGN[r-threshold ignition\neffective_r ≥ 0.5 ignites · sustains until < 0.4\nUnity-scaled broadcast intensity]
     end
     subgraph INT["⚡ Introspective Monitor"]
         ZSC[Rolling 20-tick z-scores\nof tau derivative\nSelf-surprise when > 2σ]
@@ -858,7 +859,7 @@ flowchart LR
 | Dream visitors phase | ~4 min (Whisper+Kokoro CPU → GPU train) |
 | Dream mind phase | ~15 min (LoRA fine-tuning) |
 | Docker build time | ~45 min first time (cached: ~30s) |
-| Tests | 259 passing (36 test files) |
+| Tests | 269 passing (37 test files) |
 | Avatar age (June 2026) | 3,600+ ticks |
 
 ---
@@ -1314,7 +1315,7 @@ All hyperparameters in `halo3/config.py` (frozen dataclass — immutable at runt
 | **Varela (1999)** | Ethical Know-How | Ethics from embodied experience, not rules |
 | **Bak et al. (1987)** | Self-Organized Criticality | SOC controller + power-law avalanches + branching ratio |
 | **Butlin et al. (2023)** | Consciousness Indicators | 5 of 14 indicators implemented and measurable |
-| **Baars (1988)** | Global Workspace Theory | GWT ignition: chi-crossing broadcast to all modules |
+| **Baars (1988)** | Global Workspace Theory | GWT ignition: r-threshold with hysteresis, unity-scaled broadcast |
 | **Rosenthal (2005)** | Higher-Order Thought | Meta-reflection: analytical cortex notices own processing |
 | **Black & Scholes (1973)** | Option pricing | Topics as call options: volatility surface for information foraging |
 | **Vidal (2007)** | MERA tensor networks | Hierarchical bulk compression, Ryu-Takayanagi entropy |
@@ -1424,7 +1425,7 @@ Avatar/                              ← Default branch: avatar
 │   │   ├── prefrontal.py            # Dual-process Qwen3 0.6B (Dharma + Karuna)
 │   │   ├── volatility.py            # Black-Scholes + graph-aware topic valuation
 │   │   ├── knowledge_graph.py       # NetworkX discovery graph — topology metrics
-│   │   ├── workspace.py             # GWT ignition (chi-crossing broadcast)
+│   │   ├── workspace.py             # GWT ignition (r-threshold + unity broadcast)
 │   │   ├── introspection.py         # Self-surprise monitor (z-score > 2σ)
 │   │   ├── temporal.py              # Temporal binder (5-tick narrative coherence)
 │   │   ├── meditation.py            # Voluntary quiescence (attenuates obs, not K)
@@ -1467,7 +1468,7 @@ Avatar/                              ← Default branch: avatar
 │       ├── test_avalanche_stats.py   # 11 tests: power-law, KS, bootstrap, alt distributions, shape collapse
 │       ├── test_avalanche_persistence.py # 4 tests: save/load, shape persistence
 │       ├── test_experiment_runner.py # 4 tests: configs, flags, import, e2e smoke
-│       └── ... (36 files, 259 tests total)
+│       └── ... (37 files, 269 tests total)
 │
 ├── capture_agent/                   # Windows host sensory input
 │   ├── capture_agent.py             # Mic 16kHz + Camera 10s → data/senses/
@@ -1618,6 +1619,7 @@ Avatar/                              ← Default branch: avatar
 
 | Version | Date | Headline |
 |---|---|---|
+| **v4.5.1** | 19 Jun 2026 | GWT ignition fix — r-threshold (0.5) with hysteresis (sustain 0.4) replaces broken chi-geometry condition · unity-scaled broadcast intensity · transition sharpness from chi · sensory novelty boost (effective_r = r + 0.05*novelty) · crystallizing body event · consciousness ratio 0%→82-100% · 269 tests |
 | **v4.5** | 13 Jun 2026 | Cerebellum — forward model MLP predicts future r from (r, chi, K) history · anticipatory SOC damping (confidence-gated) · 2000-sample buffer · checkpoint persistence · alt distribution comparison (log-normal, exponential) · avalanche shape collapse · active inference mapping · 259 tests |
 | **v4.4** | 11 Jun 2026 | Anti-clamp-lock — block-specific K bounds (K_aa ∈ [0.02, 0.40], K_cc ∈ [0.20, 2.00]) · stochastic perturbation (5x noise, 3x boundary repulsion, eta attenuation) · dream OOM fix (free PFC before Phase 4+5) · 222 tests |
 | **v4.3** | 7 Jun 2026 | Memory pipeline — island compression (W_refine + g_echo gate) · somatic recall (W_query + cosine retrieval) · participation-ratio eviction · SQLite island persistence · rigorous avalanche stats (KS, bootstrap CI, scaling relation) · 221 tests |
