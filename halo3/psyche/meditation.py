@@ -47,7 +47,7 @@ class MeditationState:
         max_duration: int = 5,
         min_duration: int = 2,
         obs_attenuation_during: float = 0.1,
-        insight_threshold: float = 0.15,
+        insight_threshold: float = 0.05,
     ) -> None:
         self._max_duration = max_duration
         self._min_duration = min_duration

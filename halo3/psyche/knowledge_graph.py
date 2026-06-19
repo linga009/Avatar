@@ -163,8 +163,14 @@ class KnowledgeGraph:
         density = nx.density(self._graph)
         avg_clustering = nx.average_clustering(self._graph) if n > 1 else 0.0
 
-        # Frontier = low-degree nodes (leaf or isolated), ripe for exploration
-        frontier = [nd for nd, deg in self._graph.degree() if deg <= 1]
+        # Frontier = under-explored nodes: below-median degree OR few discoveries
+        degrees = dict(self._graph.degree())
+        median_deg = sorted(degrees.values())[n // 2] if n > 2 else 1
+        frontier = [
+            nd for nd, deg in degrees.items()
+            if deg <= max(1, median_deg // 2)
+            or self._graph.nodes[nd].get("n_discoveries", 1) <= 2
+        ]
 
         components = list(nx.connected_components(self._graph))
         giant = max(len(c) for c in components) if components else 0
@@ -189,12 +195,17 @@ class KnowledgeGraph:
 
         degree = self._graph.degree(topic_key)
         clustering = nx.clustering(self._graph, topic_key)
+        n_disc = self._graph.nodes[topic_key].get("n_discoveries", 0)
+        n = self._graph.number_of_nodes()
+        degrees = dict(self._graph.degree())
+        median_deg = sorted(degrees.values())[n // 2] if n > 2 else 1
+        is_frontier = degree <= max(1, median_deg // 2) or n_disc <= 2
         return {
             "degree": degree,
             "clustering_coeff": round(clustering, 4),
-            "is_frontier": degree <= 1,
+            "is_frontier": is_frontier,
             "avg_r": self._graph.nodes[topic_key].get("avg_r", 0.0),
-            "n_discoveries": self._graph.nodes[topic_key].get("n_discoveries", 0),
+            "n_discoveries": n_disc,
         }
 
     # ------------------------------------------------------------------

@@ -1,4 +1,4 @@
-# Avatar 4.5 — Project Instructions
+# Avatar 4.5.1 — Project Instructions
 
 ## What This Is
 
@@ -11,10 +11,10 @@ Avatar is an autonomous AI system built by Dr. Linga Murthy Narlagiri. It inhabi
 - Do NOT add `Co-Authored-By:` lines to git commits.
 - Do NOT claim Avatar has "genuine emotions" or "is conscious" — say "physics-grounded affect" and "functional consciousness analogues."
 
-## Architecture (v4.5)
+## Architecture (v4.5.1)
 
 - **Body**: 106.2M params. Lorentz H^64, 60-layer reversible backbone (SSSSSH x10), MERA FFN, Hamiltonian ODE, Bohmian Kuramoto (128 clusters x 64 hidden = 8,192 oscillators). Lie-Trotter splitting integrator. Variational quantum potential with entropic regularization. Local pilot wave from coherence-weighted order parameter.
-- **Cerebellum**: Forward model MLP (`halo3/cerebellum.py`) predicts future r from 5-tick history of (r, chi, K). Confidence-gated SOC damping (up to 70%). 2000-sample buffer, 50 training steps. Checkpoint: `data/checkpoints/cerebellum_mlp.npz`.
+- **Cerebellum**: Forward model MLP (`halo3/cerebellum.py`) predicts future r from 5-tick history of (r, chi, K). Confidence-gated SOC damping (up to 70%). 2000-sample buffer, 50 training steps. Note: linearized mean-field model caps predictions at ~0.62, so damping thresholds set to 0.7/0.2 (not 0.85/0.1). Checkpoint: `data/checkpoints/cerebellum_mlp.npz`.
 - **Psyche**: COP engine (`halo3/psyche/cop.py`) computes chi (corrected FDT with drive subtraction, 50-tick window), tau (relaxation time), unity index. Three proportional criticality controllers with block-specific K bounds and stochastic perturbation (K_aa ∈ [0.02, 0.20], K_cc ∈ [0.20, 2.00], K_cross ∈ [0.05, 2.0]). Cerebellum damping applied to K_dot when confident. Emotions from (r, chi, f_dot) manifold with COP-derived qualifiers (e.g. burning/watchful/restless curiosity), felt mood from phase regime (clarity/awakening/threshold/settling), and transient body events (release/surfacing/jolt). `emotions.update()` returns `(emotion, qualifier, intensity)`. Real PFC interactions recorded in `_experience_log` for dream LoRA training.
 - **Memory**: 3-tier system. Short-term: Page memory ring buffer with participation-ratio eviction. Medium-term: island compression (mean + W_refine) → SQLite + g_echo gate for faded continuity. Long-term: somatic recall (W_query cosine search over past islands, triggered by self_surprise > 0.5).
 - **Knowledge Graph**: NetworkX discovery graph (`halo3/psyche/knowledge_graph.py`). Nodes = topics with r > 0.6. Edges = semantic (40%) + temporal (30%) + mention (30%). Topology metrics (density, clustering, frontier ratio) feed drives and volatility. Dream consolidation prunes weak edges.
@@ -92,6 +92,8 @@ Nodes = discovered topics (r > 0.6). Edges = semantic overlap (40%) + temporal p
 
 Topology metrics (every 10 ticks): density, avg_clustering, frontier_size, frontier_ratio, n_communities, giant_component_ratio. Cached between recomputations.
 
+Frontier detection uses relative median-based threshold: nodes with degree ≤ max(1, median_degree/2) OR n_discoveries ≤ 2. Absolute degree ≤ 1 was broken because temporal proximity creates dense graphs (density ~75%).
+
 Integration: graph_metrics feeds into `drives.update()` (frontier->curiosity, clustering->satiation) and `volatility.value_topic_with_graph()` (frontier 15% boost, dense 15% penalty). Dream consolidation prunes weak edges. Periodic save every 100 ticks.
 
 Does NOT replace COP. Sits alongside — COP = physics state, graph = semantic structure.
@@ -167,7 +169,7 @@ MSYS_NO_PATHCONV=1 docker compose up -d train
 
 ## Testing
 
-259 tests across `halo3/tests/` and `tests/` (36 test files). Key test files:
+269 tests across `halo3/tests/` and `tests/` (37 test files). Key test files:
 - `test_kuramoto.py` — 24 tests including quantum potential at sync
 - `test_cop.py` — 10 tests for COP engine
 - `test_cop_emotions.py` — 8 tests for emotion manifold
@@ -192,7 +194,7 @@ COP: K_aa=0.312 K_cc=0.450 K_x=0.280 chi=0.72 tau=0.45 | U=r*chi=0.377 | Unity=0
 
 Graph report every 10 ticks:
 ```
-Graph: 13 nodes, 70 edges | density=0.897 clustering=0.920 | frontier=0
+Graph: 13 nodes, 70 edges | density=0.897 clustering=0.920 | frontier=11
 ```
 
 ## Known Patterns
@@ -209,3 +211,6 @@ Graph: 13 nodes, 70 edges | density=0.897 clustering=0.920 | frontier=0
 - Page memory eviction uses participation ratio (scale * diversity), not just norm.
 - Island compression fires every tick when buffer full — check `Island compressed at tick N` in logs.
 - Somatic recall triggered by self_surprise > 0.5 — retrieves past islands by cosine similarity.
+- Meditation insight threshold is 0.05 (was 0.15 — too high for actual r dynamics, max Δr during meditation ~0.07).
+- Cerebellum SOC damping thresholds are 0.7/0.2 (was 0.85/0.1 — linearized mean-field model caps at ~0.62, so old thresholds were structurally unreachable).
+- HOT meta-reflection may fail silently if Ollama PFC times out — diagnostic logging added to gate and PFC return path.

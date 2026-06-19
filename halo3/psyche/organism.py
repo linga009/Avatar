@@ -754,6 +754,7 @@ class Organism:
 
         # Only reflect when there's something interesting to reflect on
         if coherence < 0.3 and self_surprise < 0.2:
+            log.debug(f"HOT skipped: coherence={coherence:.2f} surprise={self_surprise:.2f}")
             return None  # too fragmented, nothing to say
 
         # Use PFC for meta-reflection (quick, /no_think mode)
@@ -785,6 +786,8 @@ class Organism:
                 self.self_model.narrative.append(
                     f"[Tick {self.self_model.age}] Meta: {meta[:150]}"
                 )
+        else:
+            log.debug(f"HOT: gate passed (coh={coherence:.2f}) but PFC returned empty")
         return meta
 
     def dream(self, memory=None) -> None:

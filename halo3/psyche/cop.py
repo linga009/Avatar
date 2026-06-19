@@ -18,10 +18,13 @@ Reference: Critical-Order-Parameter-Cognition.md
 """
 from __future__ import annotations
 
+import logging
 import math
 from collections import deque
 
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 from halo3.config import Halo3Config
 from halo3.kuramoto import cluster_coherence_matrix, unity_index
@@ -702,14 +705,15 @@ class CriticalDynamics:
         if self._enable_cerebellum:
             from halo3.cerebellum import FastPredictor
             _fp = FastPredictor()
-            for K_new, K_old, r_block, omega_std in [
-                (K_aa_new, K_aa, r_a, 0.03),
-                (K_cc_new, K_cc, r_c, 0.30),
+            for label, K_new, K_old, r_block, omega_std in [
+                ("aa", K_aa_new, K_aa, r_a, 0.03),
+                ("cc", K_cc_new, K_cc, r_c, 0.30),
             ]:
                 traj = _fp.predict_r(r_block, K_new, omega_std, n_ticks=5)
                 r_end = traj[-1]
-                if r_end > 0.85 or r_end < 0.1:
-                    if K_new == K_aa_new:
+                if r_end > 0.7 or r_end < 0.2:
+                    log.debug(f"Cerebellum damping K_{label}: predicted r_end={r_end:.3f}")
+                    if label == "aa":
                         K_aa_new = K_aa + self._soc_damping * (K_aa_new - K_aa)
                         K_aa_new = max(self._K_min_aa, min(self._K_max_aa, K_aa_new))
                     else:
