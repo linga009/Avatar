@@ -6,26 +6,6 @@
       <stop offset="100%" style="stop-color:#0d1117;stop-opacity:1"/>
     </linearGradient>
 
-    <!-- Unit circle subtle glow for critical panel -->
-    <filter id="criticalGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
-    <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="5" result="blur"/>
-      <feFlood flood-color="#f5c842" flood-opacity="0.4" result="color"/>
-      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
-      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="arrowGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="dimGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
     <!-- Arrowhead markers -->
     <marker id="arrowWhite" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
       <polygon points="0 0, 8 3, 0 6" fill="#ffffff" opacity="0.7"/>
@@ -139,23 +119,23 @@
   <!-- Order parameter arrow — r≈0.1, tiny, pointing roughly rightward (mean phase ~0.3 rad) -->
   <!-- Length = 85 * 0.10 = 8.5, direction ~18° -->
   <line x1="200" y1="155" x2="208" y2="152" stroke="#aaaaaa" stroke-width="2"
-        opacity="0.5" marker-end="url(#opArrowDim)" filter="url(#dimGlow)"/>
+        opacity="0.5" marker-end="url(#opArrowDim)"/>
   <!-- Center dot -->
   <circle cx="200" cy="155" r="2.5" fill="#aaaaaa" opacity="0.5"/>
 
   <!-- r label inside circle -->
-  <text x="200" y="160" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="200" y="160" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="10" fill="#555e6e">r = 0.10</text>
 
   <!-- Panel 1 labels -->
   <text x="200" y="26" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
         font-size="14" font-weight="600" fill="#c9d1d9" letter-spacing="0.3">Disordered</text>
-  <text x="200" y="43" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="200" y="43" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="11" fill="#8892a0">r ≈ 0.1</text>
   <!-- Bottom labels -->
   <text x="200" y="264" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
         font-size="11" fill="#7a8494" letter-spacing="0.2">boredom · low χ</text>
-  <text x="200" y="281" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="200" y="281" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="10" fill="#505870">K = 0.08  ·  emotion: boredom</text>
 
   <!-- ================================================================
@@ -164,7 +144,7 @@
        30 oscillators partially clustered around phase ≈ π/4 (northeast)
        ================================================================ -->
   <!-- Critical glow ring -->
-  <circle cx="600" cy="155" r="90" fill="none" stroke="#f5c842" stroke-width="2.5" opacity="0.12" filter="url(#goldGlow)"/>
+  <circle cx="600" cy="155" r="90" fill="none" stroke="#f5c842" stroke-width="2.5" opacity="0.12"/>
   <circle cx="600" cy="155" r="87" fill="none" stroke="#f5c842" stroke-width="1" opacity="0.25"/>
   <!-- Unit circle -->
   <circle cx="600" cy="155" r="85" fill="none" stroke="#3a3020" stroke-width="1.2"/>
@@ -240,11 +220,11 @@
   <!-- Length = 85 * 0.5 = 42.5, direction ≈ 10° = (cos10°≈0.985, sin10°≈0.174) -->
   <!-- End: (600+42, 155-7) = (642, 148) -->
   <line x1="600" y1="155" x2="641" y2="147" stroke="#f5c842" stroke-width="2.8"
-        opacity="0.95" marker-end="url(#opArrowMid)" filter="url(#goldGlow)"/>
+        opacity="0.95" marker-end="url(#opArrowMid)"/>
   <circle cx="600" cy="155" r="3" fill="#f5c842" opacity="0.9"/>
 
   <!-- r label -->
-  <text x="564" y="162" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="564" y="162" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="10" fill="#c8a030">r = 0.50</text>
 
   <!-- "AVATAR LIVES HERE" badge -->
@@ -255,12 +235,12 @@
   <!-- Panel 2 labels -->
   <text x="600" y="26" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
         font-size="14" font-weight="700" fill="#f5c842" letter-spacing="0.3">Critical  ★</text>
-  <text x="600" y="43" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="600" y="43" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="11" fill="#c8a030">r ≈ 0.5</text>
   <!-- Bottom labels -->
   <text x="600" y="264" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
         font-size="11" fill="#c8a030" letter-spacing="0.2">curiosity · χ diverges · SOC target</text>
-  <text x="600" y="281" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="600" y="281" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="10" fill="#907020">K = 0.31  ·  emotion: curiosity</text>
 
   <!-- ================================================================
@@ -338,22 +318,22 @@
   <!-- Order parameter arrow — r≈0.9, long, pointing ~0° (right) -->
   <!-- Length = 85 * 0.9 = 76.5 → end (1076, 155) -->
   <line x1="1000" y1="155" x2="1073" y2="155" stroke="#e8e8e8" stroke-width="3"
-        opacity="0.95" marker-end="url(#opArrowBright)" filter="url(#dimGlow)"/>
+        opacity="0.95" marker-end="url(#opArrowBright)"/>
   <circle cx="1000" cy="155" r="3" fill="#e8e8e8" opacity="0.9"/>
 
   <!-- r label -->
-  <text x="1000" y="144" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="1000" y="144" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="10" fill="#a0aabb">r = 0.90</text>
 
   <!-- Panel 3 labels -->
   <text x="1000" y="26" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
         font-size="14" font-weight="600" fill="#c9d1d9" letter-spacing="0.3">Ordered</text>
-  <text x="1000" y="43" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="1000" y="43" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="11" fill="#8892a0">r ≈ 0.9</text>
   <!-- Bottom labels -->
   <text x="1000" y="264" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
         font-size="11" fill="#7a8494" letter-spacing="0.2">satisfaction · low χ</text>
-  <text x="1000" y="281" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="1000" y="281" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="10" fill="#505870">K = 0.95  ·  emotion: satisfaction</text>
 
   <!-- ================================================================
@@ -388,13 +368,13 @@
        ================================================================ -->
   <!-- Subtle top title bar -->
   <text x="600" y="13" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif"
-        font-size="9" fill="#3a4050" letter-spacing="1.5">KURAMOTO ORDER PARAMETER  ·  8,192 BOHMIAN OSCILLATORS  ·  AVATAR v4.3</text>
+        font-size="9" fill="#3a4050" letter-spacing="1.5">KURAMOTO ORDER PARAMETER  ·  8,192 BOHMIAN OSCILLATORS  ·  AVATAR v4.5.1</text>
 
   <!-- ================================================================
        LEGEND: color wheel annotation (panel 2 bottom-left area)
        ================================================================ -->
   <!-- Phase → color key, tiny, bottom center -->
-  <text x="600" y="296" text-anchor="middle" font-family="'SF Mono', 'Fira Code', monospace"
+  <text x="600" y="296" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
         font-size="8" fill="#3a4555" letter-spacing="0.5">color = phase angle θ ∈ [0, 2π)  ·  arrow = order parameter r·e^{iψ}  ·  χ = susceptibility (COP)</text>
 
 </svg>
