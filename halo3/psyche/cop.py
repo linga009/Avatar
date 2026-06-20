@@ -337,7 +337,7 @@ class CriticalDynamics:
             self._r_full_history = data.get("r_full_history", [])
             self._r_median_ema = data.get("r_median_ema", 0.5)
             self._avalanche_shapes = data.get("shapes", [])
-        except (FileNotFoundError, _json.JSONDecodeError):
+        except (FileNotFoundError, _json.JSONDecodeError, UnicodeDecodeError, ValueError):
             pass
 
     @property
