@@ -32,7 +32,7 @@ OLLAMA_URL_LOCAL = "http://localhost:11434/api/generate"
 # Both processes use the same model — diversity from persona, not architecture
 MODEL = "qwen3:0.6b"
 MODEL_HF = "Qwen/Qwen3-0.6B"
-TIMEOUT = 15
+TIMEOUT = 20
 
 ADAPTER_PATH = "data/pfc_adapter"
 
@@ -67,6 +67,7 @@ _JUNK_WORDS = frozenset([
 _STATE_WORDS = frozenset([
     "pride", "anxiety", "boredom", "satisfaction", "curiosity",
     "synchronization", "feeling", "organism", "emotion",
+    "resonance",
 ])
 
 # Prefixes the model uses to announce its output — strip and keep the rest
@@ -83,7 +84,7 @@ _REASONING_STARTS = (
     "first,", "alright", "to answer", "to generate", "to create",
     "the user wants", "only search", "no explanation", "no label",
     "only use", "only output", "use this format", "use the following",
-    "output only", "do not ", "don't ",
+    "use only", "output only", "do not ", "don't ",
 )
 
 # Meta-query patterns — model describes what to search rather than giving the query
@@ -211,7 +212,7 @@ def _clean_query(raw: str) -> str | None:
         if low.startswith(sw):
             query = query[len(sw):]
             low = query.lower().strip()
-    query = query.strip('"\'*:/ \t')
+    query = query.strip('"\'*:/ \t-')
     if query.startswith("http") or "google.com" in query or "search?q=" in query:
         if "q=" in query:
             try:
