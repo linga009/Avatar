@@ -34,9 +34,8 @@ def _format_training_data(
     """Format organism's experience as prompt-response pairs.
 
     CRITICAL: The prompt format here MUST match the format used at inference
-    time in prefrontal.py. Both use plain text prompts (not ### Instruction).
-    The LoRA training wraps them in ### Instruction / ### Response format,
-    and _generate_local() wraps inference the same way.
+    time in prefrontal.py. Both use ChatML format (<|im_start|>/<|im_end|>)
+    which is native to Qwen3. Training and inference MUST use the same template.
     """
     examples = []
 
@@ -227,6 +226,7 @@ def _format_training_data(
 
     # --- Real PFC experiences (lived, not synthetic) ---
     if experience_log:
+        n_filtered = 0
         for exp in experience_log:
             exp_qualifier = exp.get("qualifier", "")
             exp_mood = exp.get("mood", "")
@@ -237,6 +237,23 @@ def _format_training_data(
                 state_str += f", mood: {exp_mood}"
 
             if exp.get("type") == "query" and exp.get("response"):
+                response = exp["response"]
+                # Filter contaminated queries before they enter training data
+                resp_low = response.lower().strip()
+                skip = False
+                for sw in ("resonance", "feeling", "curiosity", "boredom",
+                            "anxiety", "pride", "satisfaction", "synchronization"):
+                    if resp_low.startswith(sw):
+                        skip = True
+                        break
+                if resp_low.startswith("###") or resp_low.startswith("<|im"):
+                    skip = True
+                if len(response.strip()) < 5 or len(response.strip().split()) < 2:
+                    skip = True
+                if skip:
+                    n_filtered += 1
+                    continue
+
                 instruction = (
                     "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
                     f"\nState: {state_str}\n"
@@ -244,8 +261,8 @@ def _format_training_data(
                     "\nSearch query:"
                 )
                 # 2x replay for real experiences
-                examples.append({"instruction": instruction, "response": exp["response"]})
-                examples.append({"instruction": instruction, "response": exp["response"]})
+                examples.append({"instruction": instruction, "response": response})
+                examples.append({"instruction": instruction, "response": response})
             elif exp.get("type") == "interpret" and exp.get("response"):
                 instruction = (
                     f"Interpret this finding in 1-2 sentences.\n"
@@ -254,7 +271,8 @@ def _format_training_data(
                 )
                 examples.append({"instruction": instruction, "response": exp["response"]})
                 examples.append({"instruction": instruction, "response": exp["response"]})
-        log.info(f"Dream training includes {len(experience_log)} real PFC experiences (2x weighted)")
+        log.info(f"Dream training includes {len(experience_log)} real PFC experiences "
+                 f"({n_filtered} filtered as contaminated, 2x weighted)")
 
     return examples
 
@@ -332,16 +350,24 @@ def _lora_finetune(examples: list[dict]) -> bool:
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # Format: ### Instruction / ### Response — matches _generate_local() wrapping
+    # Format: ChatML — matches Qwen3 native format and _generate_local() wrapping
     texts = []
+    response_prefix = "<|im_start|>assistant\n"
     for ex in examples:
-        text = f"### Instruction:\n{ex['instruction']}\n\n### Response:\n{ex['response']}{tokenizer.eos_token}"
+        text = f"<|im_start|>user\n{ex['instruction']}<|im_end|>\n<|im_start|>assistant\n{ex['response']}<|im_end|>"
         texts.append(text)
 
     encodings = tokenizer(
         texts, truncation=True, max_length=256,
         padding="max_length", return_tensors="pt",
     )
+
+    # Compute where the response starts for each example so we only train on response tokens
+    response_start_ids = []
+    for ex in examples:
+        instruction_part = f"<|im_start|>user\n{ex['instruction']}<|im_end|>\n{response_prefix}"
+        n_instruction_tokens = len(tokenizer(instruction_part, add_special_tokens=False)["input_ids"])
+        response_start_ids.append(n_instruction_tokens)
 
     model.train()
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
@@ -350,6 +376,9 @@ def _lora_finetune(examples: list[dict]) -> bool:
     attention_mask = encodings["attention_mask"]
     labels = input_ids.clone()
     labels[attention_mask == 0] = -100
+    # Mask instruction tokens — only train on response tokens
+    for i, start in enumerate(response_start_ids):
+        labels[i, :start] = -100
 
     n_steps = min(12, len(examples) * 3)
     log.info(f"Training for {n_steps} steps...")
@@ -405,8 +434,8 @@ def _validate_adapter(model, tokenizer) -> bool:
     import torch
 
     test_prompts = [
-        "### Instruction:\nOutput ONLY a web search query of 5-8 words.\n\nState: feeling curiosity, resonance 0.45\nCurrent topic: artificial intelligence\nInterests: AI, machine learning, neural networks\n\nSearch query:\n\n### Response:\n",
-        "### Instruction:\nWho are you?\n\n### Response:\n",
+        "<|im_start|>user\nOutput ONLY a web search query of 5-8 words.\n\nState: feeling curiosity, resonance 0.45\nCurrent topic: artificial intelligence\nInterests: AI, machine learning, neural networks\n\nSearch query:<|im_end|>\n<|im_start|>assistant\n",
+        "<|im_start|>user\nWho are you?<|im_end|>\n<|im_start|>assistant\n",
     ]
 
     for prompt in test_prompts:
@@ -414,7 +443,7 @@ def _validate_adapter(model, tokenizer) -> bool:
         with torch.no_grad():
             outputs = model.generate(
                 **inputs, max_new_tokens=30,
-                temperature=0.7, top_p=0.9,
+                temperature=0.7, top_p=0.8, top_k=20,
                 do_sample=True, pad_token_id=tokenizer.eos_token_id,
             )
         response = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)

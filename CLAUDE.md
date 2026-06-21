@@ -201,7 +201,7 @@ Graph: 13 nodes, 70 edges | density=0.897 clustering=0.920 | frontier=11
 
 - If Avatar is stuck on a repeating query: delete `data/pfc_adapter/` and restart.
 - If dream OOM: check WSL2 memory config. Progressive OOM = parent not freeing GPU before subprocess.
-- LoRA training format must match inference format exactly (`### Instruction:\n{x}\n\n### Response:\n`).
+- LoRA training format must match inference format exactly (ChatML: `<|im_start|>user\n{x}<|im_end|>\n<|im_start|>assistant\n`).
 - LoRA dream fine-tuning: max 12 steps with early stopping (patience=3). Prevents overfitting on small example sets.
 - Ollama retries on each tick if unavailable (not just first check). PFC comes online once Ollama warms up. Costs ~0.1GB VRAM.
 - Never create new `@eqx.filter_jit` inside a loop — define once, pass all varying inputs as args.

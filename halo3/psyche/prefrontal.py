@@ -386,12 +386,12 @@ class PrefrontalCortex:
             return None
         try:
             import torch
-            formatted = f"### Instruction:\n{prompt}\n\n### Response:\n"
+            formatted = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
             inputs = self._tokenizer(formatted, return_tensors="pt", truncation=True, max_length=512)
             with torch.no_grad():
                 outputs = self._model.generate(
                     **inputs, max_new_tokens=max_tokens,
-                    temperature=0.7, top_p=0.9,
+                    temperature=0.7, top_p=0.8, top_k=20,
                     do_sample=True, pad_token_id=self._tokenizer.eos_token_id,
                 )
             response = self._tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
