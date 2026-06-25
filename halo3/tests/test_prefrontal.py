@@ -57,9 +57,9 @@ def test_compute_tension_none_inputs():
     assert tension2 == 0.3
 
 
-def test_timeout_is_5_seconds():
+def test_timeout_is_20_seconds():
     from halo3.psyche.prefrontal import TIMEOUT
-    assert TIMEOUT == 5
+    assert TIMEOUT == 20
 
 
 def test_clean_query_rejects_prompt_scaffolding():

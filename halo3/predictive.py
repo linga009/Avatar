@@ -244,6 +244,11 @@ class PredictiveProcessor:
         except Exception as e:
             log.warning(f"Failed to save predictor state: {e}")
 
+    def free_gpu_state(self) -> None:
+        """Release optimizer state GPU memory before dream subprocess."""
+        self._opt_state = None
+        self._sense_opt_state = None
+
     def restore_state(self, path: str) -> None:
         """Restore prediction history from disk after dreams.
 

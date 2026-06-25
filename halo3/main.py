@@ -493,8 +493,14 @@ def main() -> None:
             # Previously only model was freed — carry, sense_module, and
             # compiled code leaked ~1-2 GB, causing progressive OOM on
             # 3rd+ dream in a session.
+            # v4.5.2: also free predictor optimizer state (~800MB Adam
+            # buffers for 106M params) and contrastive aligner GPU tensors.
             del model, carry, sense_module
             _pre_dream_carry = None
+            organism._W_query = None
+            organism._carry_cache = None
+            predictor.free_gpu_state()
+            contrastive_aligner.free_gpu_state()
             jax.clear_caches()
             import gc; gc.collect()
 

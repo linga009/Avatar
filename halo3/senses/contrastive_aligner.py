@@ -62,6 +62,10 @@ class ContrastiveAligner:
         unique = len(np.unique(all_indices))
         return unique / codebook_size
 
+    def free_gpu_state(self) -> None:
+        """Release any GPU-resident state before dream subprocess."""
+        pass  # buffers are numpy (CPU) — nothing to free
+
     def check_maturation(self, codebook_size: int,
                          threshold: float = 0.75) -> bool:
         util = self.compute_utilization(codebook_size)
