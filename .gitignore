@@ -25,6 +25,14 @@ htmlcov/
 *.pdf
 .claude/
 .worktrees/
+.superpowers/
+
+# Dev files — local only, not for GitHub
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+docs/superpowers/
+docs/harness/
 
 # Runtime data — never commit large binaries or ephemeral state
 data/checkpoints/
