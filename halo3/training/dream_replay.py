@@ -211,6 +211,12 @@ def dream_replay_physics(
         completed_imagine += 1
     imagine_loss /= max(completed_imagine, 1)
 
+    # Free optimizer and intermediate state before returning — reduces peak
+    # memory when dream_worker saves the checkpoint.
+    del opt_state, carry, ep_tokens
+    gc.collect()
+    jax.clear_caches()
+
     info = {
         "replayed": completed_replay,
         "recombined": completed_recombine,

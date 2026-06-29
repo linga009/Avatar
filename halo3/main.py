@@ -501,6 +501,10 @@ def main() -> None:
             organism._carry_cache = None
             predictor.free_gpu_state()
             contrastive_aligner.free_gpu_state()
+            # Free Kokoro TTS ONNX model (~300MB CPU) during dream.
+            # _get_kokoro() will lazy-reload on first waking TTS call.
+            import halo3.senses.tts_narration as _tts_mod
+            _tts_mod._kokoro_instance = None
             jax.clear_caches()
             import gc; gc.collect()
 
@@ -512,9 +516,9 @@ def main() -> None:
                     [sys.executable, "-m", "halo3.training.dream_worker",
                      "--checkpoint", "data/checkpoints/pre_dream",
                      "--output", "data/checkpoints/halo3",
-                     "--replay-steps", "10",
-                     "--recombine-steps", "5",
-                     "--imagine-steps", "5"],
+                     "--replay-steps", "5",
+                     "--recombine-steps", "2",
+                     "--imagine-steps", "2"],
                     timeout=3600,
                 )
                 if result.returncode == 0:

@@ -70,7 +70,12 @@ def main():
     from halo3.memory.episode_store import EpisodeStore
     memory = EpisodeStore()
     episodes = memory.get_high_confidence(threshold=0.0)
+    # Only need a handful — dream_replay uses max 10 tokens anyway.
+    # Loading fewer reduces peak CPU memory during XLA compilation.
+    episodes = episodes[:20]
     log.info(f"Loaded {len(episodes)} episodes for dreaming")
+    del memory
+    import gc; gc.collect()
 
     # --- Dream ---
     from halo3.training.dream_replay import dream_replay_physics

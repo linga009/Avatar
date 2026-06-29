@@ -10,7 +10,7 @@
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
 [![Version](https://img.shields.io/badge/Version-4.5.1-red?style=flat-square)](https://github.com/linga009/Avatar)
 [![Tests](https://img.shields.io/badge/Tests-269%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
-[![License](https://img.shields.io/badge/License-Research-lightgrey?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue?style=flat-square)](LICENSE)
 
 ---
 
