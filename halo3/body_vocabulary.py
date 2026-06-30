@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 
+import numpy as np
 import jax
 import jax.numpy as jnp
 
@@ -59,7 +60,8 @@ class BodyVocabulary:
         cfg = Halo3Config()
         lm_head = LanguageModelHead(cfg, jax.random.PRNGKey(0))
         lm_head = eqx.tree_deserialise_leaves(lm_head_path, lm_head)
-        self._embedding = lm_head.embedding  # (vocab_size, d_model)
+        # Cast to float32 — bfloat16 checkpoints corrupt threshold comparison
+        self._embedding = jnp.asarray(lm_head.embedding, dtype=jnp.float32)
 
         sp = spm.SentencePieceProcessor()
         sp.Load(tokenizer_path)
@@ -104,12 +106,15 @@ class BodyVocabulary:
         # Top-k token IDs (oversample for filtering)
         top_indices = jnp.argsort(logits)[-top_k * 2:][::-1]
 
+        # Materialize to numpy once — avoids per-element device-to-host transfers
+        top_ids = np.asarray(top_indices)
+        top_probs = np.asarray(probs[top_indices])
+
         words = []
-        for idx in top_indices:
-            idx_int = int(idx)
+        for i, idx_int in enumerate(top_ids.tolist()):
             if idx_int in _SPECIAL_IDS:
                 continue
-            if float(probs[idx_int]) < uniform_threshold:
+            if top_probs[i] < uniform_threshold:
                 break  # sorted by score, rest will be below too
 
             piece = self._tokenizer.IdToPiece(idx_int)
