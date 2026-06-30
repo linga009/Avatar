@@ -113,8 +113,10 @@ class Organism:
         sensory_stats_line: str = "",
         heard_speech: str = "",
         H_mean: float | None = None,
+        body_words: dict | None = None,
     ) -> dict:
         """Process one tick of lived experience."""
+        self._body_words = body_words
         self._sensory_stats_line = sensory_stats_line
         self._heard_speech = heard_speech
         self._last_r = r_mean  # saved for post-dream COP reset
@@ -290,7 +292,7 @@ class Organism:
         # (reduced from 5 to avoid PFC call stacking — each call is 2-10s)
         meta_thought = None
         if self.self_model.age > 0 and self.self_model.age % 20 == 0:
-            meta_thought = self._higher_order_reflect(temporal, self_surprise)
+            meta_thought = self._higher_order_reflect(temporal, self_surprise, body_words=self._body_words)
 
         # ═══ END CONSCIOUSNESS MODULES ═══
 
@@ -557,6 +559,7 @@ class Organism:
             consecutive_failures=self._consecutive_zero_results,
             dead_queries=self.self_model.dead_queries,
             recall_context=self._recall_context,
+            body_words=self._body_words,
         )
         if pfc_query:
             log.debug(f"Prefrontal: generated query '{pfc_query}'")
@@ -740,7 +743,7 @@ class Organism:
         content.sort(key=len, reverse=True)
         return " ".join(sorted(content[:3])) if content else query[:30]
 
-    def _higher_order_reflect(self, temporal: dict, self_surprise: float) -> str | None:
+    def _higher_order_reflect(self, temporal: dict, self_surprise: float, body_words: dict | None = None) -> str | None:
         """Higher-Order Thought: think ABOUT what I'm experiencing.
 
         This is meta-cognition — not just feeling an emotion but reflecting
@@ -776,9 +779,13 @@ class Organism:
             context += f"Senses: {self._sensory_stats_line}. "
         if hasattr(self, '_heard_speech') and self._heard_speech:
             context += f"Heard speech: \"{self._heard_speech[:100]}\". "
+        if body_words and body_words.get("thoughts"):
+            context += f" Body concepts: {', '.join(body_words['thoughts'][:8])}."
+        if body_words and body_words.get("knowledge"):
+            context += f" Deep knowledge: {', '.join(body_words['knowledge'][:5])}."
 
         # Ask PFC to generate a higher-order thought
-        meta = self.prefrontal.meta_reflect(context)
+        meta = self.prefrontal.meta_reflect(context, body_words=body_words)
         if meta:
             log.info(f"  ◈ Meta-thought: {meta[:80]}")
             # Record significant meta-thoughts in narrative
@@ -790,7 +797,7 @@ class Organism:
             log.debug(f"HOT: gate passed (coh={coherence:.2f}) but PFC returned empty")
         return meta
 
-    def dream(self, memory=None) -> None:
+    def dream(self, memory=None, body_words: dict | None = None) -> None:
         """Called after nightly dreaming — fine-tune PFC, reset fatigue, reflect."""
 
         # Reset COP transient state — pre-fill r_history with last known r,
@@ -828,6 +835,7 @@ class Organism:
                 dead_queries=self.self_model.dead_queries,
                 focus_topics=focus_topics,
                 experience_log=self._experience_log,
+                body_words=body_words,
             )
             if success:
                 self.prefrontal.upgrade_to_organism_model()

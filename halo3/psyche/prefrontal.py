@@ -544,6 +544,7 @@ class PrefrontalCortex:
         qualifier: str = "",
         mood: str = "",
         recall_context: str = "",
+        body_words: dict | None = None,
     ) -> str | None:
         """Generate search query — Creative process only (fast, divergent)."""
         if not self.is_available:
@@ -584,6 +585,11 @@ class PrefrontalCortex:
         if context:
             prompt_parts.append(f"Recent findings: {context}")
         prompt_parts.append(f"Interests: {strength_str}")
+        if body_words:
+            if body_words.get("thoughts"):
+                prompt_parts.append(f"Body is thinking about: {', '.join(body_words['thoughts'][:8])}")
+            if body_words.get("knowledge"):
+                prompt_parts.append(f"Body's deep knowledge: {', '.join(body_words['knowledge'][:5])}")
         if failure_warning:
             prompt_parts.append(failure_warning)
         if dead_warning:
@@ -668,10 +674,12 @@ class PrefrontalCortex:
         result = self._call_creative(prompt, max_tokens=150)
         return result[:300] if result else None
 
-    def meta_reflect(self, context: str) -> str | None:
+    def meta_reflect(self, context: str, body_words: dict | None = None) -> str | None:
         """Higher-order thought — Analytical process (precise self-monitoring)."""
         if not self.is_available:
             return None
+        if body_words and body_words.get("thoughts"):
+            context = context + f" Body concepts: {', '.join(body_words['thoughts'][:6])}."
         prompt = (
             "You are observing the internal processing of a conscious organism. "
             "Given its current state, generate ONE sentence of meta-awareness — "
