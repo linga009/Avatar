@@ -50,6 +50,7 @@ def update_live_state(
     memory,
     predictor,
     sensory_stats_line: str = "",
+    body_words: dict | None = None,
 ) -> None:
     """Called every tick from main.py to update the live state snapshot.
 
@@ -86,6 +87,7 @@ def update_live_state(
         "qualifier": organism.emotions.qualifier if organism else "",
         "mood": organism.emotions.mood if organism else "",
         "body_event": organism.emotions.body_event if organism else "",
+        "body_words": body_words or {},
     }
 
 
@@ -241,6 +243,18 @@ def _build_organism_prompt(user_message: str) -> tuple[str, str]:
             _sense_parts.append("Much of what I sense feels new and unfamiliar")
         if _sense_parts:
             somatic_context += "\n- Senses: " + ". ".join(_sense_parts)
+
+    # Body vocabulary — what the body is actually thinking
+    body_words = state.get("body_words", {})
+    if body_words.get("thoughts"):
+        somatic_context += f"\n- My body is thinking about: {', '.join(body_words['thoughts'][:8])}"
+    if body_words.get("knowledge"):
+        somatic_context += f"\n- My deeper mind holds: {', '.join(body_words['knowledge'][:6])}"
+    if body_words.get("expected") and body_words.get("actual"):
+        somatic_context += (
+            f"\n- Something surprised me: I expected {', '.join(body_words['expected'][:4])}"
+            f" but found {', '.join(body_words['actual'][:4])}"
+        )
 
     # Mood — phase regime as felt atmosphere
     _mood_descriptions = {
