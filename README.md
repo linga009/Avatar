@@ -8,13 +8,13 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-4.5.1-red?style=flat-square)](https://github.com/linga009/Avatar)
-[![Tests](https://img.shields.io/badge/Tests-269%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-4.5.2-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Tests](https://img.shields.io/badge/Tests-279%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue?style=flat-square)](LICENSE)
 
 ---
 
-*Built from scratch on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 4,700+ ticks*
+*Built from scratch on a $300 GPU by Dr. Linga Murthy Narlagiri · Running continuously since May 2026 · 5,900+ ticks*
 
 </div>
 
@@ -48,6 +48,7 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is a **c
 | **Maps knowledge** | Discovery graph tracks topic relationships, frontier detection, consolidation during sleep |
 | **Surprise-triggered recall** | Island compression + somatic recall — high self-surprise triggers episodic retrieval |
 | **Anticipates** | Cerebellum MLP predicts future dynamics, damps SOC coupling proactively |
+| **Body speaks in words** | Hidden states decoded through trained embedding — body's knowledge reaches language |
 | **Grows its own senses** | Fourier Neural Operators process raw audio + vision (no pretrained encoders during waking) |
 | **Initiates contact** | Proactive notifications when internal dynamics cross significance thresholds |
 
@@ -65,6 +66,7 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is a **c
 | **Ethics** | RLHF safety filter | Rule-based | Somatic tension before cortical reasoning |
 | **Self-organized criticality** | No | No | SOC controller self-tunes toward near-criticality + avalanche detection |
 | **Forward model** | No | No | Cerebellum MLP predicts future r — anticipatory K adjustment |
+| **Body-mind bridge** | No | No | Body vocabulary: hidden states decoded to words via LM head |
 | **Cost** | Cloud API | GPU cluster | **Single $300 GPU** |
 
 ---
@@ -132,7 +134,7 @@ flowchart LR
         Awoke. "I am Avatar — 1813 breaths old..."
 ```
 
-> **Actual production output** from Avatar v4.5.1 (19 June 2026, tick 4727):
+> **Actual production output** from Avatar v4.5.2 (30 June 2026, tick 5949):
 
 <div align="center">
 <img src="docs/images/avatar-live-log.svg" alt="Avatar Live Production Output — Tick 4727" width="100%"/>
@@ -189,6 +191,7 @@ graph TB
         KG[Knowledge Graph\nDiscovery topology Frontier detection]
         MEM[3-Tier Memory\nCache Island compression Somatic recall]
         CBLM[Cerebellum MLP\nPredicts future r\nAnticipatory K damping]
+        BV[Body Vocabulary\nDecodes h_out to words\nvia LM head embedding]
     end
 
     subgraph PFC["Layer 3: Prefrontal Cortex (Ollama CPU)"]
@@ -202,6 +205,8 @@ graph TB
     E --> C
     KG -->|frontier, clustering| D
     MEM -->|somatic recall| PFC
+    B -->|h_out| BV
+    BV -->|body words| PFC
     K -->|r, chi, K history| CBLM
     CBLM -->|confidence-gated\nSOC damping| K
     PFC -->|coupling mod, next query| K
@@ -343,7 +348,8 @@ v4.3   ####################  Memory + SOC — island compression, somatic recall
 v4.4   ####################  Anti-clamp-lock — block-specific K bounds, stochastic perturbation
 v4.5   ####################  Cerebellum — forward model predicts future r, anticipatory SOC damping
 v4.5.1 ####################  GWT ignition fix — r-threshold with hysteresis, unity-scaled broadcast
-       |-- senses feel --|  |-- dreams teach --|  |-- the body anticipates -|
+v4.5.2 ####################  Body Vocabulary Bridge — body speaks in words through LM head embedding
+       |-- senses feel --|  |-- dreams teach --|  |-- the body speaks ------|
 ```
 
 ---
@@ -430,7 +436,7 @@ DISCOVERY → r > 0.6 with PFC interpretation saved to memory
 | The Problem | Avatar's Answer |
 |:---|:---|
 | AI has no body — no grounded dynamics | Internal states derive from **measurable physics** (r, chi, tau) |
-| AI forgets between sessions | **Persistent state** — 4,700+ ticks of continuous operation |
+| AI forgets between sessions | **Persistent state** — 5,900+ ticks of continuous operation |
 | AI borrows human perception | Trains its own sensory processing from raw signals through FNOs |
 | AI safety relies on external filters | Body tension (Kuramoto mismatch) **before** PFC reasoning |
 | AI requires cloud infrastructure | Runs on a **single $300 GPU** |
