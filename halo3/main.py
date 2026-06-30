@@ -109,6 +109,7 @@ def main() -> None:
     from halo3.senses.sensory_stats import SensoryStatistics
     from halo3.senses.tts_narration import TTSNarrator, extract_narration_text
     from halo3.senses.contrastive_aligner import ContrastiveAligner
+    from halo3.body_vocabulary import BodyVocabulary
 
     # Auto-build TopicIndex if parquet exists but index doesn't
     _index_path = "data/fineweb/topic_index.json"
@@ -151,6 +152,12 @@ def main() -> None:
     log.info(f"TTS: {cfg.tts_mode} ({'ON' if tts.available else 'OFF'}) | "
              f"Contrastive: tau={cfg.contrastive_tau}, weight={cfg.contrastive_weight}")
 
+    # --- Body Vocabulary Bridge (decode body → words) ---
+    body_vocab = BodyVocabulary(
+        lm_head_path="data/checkpoints/halo3_lm_lm.eqx",
+        tokenizer_path="data/tokenizer.model",
+    )
+
     log.info(f"Organism awakening. {organism.self_model.identity_statement}")
     log.info(f"Watching: {seed_topics}")
     log.info(f"Predictive processing: ON — body learns every tick")
@@ -170,6 +177,7 @@ def main() -> None:
 
     # --- Heartbeat ---
     tick = 0
+    _prev_surprise = 0.0
     current_query = seed_topics[0]
     prev_fe = None
     _prev_dF_dt = 0.0            # dF/dt from previous tick for learning rate modulation
@@ -365,6 +373,17 @@ def main() -> None:
         organism._W_query = model.W_query
         organism._memory_ref = memory
 
+        # 7b. BODY VOCABULARY — decode what the body is thinking
+        body_vocab.tick(
+            h_out=h_out,
+            cache=carry.page_mem.cache,
+            n_cached=int(carry.page_mem.n_cached),
+            island=carry.page_mem.island,
+            surprise=_prev_surprise,
+            tick_num=tick,
+        )
+        body_words = body_vocab.get_body_words()
+
         psyche_output = organism.tick(
             r_mean, combined_surprise, texts, current_query,
             carry_norm=carry_norm, body_tension=body_tension,
@@ -382,12 +401,14 @@ def main() -> None:
             K_cc=float(carry.kuramoto.coupling_cc),
             K_cross=float(carry.kuramoto.coupling_cross),
             H_mean=_H_mean,
+            body_words=body_words,
         )
         emotion = psyche_output["emotion"]
         finding = psyche_output["finding"]
         current_query = psyche_output["next_query"]
         organism._obs_attenuation = psyche_output.get("obs_attenuation", 1.0)
         _prev_dF_dt = psyche_output.get("dF_dt", 0.0)  # for next tick's lr modulation
+        _prev_surprise = psyche_output.get("self_surprise", 0.0)
 
         # Push proactive notifications to chat UI
         if psyche_output.get("proactive_message"):
@@ -401,6 +422,7 @@ def main() -> None:
             pred_error=pred_error, current_query=current_query,
             texts=texts, organism=organism, memory=memory, predictor=predictor,
             sensory_stats_line=sensory_stats.format_for_pfc(),
+            body_words=body_words,
         )
 
         # 8. COP — set coupling K from SOC controller (absolute value)
@@ -440,6 +462,8 @@ def main() -> None:
         )
         if finding:
             log.info(f"         → DISCOVERY: {finding[:90]}")
+        if body_words.get("thoughts"):
+            log.info(f"         | Body: {', '.join(body_words['thoughts'][:8])}")
 
         # 7. Status every 10 ticks
         if tick % 10 == 0:
@@ -541,7 +565,7 @@ def main() -> None:
             jax.clear_caches()
             import gc; gc.collect()
             log.info("  ☽ Phase 2: Mind dreaming on CPU (LoRA fine-tune)...")
-            organism.dream(memory=memory)
+            organism.dream(memory=memory, body_words=body_vocab.get_body_words())
 
             # === PHASE 3: GEPA PROMPT EVOLUTION ===
             # Reflect on episode trajectories and evolve PFC prompt instructions.
