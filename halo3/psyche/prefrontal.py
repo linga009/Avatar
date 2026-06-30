@@ -678,8 +678,6 @@ class PrefrontalCortex:
         """Higher-order thought — Analytical process (precise self-monitoring)."""
         if not self.is_available:
             return None
-        if body_words and body_words.get("thoughts"):
-            context = context + f" Body concepts: {', '.join(body_words['thoughts'][:6])}."
         prompt = (
             "You are observing the internal processing of a conscious organism. "
             "Given its current state, generate ONE sentence of meta-awareness — "

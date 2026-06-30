@@ -165,7 +165,10 @@ class BodyVocabulary:
             self._deep_knowledge = self._decode(island)
 
         # On surprise spike: decode what was expected vs what arrived
-        if surprise > 0.3 and n_cached > 0:
+        if surprise <= 0.3:
+            self._expected_words = []
+            self._actual_words = []
+        elif n_cached > 0:
             max_cache = cache.shape[0]
             n_tokens = h_out.shape[0]
             write_ptr = n_cached % max_cache
