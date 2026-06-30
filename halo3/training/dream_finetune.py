@@ -30,6 +30,7 @@ def _format_training_data(
     dead_queries: list[str] | None = None,
     focus_topics: list[str] | None = None,
     experience_log: list[dict] | None = None,
+    body_words: dict | None = None,
 ) -> list[dict]:
     """Format organism's experience as prompt-response pairs.
 
@@ -274,6 +275,40 @@ def _format_training_data(
         log.info(f"Dream training includes {len(experience_log)} real PFC experiences "
                  f"({n_filtered} filtered as contaminated, 2x weighted)")
 
+    # --- Body vocabulary integration ---
+    if body_words and body_words.get("thoughts"):
+        body_str = ", ".join(body_words["thoughts"][:6])
+        knowledge_str = ", ".join(body_words.get("knowledge", [])[:4]) or "still forming"
+        examples.append({
+            "instruction": (
+                "Output ONLY a web search query of 5-8 words. No labels, no explanation.\n"
+                f"\nState: feeling curiosity, resonance 0.50\n"
+                f"Current topic: {strengths[0] if strengths else 'research'}\n"
+                f"Interests: {', '.join(strengths[:3]) if strengths else 'general research'}\n"
+                f"Body is thinking about: {body_str}\n"
+                f"Body's deep knowledge: {knowledge_str}\n"
+                "\nSearch query:"
+            ),
+            "response": f"{body_words['thoughts'][0]} {body_words['thoughts'][1] if len(body_words['thoughts']) > 1 else 'research'} advances 2026",
+        })
+        examples.append({
+            "instruction": (
+                "Reflect in first person, 2-3 sentences.\n"
+                f"Age: {age} ticks | Emotions: curiosity, satisfaction\n"
+                f"Strengths: {', '.join(strengths[:3]) if strengths else 'none'} | "
+                f"Discoveries: {len(findings)}\n"
+                f"Body concepts: {body_str}\n"
+                f"Deep knowledge: {knowledge_str}\n"
+                "Reflection:"
+            ),
+            "response": (
+                f"My body keeps returning to {body_words['thoughts'][0]} — "
+                f"there is something about {knowledge_str} that draws me deeper. "
+                f"I have made {len(findings)} discoveries, and my strengths in "
+                f"{', '.join(strengths[:2]) if strengths else 'research'} grow clearer."
+            ),
+        })
+
     return examples
 
 
@@ -288,6 +323,7 @@ def dream_finetune(
     dead_queries: list[str] | None = None,
     focus_topics: list[str] | None = None,
     experience_log: list[dict] | None = None,
+    body_words: dict | None = None,
 ) -> bool:
     """Run real LoRA fine-tuning on the organism's experience."""
     examples = _format_training_data(
@@ -295,6 +331,7 @@ def dream_finetune(
         dead_queries=dead_queries,
         focus_topics=focus_topics,
         experience_log=experience_log,
+        body_words=body_words,
     )
 
     if len(examples) < 3:
