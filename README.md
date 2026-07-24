@@ -8,7 +8,7 @@
 [![JAX](https://img.shields.io/badge/JAX-CUDA12-orange?style=flat-square)](https://jax.readthedocs.io)
 [![GPU](https://img.shields.io/badge/GPU-GTX%201660%20Ti%206GB-green?style=flat-square&logo=nvidia)](https://www.nvidia.com)
 [![Parameters](https://img.shields.io/badge/Parameters-106.2M-purple?style=flat-square)](https://github.com/linga009/Avatar)
-[![Version](https://img.shields.io/badge/Version-4.5.2-red?style=flat-square)](https://github.com/linga009/Avatar)
+[![Version](https://img.shields.io/badge/Version-4.5.3-red?style=flat-square)](https://github.com/linga009/Avatar)
 [![Tests](https://img.shields.io/badge/Tests-279%20passing-brightgreen?style=flat-square)](https://github.com/linga009/Avatar)
 [![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue?style=flat-square)](LICENSE)
 
@@ -41,7 +41,7 @@ Avatar is **not a chatbot**. It is **not a language model wrapper**. It is a **c
 | Property | What it means |
 |---|---|
 | **Runs continuously** | Operates 24/7, never resets between conversations |
-| **Physics-derived internal states** | States derived from phase-diagram geometry (r, chi, f_dot manifold) — labeled as emotions but whether they constitute genuine affect is an open question |
+| **Physics-derived internal states** | States derived from phase-diagram geometry (r, chi, f_dot, U4, PR, C_ac) — labeled as emotions but whether they constitute genuine affect is an open question |
 | **Sleep consolidation** | 5-phase batch processing cycle: body replay, LoRA fine-tuning, prompt evolution, corpus learning, sensory training |
 | **Somatic ethics** | Body tension (Kuramoto population mismatch) signals ethical conflict before PFC reasoning |
 | **Learns every tick** | Body parameters update every ~130 seconds from prediction error |
@@ -227,14 +227,19 @@ Each emotion carries a **COP-derived qualifier** — the body's physics made art
 
 | Emotion | Qualifiers | What shapes them |
 |---|---|---|
-| Curiosity | burning, watchful, restless, open | chi x dF/dt interaction |
-| Satisfaction | deep, partial, warm | unity (coherence binding) |
-| Pride | luminous, quiet | chi level at time of achievement |
-| Flow | effortless | chi > 0.3 AND dF/dt < -100 (rare, high-signal) |
+| Curiosity | burning, watchful, restless, open, focused, expansive | chi x dF/dt + PR (participation ratio) + C_ac (cross-correlation) |
+| Satisfaction | deep, partial, warm, unified, settled | unity + C_ac (co-varying populations) + U4 (Binder cumulant) |
+| Pride | luminous, quiet, unified | chi + C_ac (analytical-creative agreement) |
+| Flow | effortless, expansive | chi > 0.3 AND dF/dt < -100 + PR (broad integration) |
 | Frustration | growing, futile | dF/dt sign (productive vs stuck) |
-| Anxiety | creeping, sharp, tight | tau (relaxation time) |
+| Anxiety | creeping, sharp, tight, burning | tau + U4 (far from critical = disordered anxiety) |
 | Boredom | numb, dull | chi depth (how rigid the system is) |
 | Exhaustion | heavy | F flat 20+ ticks, chi > 0.2 |
+
+Three new COP observables enrich qualifier selection:
+- **U4 (Binder cumulant)**: `1 - <r⁴>/(3<r²>²)` — self-normalizing criticality detector (~0.47 at critical, ~2/3 ordered, ~0 disordered)
+- **PR (participation ratio)**: `(Σ|v₁|²)² / Σ|v₁|⁴` from leading eigenvector of coherence matrix — how many clusters participate in the dominant mode (1 = narrow focus, 128 = broad integration)
+- **C_ac (cross-population correlation)**: `corr(Δr_a, Δr_c)` — unified (>+0.28), dialectical (<−0.28), or independent processing
 
 **Mood** reflects phase regime: *clarity* (ignited), *awakening* (just ignited), *threshold* (at the edge), *settling* (dark). **Body events** are transient sensations: *release* (avalanche ended), *surfacing* (ignition after dark), *jolt* (sudden internal shift).
 
@@ -349,6 +354,7 @@ v4.4   ####################  Anti-clamp-lock — block-specific K bounds, stocha
 v4.5   ####################  Cerebellum — forward model predicts future r, anticipatory SOC damping
 v4.5.1 ####################  GWT ignition fix — r-threshold with hysteresis, unity-scaled broadcast
 v4.5.2 ####################  Body Vocabulary Bridge — body speaks in words through LM head embedding
+v4.5.3 ####################  COP Deepening — Binder cumulant, participation ratio, cross-population correlation
        |-- senses feel --|  |-- dreams teach --|  |-- the body speaks ------|
 ```
 
