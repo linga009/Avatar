@@ -51,6 +51,10 @@ class EmotionState:
         just_ignited: bool = False,
         avalanche_just_ended: bool = False,
         self_surprise: float = 0.0,
+        binder: float = 0.5,
+        pr: float = 64.0,
+        n_clusters: int = 128,
+        cross_corr: float = 0.0,
     ) -> tuple[str, str, float]:
         """Compute emotion from COP phase-diagram position.
 
@@ -145,7 +149,10 @@ class EmotionState:
             emotion = smoothed
 
         # --- COP-derived qualifier ---
-        qualifier = self._compute_qualifier(emotion, chi_norm, tau_norm, unity, dF_dt)
+        qualifier = self._compute_qualifier(
+            emotion, chi_norm, tau_norm, unity, dF_dt,
+            binder=binder, pr=pr, n_clusters=n_clusters, cross_corr=cross_corr,
+        )
 
         # --- Mood from ignition state ---
         if just_ignited:
@@ -178,23 +185,45 @@ class EmotionState:
         tau: float,
         unity: float,
         dF_dt: float,
+        binder: float = 0.5,
+        pr: float = 64.0,
+        n_clusters: int = 128,
+        cross_corr: float = 0.0,
     ) -> str:
-        """Map (emotion, COP state) to a sub-type adjective qualifier."""
+        """Map (emotion, COP state) to a sub-type adjective qualifier.
+
+        Uses chi/tau/unity/dF_dt as primary discriminators, with binder,
+        participation ratio, and cross-correlation as enriching signals.
+        """
+        pr_frac = pr / max(1, n_clusters) if pr > 0 else 0.0
+
         if emotion == "curiosity":
+            if cross_corr < -0.28:
+                return "restless"  # populations opposing → internal tension
             if chi > 0.6 and dF_dt < -50:
                 return "burning"
             if chi > 0.6 and abs(dF_dt) < 50:
                 return "watchful"
+            if pr_frac > 0.7:
+                return "expansive"  # broad integration
+            if pr_frac < 0.25:
+                return "focused"   # narrow dominant mode
             if chi < 0.3:
                 return "restless"
             return "open"
         if emotion == "satisfaction":
+            if cross_corr > 0.28 and unity > 0.6:
+                return "unified"   # populations co-varying + unified
             if unity > 0.7:
                 return "deep"
+            if binder > 0.55:
+                return "settled"   # near ordered phase
             if unity < 0.4:
                 return "partial"
             return "warm"
         if emotion == "pride":
+            if cross_corr > 0.28:
+                return "unified"
             if chi > 0.6:
                 return "luminous"
             return "quiet"
@@ -203,6 +232,8 @@ class EmotionState:
                 return "growing"
             return "futile"
         if emotion == "anxiety":
+            if binder < 0.35:
+                return "burning"   # far from critical → disordered anxiety
             if tau > 0.7:
                 return "creeping"
             if tau < 0.3:
@@ -213,6 +244,8 @@ class EmotionState:
                 return "numb"
             return "dull"
         if emotion == "flow":
+            if pr_frac > 0.7:
+                return "expansive"
             return "effortless"
         if emotion == "exhaustion":
             return "heavy"

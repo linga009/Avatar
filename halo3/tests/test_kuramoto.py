@@ -201,17 +201,20 @@ def test_coherence_matrix_hermitian():
 def test_unity_index_synchronized():
     theta = jnp.zeros((_CFG.n_clusters, _CFG.n_hidden))
     C = cluster_coherence_matrix(theta)
-    U, gap = unity_index(jnp.abs(C))  # modulus after averaging (trivial here)
+    U, gap, PR = unity_index(jnp.abs(C))  # modulus after averaging (trivial here)
     assert U > 0.9
     assert gap > 0.9
+    assert PR >= 1.0  # PR always >= 1
 
 
 def test_unity_index_range():
     theta = jax.random.uniform(_KEY, (_CFG.n_clusters, _CFG.n_hidden)) * 2 * jnp.pi
     C = cluster_coherence_matrix(theta)
-    U, gap = unity_index(jnp.abs(C))  # modulus after averaging
+    U, gap, PR = unity_index(jnp.abs(C))  # modulus after averaging
     assert 0.0 <= U <= 1.0 + 1e-5
     assert 0.0 <= gap <= 1.0 + 1e-5
+    assert PR >= 1.0
+    assert PR <= _CFG.n_clusters + 1e-5
 
 
 def test_quantum_potential_entropy_term():

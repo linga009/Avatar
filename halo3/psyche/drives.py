@@ -44,6 +44,8 @@ class DriveState:
         sensory_novelty: float = 0.0,
         chi_norm: float = 0.5,
         graph_metrics: dict | None = None,
+        pr: float = 64.0,
+        n_clusters: int = 128,
     ) -> None:
         """Update drives based on current tick's physics output."""
 
@@ -64,9 +66,12 @@ class DriveState:
         self.fatigue = min(1.0, self.fatigue + fatigue_rate * dt)
 
         # --- Satiation (COP: ordered + rigid = nothing new to learn) ---
+        # PR modulates: narrow focus (low PR) → satiate faster
+        pr_frac = pr / max(1, n_clusters) if pr > 0 else 0.5
+        satiation_rate = 0.08 + 0.06 * (1.0 - pr_frac)  # 0.08-0.14
         if r_mean > 0.55 and chi_norm < 0.2:
             self.ticks_high_r += 1
-            self.satiation = min(1.0, self.satiation + 0.08)
+            self.satiation = min(1.0, self.satiation + satiation_rate)
         else:
             self.ticks_high_r = 0
             self.satiation = max(0.0, self.satiation - 0.1)
@@ -94,11 +99,13 @@ class DriveState:
             self.starvation = max(0.0, self.starvation - 0.1)
 
         # --- Novelty (need for fundamentally different topics) ---
+        # PR modulates: narrow focus → need novelty faster
+        novelty_rate = 0.02 + 0.02 * (1.0 - pr_frac)  # 0.02-0.04
         if topic_changed:
             self.novelty = max(0.0, self.novelty - 0.4)
             self._explore_count += 1
         else:
-            self.novelty = min(1.0, self.novelty + 0.02)
+            self.novelty = min(1.0, self.novelty + novelty_rate)
             self._exploit_count += 1
 
         # --- Curiosity (COP: chi IS curiosity) ---

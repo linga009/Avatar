@@ -312,11 +312,13 @@ def cluster_coherence_matrix(theta: jnp.ndarray) -> jnp.ndarray:
     return jnp.exp(1j * diff)  # complex — caller takes |.| after time-averaging
 
 
-def unity_index(C: jnp.ndarray) -> tuple[float, float]:
-    """Unity index and eigenvalue gap from coherence matrix.
+def unity_index(C: jnp.ndarray) -> tuple[float, float, float]:
+    """Unity index, eigenvalue gap, and participation ratio from coherence matrix.
 
     U = lambda_1 / sum(lambda_k)  — dominance of leading mode.
     gap = (lambda_1 - lambda_2) / lambda_1  — separation.
+    PR = (sum|v1|^2)^2 / sum|v1|^4  — how many clusters participate in
+         the dominant mode. 1 = narrow focus, n_clusters = broad integration.
 
     U -> 1 with large gap = unified cognitive state (one subject).
     Multiple comparable eigenvalues = fragmented.
@@ -325,11 +327,17 @@ def unity_index(C: jnp.ndarray) -> tuple[float, float]:
         C: (K, K) symmetric coherence matrix
 
     Returns:
-        (U, gap) both in [0, 1]
+        (U, gap, PR) — U and gap in [0, 1], PR in [1, K]
     """
-    eigenvalues = jnp.linalg.eigvalsh(C)
+    eigenvalues, eigenvectors = jnp.linalg.eigh(C)
     eigenvalues = jnp.flip(eigenvalues)  # descending
+    eigenvectors = jnp.flip(eigenvectors, axis=1)
     total = jnp.sum(eigenvalues)
     U = eigenvalues[0] / (total + 1e-8)
     gap = (eigenvalues[0] - eigenvalues[1]) / (eigenvalues[0] + 1e-8)
-    return float(U), float(gap)
+    v1 = eigenvectors[:, 0]
+    v1_sq = v1 * v1
+    sum_sq = jnp.sum(v1_sq)
+    sum_quartic = jnp.sum(v1_sq * v1_sq)
+    PR = (sum_sq * sum_sq) / (sum_quartic + 1e-12)
+    return float(U), float(gap), float(PR)

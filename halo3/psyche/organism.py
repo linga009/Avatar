@@ -164,6 +164,8 @@ class Organism:
             sensory_arousal=sensory_arousal,
             sensory_novelty=sensory_novelty,
             graph_metrics=_graph_metrics,
+            pr=cop.get("pr", 64.0),
+            n_clusters=self._cfg.n_clusters,
         )
 
         # Track F_thermo flatness for exhaustion detection
@@ -187,6 +189,10 @@ class Organism:
             tau_norm=tau_norm,
             unity=cop["unity"],
             avalanche_just_ended=cop.get("avalanche", {}).get("just_ended", False),
+            binder=cop.get("binder", 0.5),
+            pr=cop.get("pr", 64.0),
+            n_clusters=self._cfg.n_clusters,
+            cross_corr=cop.get("cross_corr", 0.0),
         )
 
         # 3. Update volatility surface (Black-Scholes query valuation)
@@ -311,11 +317,15 @@ class Organism:
             )
 
         if self.self_model.age > 0 and self.self_model.age % 10 == 0:
+            _cac = cop.get("cross_corr", 0.0)
+            _cac_tag = "unified" if _cac > 0.28 else ("dialectical" if _cac < -0.28 else "indep")
             log.info(
                 f"  COP: K_aa={cop['K_aa']:.3f} K_cc={cop['K_cc']:.3f} K_x={cop['K_cross']:.3f} "
                 f"chi={chi_norm:.2f} tau={tau_norm:.2f} | "
                 f"U=r*chi={cop['U_product']:.3f} | "
                 f"Unity={cop['unity']:.2f} gap={cop['gap']:.2f} | "
+                f"U4={cop.get('binder', 0.5):.2f} PR={cop.get('pr', 0):.0f} "
+                f"C_ac={_cac:+.2f}({_cac_tag}) | "
                 f"{'IGNITED' if ws['is_ignited'] else 'DARK'} "
                 f"(ratio={self.workspace.consciousness_ratio:.0%})"
                 + (f" | F={cop['F_thermo']:.3f}" if cop.get('F_thermo') is not None else "")
@@ -449,10 +459,13 @@ class Organism:
         if body_tension > 0.3:
             consciousness_tag += " ⚖"
 
+        _qual_emo = f"{self.emotions.qualifier} {emotion}" if self.emotions.qualifier else emotion
+        _mood_str = f" [{self.emotions.mood}]" if self.emotions.mood else ""
+        _body_evt = f" *{self.emotions.body_event}*" if self.emotions.body_event else ""
         log_line = (
-            f"{emo_emoji} {emotion:12s} (i={intensity:.2f}) K={cop['K_new']:.3f} "
+            f"{emo_emoji} {_qual_emo:22s} (i={intensity:.2f}) K={cop['K_new']:.3f} "
             f"chi={chi_norm:.2f} tau={tau_norm:.2f} "
-            f"U={cop['unity']:.2f}/{cop['gap']:.2f} | "
+            f"U={cop['unity']:.2f}/{cop['gap']:.2f}{_mood_str}{_body_evt} | "
             f"{drives_str}{consciousness_tag}"
         )
 
@@ -499,6 +512,13 @@ class Organism:
             # v4.1.1 thermodynamic
             "dF_dt": _dF_dt,
             "F_thermo": cop.get("F_thermo"),
+            # v4.5.3 COP deepening
+            "qualifier": self.emotions.qualifier,
+            "mood": self.emotions.mood,
+            "body_event": self.emotions.body_event,
+            "binder": cop.get("binder", 0.5),
+            "pr": cop.get("pr", 64.0),
+            "cross_corr": cop.get("cross_corr", 0.0),
             # v4.5 cerebellum
             "cerebellum_confidence": self.cerebellum.confidence if self.cerebellum else 0.0,
             "cerebellum_buffer_size": len(self.cerebellum.buffer) if self.cerebellum else 0,
