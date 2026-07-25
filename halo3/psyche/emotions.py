@@ -17,7 +17,8 @@ from dataclasses import dataclass, field
 from collections import deque
 
 
-EMOTION_NAMES = ("satisfaction", "pride", "curiosity", "boredom", "anxiety", "frustration")
+EMOTION_NAMES = ("satisfaction", "pride", "curiosity", "boredom", "anxiety",
+                 "frustration", "flow", "exhaustion")
 
 
 @dataclass
@@ -25,6 +26,9 @@ class EmotionState:
     """Tracks current emotion and emotional history."""
     current: str = "curiosity"
     intensity: float = 0.5
+    qualifier: str = ""
+    mood: str = "settling"
+    body_event: str = ""
     history: deque = field(default_factory=lambda: deque(maxlen=100))
     _valence: float = 0.0
     _arousal: float = 0.5
@@ -39,7 +43,19 @@ class EmotionState:
         sensory_novelty: float = 0.0,
         sensory_stability: int = 0,
         speech_detected: bool = False,
-    ) -> tuple[str, float]:
+        dF_dt: float = 0.0,
+        f_thermo_flat_ticks: int = 0,
+        tau_norm: float = 0.5,
+        unity: float = 0.5,
+        is_ignited: bool = False,
+        just_ignited: bool = False,
+        avalanche_just_ended: bool = False,
+        self_surprise: float = 0.0,
+        binder: float = 0.5,
+        pr: float = 64.0,
+        n_clusters: int = 128,
+        cross_corr: float = 0.0,
+    ) -> tuple[str, str, float]:
         """Compute emotion from COP phase-diagram position.
 
         Args:
@@ -51,19 +67,44 @@ class EmotionState:
             sensory_novelty: from sensory stats (0-1)
             sensory_stability: consecutive stable ticks
             speech_detected: whether speech was heard
+            dF_dt: rate of change of free energy
+            f_thermo_flat_ticks: ticks F_thermo has been flat
+            tau_norm: normalized relaxation time from COP engine (0-1)
+            unity: coherence unity index from COP engine (0-1)
+            is_ignited: True when SOC is in ignited (critical) state
+            just_ignited: True on the tick ignition first occurred
+            avalanche_just_ended: True on the tick an avalanche ended
+            self_surprise: prediction error magnitude (0-1)
 
-        Returns (emotion_name, intensity).
+        Returns (emotion_name, qualifier, intensity).
         """
+        # Clear transient body_event at the start of each tick
+        self.body_event = ""
         f_dot = -fe_delta  # positive when surprise is resolving
 
         # Sensory novelty amplifies openness
         effective_chi = min(1.0, chi_norm + 0.15 * sensory_novelty
                            if sensory_novelty > 0.8 else chi_norm)
 
-        # --- Frustration override (also triggers on sustained low r) ---
-        if consecutive_failures >= 3 or (r_mean < 0.2 and consecutive_failures >= 2):
-            emotion = "frustration"
-            intensity = min(1.0, 0.5 + consecutive_failures * 0.1)
+        # --- Metabolic flow: highest priority when conditions met ---
+        # chi > 0.3, F decreasing rapidly = efficient learning
+        if effective_chi > 0.3 and dF_dt < -100.0:
+            emotion = "flow"
+            intensity = min(1.0, effective_chi * 0.5 + min(1.0, abs(dF_dt) / 5000.0) * 0.5)
+        # --- Thermodynamic exhaustion: F flat for 20+ ticks, still responsive ---
+        elif f_thermo_flat_ticks >= 20 and effective_chi > 0.2:
+            emotion = "exhaustion"
+            intensity = min(1.0, 0.4 + f_thermo_flat_ticks * 0.02)
+        # --- Frustration split: growth vs futile ---
+        elif consecutive_failures >= 3 or (r_mean < 0.2 and consecutive_failures >= 2):
+            if dF_dt < 0:
+                # F decreasing = productive struggle (growth frustration)
+                emotion = "frustration"
+                intensity = min(1.0, 0.4 + consecutive_failures * 0.08)
+            else:
+                # F flat or increasing = futile struggle
+                emotion = "frustration"
+                intensity = min(1.0, 0.6 + consecutive_failures * 0.1)
         # --- COP manifold regions ---
         elif r_mean > 0.55 and effective_chi < 0.4 and f_dot > 0.005:
             emotion = "satisfaction"
@@ -90,6 +131,8 @@ class EmotionState:
             "boredom":      (-0.3, 0.1),
             "anxiety":      (-0.6, 0.9),
             "frustration":  (-0.8, 0.8),
+            "flow":         (0.8, 0.7),   # positive, high arousal — in the zone
+            "exhaustion":   (-0.1, 0.15),  # neutral valence, very low arousal
         }
         new_v, new_a = _emo_va.get(emotion, (0.0, 0.5))
         alpha = 0.6
@@ -105,10 +148,108 @@ class EmotionState:
         if smoothed != emotion and emotion != "frustration":
             emotion = smoothed
 
+        # --- COP-derived qualifier ---
+        qualifier = self._compute_qualifier(
+            emotion, chi_norm, tau_norm, unity, dF_dt,
+            binder=binder, pr=pr, n_clusters=n_clusters, cross_corr=cross_corr,
+        )
+
+        # --- Mood from ignition state ---
+        if just_ignited:
+            self.mood = "awakening"
+        elif is_ignited:
+            self.mood = "clarity"
+        elif chi_norm > 0.4:
+            self.mood = "threshold"
+        else:
+            self.mood = "settling"
+
+        # --- Transient body events ---
+        if avalanche_just_ended:
+            self.body_event = "release"
+        elif just_ignited:
+            self.body_event = "surfacing"
+        elif self_surprise > 0.5:
+            self.body_event = "jolt"
+
         self.current = emotion
+        self.qualifier = qualifier
         self.intensity = intensity
         self.history.append((emotion, intensity))
-        return emotion, intensity
+        return emotion, qualifier, intensity
+
+    @staticmethod
+    def _compute_qualifier(
+        emotion: str,
+        chi: float,
+        tau: float,
+        unity: float,
+        dF_dt: float,
+        binder: float = 0.5,
+        pr: float = 64.0,
+        n_clusters: int = 128,
+        cross_corr: float = 0.0,
+    ) -> str:
+        """Map (emotion, COP state) to a sub-type adjective qualifier.
+
+        Uses chi/tau/unity/dF_dt as primary discriminators, with binder,
+        participation ratio, and cross-correlation as enriching signals.
+        """
+        pr_frac = pr / max(1, n_clusters) if pr > 0 else 0.0
+
+        if emotion == "curiosity":
+            if cross_corr < -0.28:
+                return "restless"  # populations opposing → internal tension
+            if chi > 0.6 and dF_dt < -50:
+                return "burning"
+            if chi > 0.6 and abs(dF_dt) < 50:
+                return "watchful"
+            if pr_frac > 0.7:
+                return "expansive"  # broad integration
+            if pr_frac < 0.25:
+                return "focused"   # narrow dominant mode
+            if chi < 0.3:
+                return "restless"
+            return "open"
+        if emotion == "satisfaction":
+            if cross_corr > 0.28 and unity > 0.6:
+                return "unified"   # populations co-varying + unified
+            if unity > 0.7:
+                return "deep"
+            if binder > 0.55:
+                return "settled"   # near ordered phase
+            if unity < 0.4:
+                return "partial"
+            return "warm"
+        if emotion == "pride":
+            if cross_corr > 0.28:
+                return "unified"
+            if chi > 0.6:
+                return "luminous"
+            return "quiet"
+        if emotion == "frustration":
+            if dF_dt < 0:
+                return "growing"
+            return "futile"
+        if emotion == "anxiety":
+            if binder < 0.35:
+                return "burning"   # far from critical → disordered anxiety
+            if tau > 0.7:
+                return "creeping"
+            if tau < 0.3:
+                return "sharp"
+            return "tight"
+        if emotion == "boredom":
+            if chi < 0.15:
+                return "numb"
+            return "dull"
+        if emotion == "flow":
+            if pr_frac > 0.7:
+                return "expansive"
+            return "effortless"
+        if emotion == "exhaustion":
+            return "heavy"
+        return ""
 
     @staticmethod
     def _emotion_from_va(valence: float, arousal: float) -> str:
@@ -140,4 +281,6 @@ class EmotionState:
             "boredom": "\U0001f610",
             "anxiety": "\u26a1",
             "frustration": "\U0001f624",
+            "flow": "\U0001f525",       # fire — in the zone
+            "exhaustion": "\U0001f6b6",  # walking — depleted, seeking new ground
         }.get(self.current, "?")
