@@ -120,7 +120,7 @@ class Organism:
         topic_changed = current_query != self._prev_query
         self._prev_query = current_query
 
-        # 1. Update drives (with perception failure + sensory signals)
+        # 1. Update drives (with perception failure + sensory signals + PR)
         self.drives.update(
             r_mean, fe_delta,
             chi_norm=chi_norm,
@@ -128,10 +128,12 @@ class Organism:
             topic_changed=topic_changed,
             sensory_arousal=sensory_arousal,
             sensory_novelty=sensory_novelty,
+            pr=cop.get("pr", 0.0),
+            n_clusters=self.cop._n_clusters,
         )
 
-        # 2. Compute emotion (with failure context + sensory signals)
-        emotion, intensity = self.emotions.update(
+        # 2. Compute emotion (with failure context + sensory signals + COP deepening)
+        emotion, qualifier, intensity = self.emotions.update(
             r_mean, fe_delta,
             chi_norm=chi_norm,
             perception_failed=perception_failed,
@@ -139,6 +141,11 @@ class Organism:
             sensory_novelty=sensory_novelty,
             sensory_stability=sensory_stability,
             speech_detected=speech_detected,
+            binder=cop.get("binder", 0.5),
+            pr=cop.get("pr", 0.0),
+            n_clusters=self.cop._n_clusters,
+            cross_corr=cop.get("cross_corr", 0.0),
+            tau=tau_norm,
         )
 
         # 3. Update volatility surface (Black-Scholes query valuation)
@@ -205,10 +212,14 @@ class Organism:
             )
 
         if self.self_model.age > 0 and self.self_model.age % 10 == 0:
+            _cac = cop['cross_corr']
+            _cac_tag = "unified" if _cac > 0.28 else ("dialectical" if _cac < -0.28 else "indep")
             log.info(
-                f"  COP: K={cop['K_new']:.3f} chi={chi_norm:.2f} tau={tau_norm:.2f} | "
+                f"  COP: K={cop['K_new']:.3f} chi={chi_norm:.2f} tau={tau_norm:.2f} "
+                f"U4={cop['binder']:.2f} | "
                 f"U=r*chi={cop['U_product']:.3f} | "
-                f"Unity={cop['unity']:.2f} gap={cop['gap']:.2f} | "
+                f"Unity={cop['unity']:.2f} gap={cop['gap']:.2f} PR={cop['pr']:.0f} "
+                f"C_ac={_cac:+.2f}({_cac_tag}) | "
                 f"{'IGNITED' if ws['is_ignited'] else 'DARK'} "
                 f"(ratio={self.workspace.consciousness_ratio:.0%})"
             )
@@ -265,10 +276,13 @@ class Organism:
         if body_tension > 0.3:
             consciousness_tag += " ⚖"
 
+        _qualified_emo = f"{qualifier} {emotion}"
+        _body_evt = f" [{self.emotions.body_event}]" if self.emotions.body_event else ""
         log_line = (
-            f"{emo_emoji} {emotion:12s} (i={intensity:.2f}) K={cop['K_new']:.3f} "
+            f"{emo_emoji} {_qualified_emo:22s} (i={intensity:.2f}) K={cop['K_new']:.3f} "
             f"chi={chi_norm:.2f} tau={tau_norm:.2f} "
             f"U={cop['unity']:.2f}/{cop['gap']:.2f} | "
+            f"{self.emotions.mood}{_body_evt} | "
             f"{drives_str}{consciousness_tag}"
         )
 
@@ -285,6 +299,9 @@ class Organism:
 
         return {
             "emotion": emotion,
+            "qualifier": qualifier,
+            "mood": self.emotions.mood,
+            "body_event": self.emotions.body_event,
             "intensity": intensity,
             "next_query": next_query,
             "coupling_mod": coupling_mod,
@@ -307,6 +324,10 @@ class Organism:
             "tau": tau_norm,
             "unity": cop["unity"],
             "K": cop["K_new"],
+            # v4.5.3 COP deepening
+            "binder": cop["binder"],
+            "pr": cop["pr"],
+            "cross_corr": cop["cross_corr"],
         }
 
     def _decide_query(
@@ -355,8 +376,9 @@ class Organism:
                 return best
 
         # --- Layer 5: PFC generation ---
+        _pfc_emotion = f"{self.emotions.qualifier} {emotion}"
         pfc_query = self.prefrontal.generate_query(
-            current_query, emotion, r_mean, texts,
+            current_query, _pfc_emotion, r_mean, texts,
             self.self_model.strengths,
             consecutive_failures=self._consecutive_zero_results,
             dead_queries=self.self_model.dead_queries,

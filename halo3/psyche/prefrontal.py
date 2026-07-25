@@ -537,7 +537,7 @@ class PrefrontalCortex:
         if not self.is_available:
             return None
 
-        recent_emotions = [e for e, _ in emotion_history[-10:]] if emotion_history else []
+        recent_emotions = [entry[0] for entry in emotion_history[-10:]] if emotion_history else []
         emotion_summary = ", ".join(recent_emotions[-5:]) if recent_emotions else "unknown"
         strength_str = ", ".join(strengths[:3]) if strengths else "none"
         recent_mem = "; ".join(narrative[-3:]) if narrative else "none"

@@ -1,9 +1,9 @@
 """Windows host capture agent for Avatar senses.
 
 Records microphone + camera and writes to the Docker shared volume.
-Run from the worktree root: python capture_agent/capture_agent.py
+Run from anywhere: python capture_agent/capture_agent.py
 
-The Docker volume is ./data/senses/ which maps to /app/data/senses/ in the container.
+The Docker volume is .worktrees/halo3/data/senses/ which maps to /app/data/senses/.
 """
 from __future__ import annotations
 import json
@@ -12,20 +12,51 @@ import time
 import threading
 import numpy as np
 
-SENSES_DIR = os.path.join("data", "senses")
+# Write directly to the worktree path that Docker mounts
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
+SENSES_DIR = os.path.join(_PROJECT_ROOT, ".worktrees", "halo3", "data", "senses")
+
 SAMPLE_RATE = 16000       # Hz — Wav2Vec2 expects 16kHz
 AUDIO_CHUNK_SECS = 2      # seconds of audio per chunk
 FRAME_INTERVAL_SECS = 10  # seconds between camera captures
 MOTION_THRESHOLD = 30     # pixel diff threshold for motion capture
 
 
+import shutil
+import tempfile
+
+# Temp dir for staging files before copying into the Docker-mounted senses dir
+_STAGE_DIR = os.path.join(tempfile.gettempdir(), "avatar_senses_stage")
+os.makedirs(_STAGE_DIR, exist_ok=True)
+
+
+def _safe_write(dst: str, data: bytes) -> None:
+    """Write data to dst via a temp file, retrying on Windows/Docker locks."""
+    # Stage in temp dir (never locked by Docker)
+    stage = os.path.join(_STAGE_DIR, os.path.basename(dst) + ".tmp")
+    with open(stage, "wb") as f:
+        f.write(data)
+    # Copy into Docker-mounted dir with retries
+    for _ in range(10):
+        try:
+            shutil.copy2(stage, dst)
+            return
+        except PermissionError:
+            time.sleep(0.2)
+    # Last attempt
+    try:
+        shutil.copy2(stage, dst)
+    except PermissionError:
+        pass  # Skip this cycle rather than crash
+
+
 def _write_meta(has_audio: bool, has_video: bool) -> None:
     meta = {"has_audio": has_audio, "has_video": has_video, "timestamp": time.time()}
-    tmp = os.path.join(SENSES_DIR, "meta_tmp.json")
-    final = os.path.join(SENSES_DIR, "meta.json")
-    with open(tmp, "w") as f:
-        json.dump(meta, f)
-    os.replace(tmp, final)  # atomic write
+    _safe_write(
+        os.path.join(SENSES_DIR, "meta.json"),
+        json.dumps(meta).encode()
+    )
 
 
 def audio_loop(stop_event: threading.Event) -> None:
@@ -49,9 +80,10 @@ def audio_loop(stop_event: threading.Event) -> None:
             )
             sd.wait()
             audio_mono = chunk[:, 0]  # (32000,)
-            tmp_path = audio_path.replace(".npy", "_tmp")
-            np.save(tmp_path, audio_mono)  # np.save appends .npy automatically
-            os.replace(tmp_path + ".npy", audio_path)
+            # Save to stage dir then copy (avoids Docker file locks)
+            stage = os.path.join(_STAGE_DIR, "audio_latest.npy")
+            np.save(stage, audio_mono)
+            _safe_write(audio_path, open(stage, "rb").read())
         except Exception as e:
             print(f"Audio capture error: {e}")
             time.sleep(2)
@@ -94,9 +126,9 @@ def vision_loop(stop_event: threading.Event) -> None:
             resized = cv2.resize(frame, (224, 224))
             # Convert BGR -> RGB then back for imwrite
             rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-            tmp = frame_path.replace(".jpg", "_tmp.jpg")
-            cv2.imwrite(tmp, cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-            os.replace(tmp, frame_path)
+            stage = os.path.join(_STAGE_DIR, "frame_latest.jpg")
+            cv2.imwrite(stage, cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+            _safe_write(frame_path, open(stage, "rb").read())
             last_capture = now
             if motion:
                 print(f"Vision: motion detected, captured frame")
@@ -109,7 +141,7 @@ def vision_loop(stop_event: threading.Event) -> None:
 
 def main() -> None:
     os.makedirs(SENSES_DIR, exist_ok=True)
-    print(f"Avatar capture agent — writing to {os.path.abspath(SENSES_DIR)}")
+    print(f"Avatar capture agent — writing to {SENSES_DIR}")
     print("Press Ctrl+C to stop.")
 
     stop_event = threading.Event()

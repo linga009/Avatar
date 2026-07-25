@@ -38,6 +38,7 @@ class CriticalDynamics:
         self._coherence_ema = cfg.cop_coherence_ema  # 0.1
         self._warmup = cfg.cop_warmup          # 5
         self._N = cfg.n_clusters * cfg.n_hidden  # 512
+        self._n_clusters = cfg.n_clusters
 
         self._r_history: deque[float] = deque(maxlen=self._window)
         self._fe_history: deque[float] = deque(maxlen=self._window)
@@ -45,6 +46,8 @@ class CriticalDynamics:
         self._chi_max: float = 1.0
         self._C_avg: np.ndarray | None = None
         self._tick: int = 0
+        self._r_a_history: deque[float] = deque(maxlen=self._window)
+        self._r_c_history: deque[float] = deque(maxlen=self._window)
 
     def observe(
         self,
@@ -71,12 +74,16 @@ class CriticalDynamics:
         self._tick += 1
         self._r_history.append(r_mean)
         self._fe_history.append(fe_delta)
+        self._r_a_history.append(r_a)
+        self._r_c_history.append(r_c)
 
         chi = self._compute_chi()
         tau = self._compute_tau()
+        binder = self._compute_binder()
+        cross_corr = self._compute_cross_correlation()
         T_body = abs(r_a - r_c)
         f_dot = -fe_delta
-        unity_val, gap = self._update_unity(theta)
+        unity_val, gap, pr = self._update_unity(theta)
 
         if self._tick <= self._warmup:
             K_new = K
@@ -88,8 +95,11 @@ class CriticalDynamics:
         return {
             "chi": chi,
             "tau": tau,
+            "binder": binder,
+            "cross_corr": cross_corr,
             "unity": unity_val,
             "gap": gap,
+            "pr": pr,
             "K_new": K_new,
             "f_dot": f_dot,
             "T_body": T_body,
@@ -146,6 +156,65 @@ class CriticalDynamics:
 
         return min(1.0, tau_sum / max_lag)
 
+    def _compute_binder(self) -> float:
+        """Binder cumulant U4 — self-normalizing criticality detector.
+
+        U4 = 1 - <r^4> / (3 <r^2>^2)
+
+        Values:
+          ~2/3  in the ordered phase (r peaked near 1)
+          ~0.47 at the critical point (universal for Kuramoto-class)
+          ~0    in the disordered phase (r peaked near 0)
+
+        Unlike chi, this is a ratio of moments — no lifetime-max
+        normalization needed, immune to historical contamination.
+        """
+        if len(self._r_history) < 5:
+            return 0.5
+
+        r_arr = list(self._r_history)
+        n = len(r_arr)
+        r2_mean = sum(x * x for x in r_arr) / n
+        r4_mean = sum(x * x * x * x for x in r_arr) / n
+
+        if r2_mean < 1e-12:
+            return 0.0
+
+        return 1.0 - r4_mean / (3.0 * r2_mean * r2_mean)
+
+    def _compute_cross_correlation(self) -> float:
+        """Equal-time cross-population correlation C_ac.
+
+        C_ac = corr(delta_r_a, delta_r_c) over the rolling window.
+
+        Values:
+          > 0: unified — both populations fluctuate together
+          ~ 0: independent — populations ignore each other
+          < 0: dialectical — populations antagonize (seesaw)
+
+        With n=50 samples, SE ~ 0.14, so |C_ac| > 0.28 is meaningful.
+        """
+        n = len(self._r_a_history)
+        if n < 5:
+            return 0.0
+
+        r_a = list(self._r_a_history)
+        r_c = list(self._r_c_history)
+        mean_a = sum(r_a) / n
+        mean_c = sum(r_c) / n
+
+        da = [x - mean_a for x in r_a]
+        dc = [x - mean_c for x in r_c]
+
+        var_a = sum(x * x for x in da) / n
+        var_c = sum(x * x for x in dc) / n
+
+        if var_a < 1e-12 or var_c < 1e-12:
+            return 0.0
+
+        cov_ac = sum(da[i] * dc[i] for i in range(n)) / n
+        return cov_ac / (var_a * var_c) ** 0.5
+
     def _soc_update(self, K: float, r: float, chi: float) -> float:
         """Self-organized criticality controller.
 
@@ -165,17 +234,19 @@ class CriticalDynamics:
         new_K = K + K_dot
         return max(self._K_min, min(self._K_max, new_K))
 
-    def _update_unity(self, theta) -> tuple[float, float]:
-        """Update time-averaged coherence matrix and compute unity index.
+    def _update_unity(self, theta) -> tuple[float, float, float]:
+        """Update time-averaged coherence matrix and compute unity index + PR.
 
         C_instant is complex (no modulus). EMA accumulates complex phasors.
         Modulus is taken AFTER averaging: locked pairs survive (|mean|->1),
         drifting pairs cancel (|mean|->0).
+
+        Returns (unity, gap, participation_ratio).
         """
         try:
             C_instant = np.array(cluster_coherence_matrix(theta))  # complex
         except Exception:
-            return 0.5, 0.5
+            return 0.5, 0.5, 1.0
 
         if self._C_avg is None:
             self._C_avg = C_instant.copy()  # complex accumulator
@@ -186,8 +257,8 @@ class CriticalDynamics:
         try:
             import jax.numpy as jnp
             C_mod = jnp.abs(jnp.array(self._C_avg))  # modulus AFTER averaging
-            U, gap = unity_index(C_mod)
+            U, gap, PR = unity_index(C_mod)
         except Exception:
-            return 0.5, 0.5
+            return 0.5, 0.5, 1.0
 
-        return float(U), float(gap)
+        return float(U), float(gap), float(PR)

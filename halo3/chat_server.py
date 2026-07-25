@@ -302,7 +302,8 @@ class _ChatHandler(BaseHTTPRequestHandler):
                     "alive": True,
                     "tick": _live_state.get("tick", 0),
                     "age": org.self_model.age,
-                    "emotion": org.emotions.current,
+                    "emotion": f"{org.emotions.qualifier} {org.emotions.current}",
+                    "mood": org.emotions.mood,
                     "intensity": org.emotions.intensity,
                     "r_mean": _live_state.get("r_mean", 0),
                     "query": _live_state.get("current_query", ""),
@@ -344,7 +345,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 "answer": answer,
                 "state": {
                     "tick": _live_state.get("tick", 0),
-                    "emotion": _organism_ref.emotions.current if _organism_ref else "unknown",
+                    "emotion": f"{_organism_ref.emotions.qualifier} {_organism_ref.emotions.current}" if _organism_ref else "unknown",
                     "r_mean": _live_state.get("r_mean", 0),
                     "query": _live_state.get("current_query", ""),
                 },
